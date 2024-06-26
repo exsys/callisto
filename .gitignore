@@ -1,5 +1,5 @@
 /.env
+/build
 /dist
-/ideas.txt
 /node_modules
 /todo.txt
