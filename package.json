@@ -1,0 +1,33 @@
+{
+  "name": "callisto",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "ts-node src/deploy.ts",
+    "dev": "set NODE_ENV=development&& npx nodemon src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@solana/spl-token": "^0.4.6",
+    "@solana/web3.js": "^1.91.1",
+    "bs58": "^5.0.0",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.11.1",
+    "mongoose": "^8.2.3",
+    "promise-retry": "^2.0.1",
+    "rpc-websockets": "^7.11.0"
+  },
+  "devDependencies": {
+    "@types/bs58": "^4.0.4",
+    "@types/node": "^20.11.30",
+    "@types/promise-retry": "^1.1.6",
+    "nodemon": "^3.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.3"
+  }
+}

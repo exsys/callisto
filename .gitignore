@@ -1,0 +1,5 @@
+/.env
+/dist
+/ideas.txt
+/node_modules
+/todo.txt
