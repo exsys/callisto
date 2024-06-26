@@ -6,7 +6,8 @@
   "scripts": {
     "deploy": "ts-node src/deploy.ts",
     "dev": "set NODE_ENV=development&& npx nodemon src/index.ts",
-    "start": "node build/index.js"
+    "start": "node build/index.js",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",
