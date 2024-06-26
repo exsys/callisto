@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import connectDb from "./lib/connect-db";
 
-const isProduction = process.env.NODE_ENV === "production";
+const isDevelopment = process.env.NODE_ENV === "development";
 const client: any = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -20,7 +20,7 @@ const client: any = new Client({
 
 /** register commands */
 client.commands = new Collection();
-const commandFiles = isProduction ? fs.readdirSync(path.join(__dirname, "./commands")).filter(file => file.endsWith(".js")) : fs.readdirSync(path.join(__dirname, "./commands")).filter(file => file.endsWith(".ts"));
+const commandFiles = isDevelopment ? fs.readdirSync(path.join(__dirname, "./commands")).filter(file => file.endsWith(".ts")) : fs.readdirSync(path.join(__dirname, "./commands")).filter(file => file.endsWith(".js"));
 for (const file of commandFiles) {
     const command = require(`${path.join(__dirname, "./commands")}/${file}`).default;
 
@@ -32,7 +32,7 @@ for (const file of commandFiles) {
 }
 
 /** register events and start listening for them */
-const eventFiles = isProduction ? fs.readdirSync(path.join(__dirname, "./events")).filter(file => file.endsWith(".js")) : fs.readdirSync(path.join(__dirname, "./events")).filter(file => file.endsWith(".ts"));
+const eventFiles = isDevelopment ? fs.readdirSync(path.join(__dirname, "./events")).filter(file => file.endsWith(".ts")) : fs.readdirSync(path.join(__dirname, "./events")).filter(file => file.endsWith(".js"));
 for (const file of eventFiles) {
     const event = require(`${path.join(__dirname, "./events")}/${file}`).default;
 

@@ -1,10 +1,5 @@
 import dotenv from "dotenv";
-import path from "path";
-if (process.env.NODE_ENV === "production") {
-    dotenv.config({ path: path.join(__dirname, "../../../.env") });
-} else {
-    dotenv.config();
-}
+dotenv.config();
 import mongoose, { Mongoose } from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI;

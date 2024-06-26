@@ -1,11 +1,11 @@
 import "dotenv/config";
 import { REST, Routes } from "discord.js";
 import fs from "fs";
-const isProduction = process.env.NODE_ENV === "production";
+const isDevelopment = process.env.NODE_ENV === "development";
 
 // Grab all the command files from the commands directory you created earlier
 const commands = [];
-const commandFiles = isProduction ? fs.readdirSync('src/commands').filter(file => file.endsWith('.js')) : fs.readdirSync('src/commands').filter(file => file.endsWith('.ts'));
+const commandFiles = isDevelopment ? fs.readdirSync('src/commands').filter(file => file.endsWith('.ts')) : fs.readdirSync('src/commands').filter(file => file.endsWith('.js'));
 
 // Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
 for (const file of commandFiles) {
