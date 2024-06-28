@@ -97,7 +97,6 @@ const event = {
                 await interaction.reply({ content: 'Server error. Please try again later.', ephemeral: true });
             }
         }
-
     },
 }
 

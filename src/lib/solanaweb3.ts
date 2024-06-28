@@ -41,13 +41,13 @@ import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
 import { Agent } from "https";
 
 export class SolanaWeb3 {
-    static jitoConn: Connection = new Connection("https://mainnet.block-engine.jito.wtf/api/v1/transactions", {
+    /*static jitoConn: Connection = new Connection("https://mainnet.block-engine.jito.wtf/api/v1/transactions", {
         commitment: "confirmed",
         httpAgent: new Agent({
             keepAlive: true,
             keepAliveMsecs: 60000,
         }),
-    });
+    });*/
     static connection: Connection = new Connection("https://quaint-practical-liquid.solana-mainnet.quiknode.pro/de215f4d6fabf6c4bb0cb0eab8aceb79e8567a27/");
     static BPS_PER_PERCENT: number = 100;
     static CU_TOKEN_TRANSFER: number = 27695;
@@ -304,9 +304,9 @@ export class SolanaWeb3 {
             if (!signer) return { content: ERROR_CODES["0010"].message, success: false, ca: contractAddress };
             const amount: number = Number(amountToSwap) * LAMPORTS_PER_SOL;
             const slippage: number = wallet.settings.buy_slippage * this.BPS_PER_PERCENT;
-            const feeToPayInLamports: number = amount * (wallet.fee / 100);
+            const feeToPayInLamports: number = amount * (wallet.swap_fee / 100);
             const amountMinusFee: number = amount - feeToPayInLamports;
-            const feeAmountInBPS: number = wallet.fee * this.BPS_PER_PERCENT;
+            const feeAmountInBPS: number = wallet.swap_fee * this.BPS_PER_PERCENT;
 
             const quoteResponse = await (
                 await fetch(
@@ -466,7 +466,7 @@ export class SolanaWeb3 {
             if (!signer) return { content: ERROR_CODES["0010"].message, success: false, token: coinStats };
             const amount: number = (Number(coinStats.tokenAmount!.amount) * (Number(amountToSellInPercent) / 100));
             const slippage: number = wallet.settings.sell_slippage * this.BPS_PER_PERCENT;
-            const feeAmountInBPS: number = wallet.fee * this.BPS_PER_PERCENT;
+            const feeAmountInBPS: number = wallet.swap_fee * this.BPS_PER_PERCENT;
 
             const quoteResponse = await (
                 await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${amount}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`)
