@@ -41,11 +41,7 @@ const TransactionSchema = new Schema({
         type: Number,
         required: false,
     },
-    bought_token_address: {
-        type: String,
-        required: true,
-    },
-    sold_token_address: {
+    token_address: {
         type: String,
         required: true,
     },

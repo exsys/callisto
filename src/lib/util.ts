@@ -227,6 +227,7 @@ export async function getPrivateKeyOfUser(userId: string): Promise<any | null> {
 export async function saveDbTransaction(
     wallet: any,
     buyOrSell: string,
+    tokenAddress: string,
     success: boolean,
     processing_time_function: number,
     processing_time_tx?: number,
@@ -245,6 +246,7 @@ export async function saveDbTransaction(
             utc_date: utcTime,
             unix_timestamp: Date.now(),
             error: error ? error : null,
+            token_address: tokenAddress,
         });
         await dbTx.save();
 

@@ -38,7 +38,6 @@ import {
 import { ERROR_CODES } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
-import { Agent } from "https";
 
 export class SolanaWeb3 {
     /*static jitoConn: Connection = new Connection("https://mainnet.block-engine.jito.wtf/api/v1/transactions", {
@@ -306,7 +305,6 @@ export class SolanaWeb3 {
             const slippage: number = wallet.settings.buy_slippage * this.BPS_PER_PERCENT;
             const feeToPayInLamports: number = amount * (wallet.swap_fee / 100);
             const amountMinusFee: number = amount - feeToPayInLamports;
-            const feeAmountInBPS: number = wallet.swap_fee * this.BPS_PER_PERCENT;
 
             const quoteResponse = await (
                 await fetch(
@@ -402,13 +400,13 @@ export class SolanaWeb3 {
             const endTimeTx: number = Date.now();
             const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
             const txProcessingTime: number = (endTimeTx - startTimeTx) / 1000;
-            await saveDbTransaction(wallet, "buy", true, functionProcessingTime, txProcessingTime);
+            await saveDbTransaction(wallet, "buy", contractAddress, true, functionProcessingTime, txProcessingTime);
             return { content: "Successfully swapped. Transaction ID: " + sig, success: true, ca: contractAddress };
         } catch (error) {
             console.log(error);
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
-            await saveDbTransaction(wallet, "buy", false, functionProcessingTime);
+            await saveDbTransaction(wallet, "buy", contractAddress, false, functionProcessingTime);
             return {
                 content: "Failed to swap. Please try again.",
                 success: false,
@@ -549,13 +547,13 @@ export class SolanaWeb3 {
             const endTimeTx: number = Date.now();
             const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
             const txProcessingTime: number = (endTimeTx - startTimeTx) / 1000;
-            await saveDbTransaction(wallet, "sell", true, functionProcessingTime, txProcessingTime);
+            await saveDbTransaction(wallet, "sell", contractAddress, true, functionProcessingTime, txProcessingTime);
             return { content: "Successfully swapped. Transaction ID: " + sig, success: true, token: coinStats };
         } catch (error) {
             console.log(error);
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
-            await saveDbTransaction(wallet, "sell", false, functionProcessingTime);
+            await saveDbTransaction(wallet, "sell", contractAddress, false, functionProcessingTime);
             return {
                 content: "Failed to swap. Please try again.",
                 success: false,
