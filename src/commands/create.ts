@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { createNewWallet } from "../lib/util";
+import { ERROR_CODES } from "../config/errors";
 
 const command = {
     data: new SlashCommandBuilder()
@@ -10,10 +11,10 @@ const command = {
         try {
             const solanaWallet = await createNewWallet(interaction.user.id);
             if (!solanaWallet) {
-                await interaction.editReply("Server error. If this issue persists please contact Support. Error code: 0005");
+                await interaction.editReply({ content: ERROR_CODES["0005"].message, ephemeral: true });
                 return;
             }
-            await interaction.editReply(`Your new wallet has been created.\nWallet address: ${solanaWallet}\n\nYou can export the private key by using the command /export.`);
+            await interaction.editReply({ content: `Your new wallet has been created.\nWallet address: ${solanaWallet}`, ephemeral: true });
         } catch (error) {
             console.log(error);
             await interaction.editReply("Server error. Please try again later.");

@@ -25,7 +25,11 @@ const TransactionSchema = new Schema({
         type: Number,
         required: false,
     },
-    timestamp: {
+    utc_date: {
+        type: String,
+        required: false,
+    },
+    unix_timestamp: {
         type: String,
         required: false,
     },

@@ -33,8 +33,6 @@ import {
     decryptPKey,
     extractAmountFromMessage,
     extractAndValidateCA,
-    extractCAFromMessage,
-    getCurrentTokenPriceInSolAll,
     getKeypairFromEncryptedPKey,
     getPrivateKeyOfUser,
     isNumber,

@@ -53,6 +53,10 @@ export async function createNewWallet(userId: string): Promise<string | null> {
         await newWallet.save();
         await privateKey.save();
 
+        if (walletCount === 1) {
+            // TODO: save server stats
+        }
+
         return solanaWallet.publicKey.toString();
     } catch (error) {
         console.log(error);
@@ -238,7 +242,8 @@ export async function saveDbTransaction(
             success: success,
             processing_time_function: processing_time_function,
             processing_time_tx: processing_time_tx ? processing_time_tx : 0,
-            timestamp: utcTime,
+            utc_date: utcTime,
+            unix_timestamp: Date.now(),
             error: error ? error : null,
         });
         await dbTx.save();
