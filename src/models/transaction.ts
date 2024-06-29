@@ -41,6 +41,14 @@ const TransactionSchema = new Schema({
         type: Number,
         required: false,
     },
+    bought_token_address: {
+        type: String,
+        required: true,
+    },
+    sold_token_address: {
+        type: String,
+        required: true,
+    },
 });
 
 export const Transaction = model("Transaction", TransactionSchema, "transactions");
