@@ -723,7 +723,7 @@ export class SolanaWeb3 {
     static async getCoinPriceStats(contractAddress: string): Promise<CoinStats | null> {
         try {
             const pairInfo = await (
-                await fetch(`https://api.dexscreener.io/latest/dex/tokens/${contractAddress},So11111111111111111111111111111111111111112`)
+                await fetch(`https://api.dexscreener.io/latest/dex/tokens/${contractAddress}`)
             ).json();
             const coinStats: CoinStats = {
                 ...pairInfo.pairs[0].baseToken,
