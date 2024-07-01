@@ -49,7 +49,7 @@ export const createStartUI = async (userId: string): Promise<UI> => {
 
     content += `\n\nWallet: ${defaultWallet.wallet_address}`;
     content += "\n\nTo buy a coin tap the Buy button.";
-    content += "\n\nFor more info on your wallet and to retrieve your private key, tap the wallet button below. We guarantee the safety of user funds on Callisto, but if you expose your private key your funds will not be safe.";
+    content += "\n\nWe guarantee the safety of user funds on Callisto, but if you expose your private key your funds will not be safe.";
 
     //const testButton = new ButtonBuilder().setCustomId('test').setLabel('Test').setStyle(ButtonStyle.Secondary);
 
