@@ -14,6 +14,10 @@ const PrivateKeySchema = new Schema({
         type: String,
         required: true,
     },
+    key_exported: {
+        type: Boolean,
+        default: false,
+    },
     wallet_address: {
         type: String,
         required: true,

@@ -217,11 +217,20 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
 }
 
 export async function getPrivateKeyOfUser(userId: string): Promise<any | null> {
-    const defaultWallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-    if (!defaultWallet) return null;
-    const privateKey: any = await PrivateKey.findOne({ user_id: userId, wallet_id: defaultWallet.wallet_id }).lean();
-    if (!privateKey) return null;
-    return privateKey;
+    
+    try {
+        const defaultWallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
+        if (!defaultWallet) return null;
+        const privateKey: any = await PrivateKey.findOne({ user_id: userId, wallet_id: defaultWallet.wallet_id });
+        if (!privateKey) return null;
+        
+        privateKey.key_exported = true;
+        await privateKey.save();
+        return privateKey;
+    } catch (error) {
+        return null;
+    }
+
 }
 
 export async function saveDbTransaction(
