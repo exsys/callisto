@@ -40,9 +40,8 @@ import {
     sellCoinX
 } from "./util";
 import { SolanaWeb3 } from "./solanaweb3";
-import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
-import { getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
 import { PrivateKey } from "../models/private-key";
 
 export const BUTTON_COMMANDS = {

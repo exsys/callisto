@@ -233,11 +233,6 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
         .setLabel('Dexscreener')
         .setStyle(ButtonStyle.Link);
 
-    const birdeyeButton = new ButtonBuilder()
-        .setURL(`https://birdeye.so/token/${contractAddress}`)
-        .setLabel('Birdeye')
-        .setStyle(ButtonStyle.Link);
-
     const buyButton1Button = new ButtonBuilder()
         .setCustomId('buyButton1')
         .setLabel(`Buy ${wallet.settings.buy_button_1} SOL`)
@@ -269,7 +264,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
         .setStyle(ButtonStyle.Secondary);
 
     const firstRow = new ActionRowBuilder()
-        .addComponents(solscanCoinButton, dexscreenerButton, birdeyeButton);
+        .addComponents(solscanCoinButton, dexscreenerButton);
 
     const secondRow = new ActionRowBuilder()
         .addComponents(buyButton1Button, buyButton2Button, buyButton3Button, buyButton4Button, buyButtonX);
@@ -351,12 +346,11 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
         const usdValue: string = selectedCoin.value ? selectedCoin.value.inUSD : "0";
         const solValue: string = selectedCoin.value ? selectedCoin.value.inSOL : "0";
 
-
         // TODO: add profit in % and SOL
         // TODO: add total balance in SOL (all coins combined + SOL amount)
         // TODO: only include coins with value > min_position_value
 
-        let content = `All Positions:\n${coinSymbolsDivided}\n\n`
+        let content = `Open Positions:\n${coinSymbolsDivided}\n\n`
         content += `${selectedCoin.name} | ${selectedCoin.symbol} | ${selectedCoin.address}\n`
         content += `Holdings Value: $${usdValue} | ${solValue} SOL\n`
         content += `Mcap: $${selectedCoin.fdv} @ $${formatNumber(selectedCoin.price)}\n`
@@ -389,29 +383,9 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
             .setStyle(ButtonStyle.Secondary);
 
         // switch coins buttons
-        const selectedCoinButton = new ButtonBuilder()
-            .setCustomId('firstCoin')
-            .setLabel('◀️◀️ First')
-            .setStyle(ButtonStyle.Secondary);
-
-        const previousButton = new ButtonBuilder()
-            .setCustomId('previousCoin')
-            .setLabel('◀️ Previous')
-            .setStyle(ButtonStyle.Secondary);
-
         const currentCoinButton = new ButtonBuilder()
             .setCustomId('currentCoin')
             .setLabel(`${selectedCoin.symbol}`)
-            .setStyle(ButtonStyle.Secondary);
-
-        const nextCoinButton = new ButtonBuilder()
-            .setCustomId('nextCoin')
-            .setLabel('Next ▶️')
-            .setStyle(ButtonStyle.Secondary);
-
-        const lastCoinButton = new ButtonBuilder()
-            .setCustomId('lastCoin')
-            .setLabel('Last ▶️▶️')
             .setStyle(ButtonStyle.Secondary);
 
         // sell buttons
@@ -451,11 +425,6 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
             .setLabel('Dexscreener')
             .setStyle(ButtonStyle.Link);
 
-        const birdeyeButton = new ButtonBuilder()
-            .setURL(`https://birdeye.so/token/${selectedCoin.address}`)
-            .setLabel('Birdeye')
-            .setStyle(ButtonStyle.Link);
-
         const sendCoinButton = new ButtonBuilder()
             .setCustomId('sendCoin')
             .setLabel('Send')
@@ -470,17 +439,14 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
             .addComponents(buyButton1Button, buyButton2Button, buyButton3Button, buyButton4Button, buyButtonX);
 
         const secondRow = new ActionRowBuilder()
-            .addComponents(selectedCoinButton, previousButton, currentCoinButton, nextCoinButton, lastCoinButton);
-
-        const thirdRow = new ActionRowBuilder()
             .addComponents(sellCoin1Button, sellCoin2Button, sellCoin3Button, sellCoin4Button, sellXPercentButton);
 
-        const fourthRow = new ActionRowBuilder()
-            .addComponents(solscanCoinButton, dexscreenerButton, birdeyeButton, sendCoinButton, refreshButton);
+        const thirdRow = new ActionRowBuilder()
+            .addComponents(solscanCoinButton, dexscreenerButton, currentCoinButton, sendCoinButton, refreshButton);
 
         return {
             content,
-            components: [firstRow, secondRow, thirdRow, fourthRow],
+            components: [firstRow, secondRow, thirdRow],
             ephemeral: true,
         };
     } catch (error) {
