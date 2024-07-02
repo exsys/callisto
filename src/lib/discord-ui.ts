@@ -18,14 +18,14 @@ export const createStartUI = async (userId: string): Promise<UI> => {
     if (!defaultWallet) {
         const createButton = new ButtonBuilder()
             .setCustomId('createWallet')
-            .setLabel('Create Solana Wallet')
+            .setLabel('Create Wallet')
             .setStyle(ButtonStyle.Primary);
 
         const createRow = new ActionRowBuilder()
             .addComponents(createButton);
 
         return {
-            content: "Solana's fastest discord bot to trade any coin.\n\nTo get started you need to create a wallet first. Use the command /create or the Create button below to create a new wallet.",
+            content: "Solana's fastest Discord bot to trade any coin.\n\nTo get started you need to create a wallet first. Use the /create command or the button below to create a new wallet.",
             components: [createRow],
             ephemeral: true,
         };
