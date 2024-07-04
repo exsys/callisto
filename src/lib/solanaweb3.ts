@@ -24,7 +24,7 @@ import {
 import { CoinMetadata } from "../interfaces/coinmetadata";
 import { SwapTx } from "../interfaces/swaptx";
 import { UIResponse } from "../interfaces/uiresponse";
-import { FEE_ACCOUNT, FEE_OWNER, TOKEN_PROGRAM } from "../config/constants";
+import { FEE_ACCOUNT, FEE_ACCOUNT_OWNER, TOKEN_PROGRAM } from "../config/constants";
 import { ParsedTokenInfo } from "../interfaces/parsedtokeninfo";
 import { CoinInfo } from "../interfaces/coininfo";
 import { CoinStats } from "../interfaces/coinstats";
@@ -352,7 +352,7 @@ export class SolanaWeb3 {
             const tx: VersionedTransaction = VersionedTransaction.deserialize(swapTxBuf);
             const feeInstruction = SystemProgram.transfer({
                 fromPubkey: new PublicKey(wallet.wallet_address),
-                toPubkey: new PublicKey(FEE_OWNER),
+                toPubkey: new PublicKey(FEE_ACCOUNT_OWNER),
                 lamports: feeToPayInLamports,
             });
             const addressLookupTableAccounts = await Promise.all(
