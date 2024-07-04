@@ -239,7 +239,7 @@ export async function saveDbTransaction(
     tokenAddress: string,
     success: boolean,
     processing_time_function: number,
-    processing_time_tx?: number,
+    processing_time_tx: number,
     error?: any,
 ): Promise<boolean> {
     try {
@@ -267,6 +267,7 @@ export async function saveDbTransaction(
 
 export async function getCurrentSolPrice(): Promise<number | null> {
     try {
+        // TODO: change this to a more reliable source
         const quoteResponse: QuoteResponse = await (
             await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${LAMPORTS_PER_SOL}&slippageBps=100`)
         ).json();

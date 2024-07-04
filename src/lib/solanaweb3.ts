@@ -403,10 +403,9 @@ export class SolanaWeb3 {
             await saveDbTransaction(wallet, "buy", contractAddress, true, functionProcessingTime, txProcessingTime);
             return { content: "Successfully swapped. Transaction ID: " + sig, success: true, ca: contractAddress };
         } catch (error) {
-            console.log(error);
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
-            await saveDbTransaction(wallet, "buy", contractAddress, false, functionProcessingTime);
+            await saveDbTransaction(wallet, "buy", contractAddress, false, functionProcessingTime, 0, error);
             return {
                 content: "Failed to swap. Please try again.",
                 success: false,
@@ -466,6 +465,7 @@ export class SolanaWeb3 {
             const slippage: number = wallet.settings.sell_slippage * this.BPS_PER_PERCENT;
             const feeAmountInBPS: number = wallet.swap_fee * this.BPS_PER_PERCENT;
 
+            //const testFetch = await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${amount}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`);
             const quoteResponse = await (
                 await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${amount}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`)
             ).json();
@@ -550,10 +550,9 @@ export class SolanaWeb3 {
             await saveDbTransaction(wallet, "sell", contractAddress, true, functionProcessingTime, txProcessingTime);
             return { content: "Successfully swapped. Transaction ID: " + sig, success: true, token: coinStats };
         } catch (error) {
-            console.log(error);
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
-            await saveDbTransaction(wallet, "sell", contractAddress, false, functionProcessingTime);
+            await saveDbTransaction(wallet, "sell", contractAddress, false, functionProcessingTime, 0, error);
             return {
                 content: "Failed to swap. Please try again.",
                 success: false,
@@ -606,7 +605,6 @@ export class SolanaWeb3 {
         const priceInfos: CoinStats[] | null = await this.getCoinPriceStatsAll(contractAddresses);
         if (!priceInfos) return [];
         const currentSolPrice: number | null = await getCurrentSolPrice();
-
         const allCoins: CoinStats[] = [];
         for (let i = 0; i < priceInfos.length; i++) {
             priceInfos[i].tokenAmount = tokenInfos[i].tokenAmount;
