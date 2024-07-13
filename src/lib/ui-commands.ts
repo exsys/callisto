@@ -394,7 +394,8 @@ export const BUTTON_COMMANDS = {
         }
 
         if (amount.includes("%")) {
-            const ui: UI = await sellCoinX(interaction.user.id, interaction.message.content, amount);
+            const amountWithoutPercentSymbol = amount.slice(0, -1);
+            const ui: UI = await sellCoinX(interaction.user.id, interaction.message.content, amountWithoutPercentSymbol);
             await interaction.editReply(ui);
         } else {
             const ui: UI = await buyCoinX(interaction.user.id, interaction.message.content, amount);
