@@ -312,6 +312,7 @@ export class SolanaWeb3 {
             const amount: number = Number(amountToSwap) * LAMPORTS_PER_SOL;
             const slippage: number = wallet.settings.buy_slippage * this.BPS_PER_PERCENT;
             const feeToPayInLamports: number = amount * (wallet.swap_fee / 100);
+            const feeToPayInSol: number = Number(amountToSwap) * (wallet.swap_fee / 100);
             const amountMinusFee: number = amount - feeToPayInLamports;
 
             const quoteResponse = await (
@@ -406,14 +407,34 @@ export class SolanaWeb3 {
             }
 
             const endTimeTx: number = Date.now();
-            const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
             const txProcessingTime: number = (endTimeTx - startTimeTx) / 1000;
-            await saveDbTransaction(wallet, "buy", contractAddress, true, functionProcessingTime, txProcessingTime);
+            const currentSolPrice = await getCurrentSolPrice();
+            const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
+            await saveDbTransaction({
+                user_id: userId,
+                wallet_address: wallet.wallet_address,
+                buy_or_sell: "buy",
+                token_address: contractAddress,
+                success: true,
+                processing_time_function: functionProcessingTime,
+                processing_time_tx: txProcessingTime,
+                token_amount: amount,
+                usd_volume: currentSolPrice ? currentSolPrice * Number(amountToSwap) : undefined,
+                fees_in_sol: feeToPayInSol,
+            });
             return { content: "Successfully swapped. Transaction ID: " + sig, success: true, ca: contractAddress };
         } catch (error) {
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
-            await saveDbTransaction(wallet, "buy", contractAddress, false, functionProcessingTime, 0, error);
+            await saveDbTransaction({
+                user_id: userId,
+                wallet_address: wallet.wallet_address,
+                buy_or_sell: "buy",
+                token_address: contractAddress,
+                success: false,
+                processing_time_function: functionProcessingTime,
+                error
+            });
             return {
                 content: "Failed to swap. Please try again.",
                 success: false,
@@ -479,7 +500,6 @@ export class SolanaWeb3 {
             ).json();
 
             if (quoteResponse.error) {
-                console.log(quoteResponse);
                 return {
                     content: "Failed to swap. Please try again.",
                     success: false,
@@ -507,7 +527,6 @@ export class SolanaWeb3 {
             ).json();
 
             if (swapTx.error) {
-                console.log(swapTx);
                 return {
                     content: "Failed to swap. Please try again.",
                     success: false,
@@ -542,7 +561,6 @@ export class SolanaWeb3 {
                 };
             }
             if (result.meta?.err) {
-                console.log(result.meta?.err);
                 return {
                     content: "Failed to swap. Please try again.",
                     success: false,
@@ -553,14 +571,35 @@ export class SolanaWeb3 {
             }
 
             const endTimeTx: number = Date.now();
-            const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
             const txProcessingTime: number = (endTimeTx - startTimeTx) / 1000;
-            await saveDbTransaction(wallet, "sell", contractAddress, true, functionProcessingTime, txProcessingTime);
+            const currentSolPrice = await getCurrentSolPrice();
+            const minReceivedValueInSol = Number(quoteResponse.otherAmountThreshold) / LAMPORTS_PER_SOL;
+            const usdVolume = currentSolPrice ? currentSolPrice * minReceivedValueInSol : undefined;
+            const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
+            await saveDbTransaction({
+                user_id: userId,
+                wallet_address: wallet.wallet_address,
+                buy_or_sell: "sell",
+                token_address: contractAddress,
+                success: true,
+                processing_time_function: functionProcessingTime,
+                processing_time_tx: txProcessingTime,
+                token_amount: amount,
+                usd_volume: usdVolume,
+            });
             return { content: "Successfully swapped. Transaction ID: " + sig, success: true, token: coinStats };
         } catch (error) {
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
-            await saveDbTransaction(wallet, "sell", contractAddress, false, functionProcessingTime, 0, error);
+            await saveDbTransaction({
+                user_id: userId,
+                wallet_address: wallet.wallet_address,
+                buy_or_sell: "sell",
+                token_address: contractAddress,
+                success: false,
+                processing_time_function: functionProcessingTime,
+                error
+            });
             return {
                 content: "Failed to swap. Please try again.",
                 success: false,

@@ -13,6 +13,7 @@ import { createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
+import { DBTransaction } from "../interfaces/db-tx";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 
@@ -217,13 +218,13 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
 }
 
 export async function exportPrivateKeyOfUser(userId: string): Promise<any | null> {
-    
+
     try {
         const defaultWallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
         if (!defaultWallet) return null;
         const privateKey: any = await PrivateKey.findOne({ user_id: userId, wallet_id: defaultWallet.wallet_id });
         if (!privateKey) return null;
-        
+
         privateKey.key_exported = true;
         await privateKey.save();
         return privateKey;
@@ -233,29 +234,36 @@ export async function exportPrivateKeyOfUser(userId: string): Promise<any | null
 
 }
 
-export async function saveDbTransaction(
-    wallet: any,
-    buyOrSell: string,
-    tokenAddress: string,
-    success: boolean,
-    processing_time_function: number,
-    processing_time_tx: number,
-    error?: any,
-): Promise<boolean> {
+export async function saveDbTransaction({
+    user_id,
+    wallet_address,
+    buy_or_sell,
+    token_address,
+    success,
+    processing_time_function,
+    processing_time_tx,
+    token_amount,
+    usd_volume,
+    fees_in_sol,
+    error,
+}: DBTransaction): Promise<boolean> {
     try {
         const date = new Date();
         const utcTime = date.toUTCString();
         const dbTx = new Transaction({
-            buy_or_sell: buyOrSell,
-            user_id: wallet.user_id,
-            wallet_id: wallet.wallet_id,
-            success: success,
-            processing_time_function: processing_time_function,
-            processing_time_tx: processing_time_tx ? processing_time_tx : 0,
-            utc_date: utcTime,
+            buy_or_sell,
+            user_id,
+            wallet_address,
+            token_address,
+            success,
+            processing_time_function,
+            processing_time_tx,
+            utcTime,
             unix_timestamp: Date.now(),
-            error: error ? error : null,
-            token_address: tokenAddress,
+            token_amount,
+            usd_volume,
+            fees_in_sol,
+            error: error,
         });
         await dbTx.save();
 
@@ -300,7 +308,7 @@ export async function getCurrentTokenPriceInSolAll(cas: CaAmount[]): Promise<num
         const quoteResponsesRaw = await Promise.all(requests);
         const quoteResponses: QuoteResponse[] = await Promise.all(quoteResponsesRaw.map((response) => response.json()));
         if (!quoteResponses) return null;
-        
+
         const prices = quoteResponses.map((quoteResponse) => Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL);
         return prices;
     } catch (error) {

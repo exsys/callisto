@@ -9,7 +9,11 @@ const TransactionSchema = new Schema({
         type: String,
         required: true,
     },
-    wallet_id: {
+    wallet_address: {
+        type: String,
+        required: true,
+    },
+    token_address: {
         type: String,
         required: true,
     },
@@ -33,17 +37,22 @@ const TransactionSchema = new Schema({
         type: String,
         required: false,
     },
-    error: {
-        type: Schema.Types.Mixed,
+    token_amount: {
+        // this will be SOL for buys
+        type: Number,
         required: false,
     },
     usd_volume: {
         type: Number,
         required: false,
     },
-    token_address: {
-        type: String,
-        required: true,
+    fees_in_sol: {
+        type: Number,
+        required: false,
+    },
+    error: {
+        type: Schema.Types.Mixed,
+        required: false,
     },
 });
 
