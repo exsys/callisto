@@ -8,13 +8,13 @@ const command = {
         .setName("buy")
         .setDescription("Buy a voin with the given contract address.")
         .addStringOption(option => option
-            .setName('Contract Address')
+            .setName('ca')
             .setRequired(true)
             .setDescription('The contract address of the Solana Token')),
     async execute(interaction: any) {
         try {
             await interaction.deferReply({ ephemeral: true });
-            const contractAddress = interaction.options.getString("Contract Address");
+            const contractAddress = interaction.options.getString("ca");
             const isValidAddress = SolanaWeb3.checkIfValidAddress(contractAddress);
             if (!isValidAddress) {
                 await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
