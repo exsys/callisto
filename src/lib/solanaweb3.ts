@@ -38,6 +38,14 @@ import {
 import { ERROR_CODES } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
+import { QuoteResponse } from "../interfaces/quoteresponse";
+import { CAWithAmount } from "../interfaces/cawithamount";
+
+type CoinPriceQuote = {
+    contractAddress: string;
+    priceInSol: string;
+    priceInUsd: string;
+}
 
 export class SolanaWeb3 {
     /*static jitoConn: Connection = new Connection("https://mainnet.block-engine.jito.wtf/api/v1/transactions", {
@@ -600,21 +608,44 @@ export class SolanaWeb3 {
         // TODO: make it so priceInfo is only fetched for the coin that will be shown first
         // need system for finding out which coin should be shown first
 
-        const tokenInfos: ParsedTokenInfo[] = coins.map((coin: any) => coin.account.data.parsed.info);
+        // only get tokenInfos where the amount is higher than 0
+        const tokenInfos: ParsedTokenInfo[] = (coins.map((coin: any) => coin.account.data.parsed.info)).filter((coinStats: any) => coinStats.tokenAmount.uiAmount !== 0);
         const contractAddresses: string[] = tokenInfos.map((tokenInfo: ParsedTokenInfo) => tokenInfo.mint);
-        const priceInfos: CoinStats[] | null = await this.getCoinPriceStatsAll(contractAddresses);
-        if (!priceInfos) return [];
-        const currentSolPrice: number | null = await getCurrentSolPrice();
+        const caObjects: CAWithAmount[] = contractAddresses.map((ca: string, index: number) => {
+            return { contractAddress: ca, amount: tokenInfos[index].tokenAmount.amount }
+        });
+        // get coin infos and coin prices
+        const results = await Promise.all([this.getCoinPriceStatsAll(contractAddresses), this.getCoinValuesOfHoldings(caObjects)]);
+        const coinInfos: CoinStats[] | null = results[0];
+        if (!coinInfos) return [];
+        const priceInfos: CoinPriceQuote[] | null = results[1];
         const allCoins: CoinStats[] = [];
-        for (let i = 0; i < priceInfos.length; i++) {
-            priceInfos[i].tokenAmount = tokenInfos[i].tokenAmount;
-            const coinValueInUsd: number = Number(priceInfos[i].price) * Number(tokenInfos[i].tokenAmount.uiAmount);
-            priceInfos[i].value = {
-                inUSD: coinValueInUsd.toFixed(2),
-                inSOL: currentSolPrice ? (coinValueInUsd / currentSolPrice).toFixed(4) : "0",
+
+        // this will iterate through each coin in users wallet with an amount of more than 0
+        // it assigns the coin amount and assigns the up-to-date price (or use fallback price which might be a few minutes old in case of an error)
+        coinInfos.forEach(async (coinInfo: CoinStats, index: number) => {
+            const correspondingTokenInfo: ParsedTokenInfo | undefined = tokenInfos.find((tokenInfo: ParsedTokenInfo) => tokenInfo.mint === coinInfo.address);
+            if (!correspondingTokenInfo) return null;
+            coinInfo.tokenAmount = correspondingTokenInfo.tokenAmount;
+            const priceInfo: CoinPriceQuote | undefined = priceInfos?.find((priceQuote: CoinPriceQuote) => priceQuote.contractAddress === coinInfo.address);
+            const coinValueInUsd: number = Number(coinInfo.price) * Number(correspondingTokenInfo.tokenAmount.uiAmount);
+            if (!priceInfo) {
+                // in case quote response returned an error
+                const currentSolPrice = await getCurrentSolPrice();
+                coinInfo.value = {
+                    inUSD: coinValueInUsd.toFixed(2),
+                    inSOL: currentSolPrice ? (coinValueInUsd / currentSolPrice).toFixed(4) : "0",
+                }
+            } else {
+                coinInfo.value = {
+                    inUSD: priceInfo.priceInUsd ? priceInfo.priceInUsd : coinValueInUsd.toFixed(2), // use fallback usd price in case quote for sol price returned an error
+                    inSOL: priceInfo.priceInSol,
+                }
             }
-            if (Number(priceInfos[i].value!.inUSD) >= minPositionValue) allCoins.push(priceInfos[i]);
-        }
+
+            // only show coins that have a higher price than the minPositionValue in wallet settings
+            if (Number(coinInfo.value!.inUSD) >= minPositionValue) allCoins.push(coinInfo);
+        });
 
         return allCoins;
     }
@@ -694,11 +725,11 @@ export class SolanaWeb3 {
 
     static async getCoinPriceStatsAll(contractAddresses: string[]): Promise<CoinStats[] | null> {
         try {
-            const requests = contractAddresses.map((contractAddress: string) => {
+            const coinInfos = contractAddresses.map((contractAddress: string) => {
                 return fetch(`https://api.dexscreener.io/latest/dex/tokens/${contractAddress}`);
             });
 
-            const responses = await Promise.all(requests);
+            const responses = await Promise.all(coinInfos);
             const statsData = responses.map((response: any) => response.json());
             const coinStats = await Promise.all(statsData);
             const stats = coinStats.map((coin: any) => {
@@ -707,7 +738,7 @@ export class SolanaWeb3 {
                     transactions: coin.pairs[0].txns,
                     volume: coin.pairs[0].volume,
                     priceChange: coin.pairs[0].priceChange,
-                    price: formatNumber(coin.pairs[0].priceUsd),
+                    price: formatNumber(coin.pairs[0].priceUsd), // this is not the most up-to-date price, but will be added here as a fallback price
                     fdv: formatNumber(coin.pairs[0].fdv),
                 }
             });
@@ -735,6 +766,50 @@ export class SolanaWeb3 {
             return coinStats;
         } catch (error) {
             console.log(error);
+            return null;
+        }
+    }
+
+    static async getCoinValueOfHolding(caWithAmount: CAWithAmount): Promise<CoinPriceQuote | null> {
+        try {
+            const quoteResponse = await (
+                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caWithAmount.contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${caWithAmount.amount}`)
+            ).json();
+            const priceInSol = Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL;
+            const currentSolPrice: number | null = await getCurrentSolPrice();
+
+            return {
+                contractAddress: caWithAmount.contractAddress,
+                priceInSol: priceInSol.toFixed(4),
+                priceInUsd: currentSolPrice ? (priceInSol * currentSolPrice).toFixed(2) : "0",
+            };
+        } catch (error) {
+            console.log(error);
+            // TODO: store error in db and remove log
+            return null;
+        }
+    }
+
+    static async getCoinValuesOfHoldings(casWithAmount: CAWithAmount[]): Promise<CoinPriceQuote[] | null> {
+        try {
+            const currentSolPrice: number | null = await getCurrentSolPrice();
+            const quotes = casWithAmount.map((caObj: CAWithAmount) => {
+                return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caObj.contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${caObj.amount}`);
+            });
+            const responses = await Promise.all(quotes);
+            const quoteResponsesJson = responses.map((response: any) => response.json());
+            const quoteResponses = await Promise.all(quoteResponsesJson);
+            return quoteResponses.map((quote: QuoteResponse) => {
+                const priceInSol = Number(quote.outAmount) / LAMPORTS_PER_SOL;
+                return {
+                    contractAddress: quote.inputMint,
+                    priceInSol: priceInSol.toFixed(4),
+                    priceInUsd: currentSolPrice ? (currentSolPrice * priceInSol).toFixed(2) : "0",
+                }
+            });
+        } catch (error) {
+            console.log(error);
+            // TODO: store error in db and remove log
             return null;
         }
     }

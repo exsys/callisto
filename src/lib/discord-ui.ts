@@ -212,10 +212,13 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
     }
 
     // TODO: if dexscreener fails try another method
+    // TODO: find a way to get a more up-to-date price of the coin, because dex price can lag like 1 min behind
+    // best way for this would be to know how much SOL and how much of the token are in the LP and then simply calculate the price
     const coinInfo: CoinStats | null = await SolanaWeb3.getCoinPriceStats(contractAddress);
     if (!coinInfo) return { content: "Coin not found. Please enter a valid contract address.", ephemeral: true };
 
     // TODO: calculate price impact
+    // TODO: calculate price changes in last minutes/hours
 
     content += `\n\n${coinInfo.name} | ${coinInfo.symbol} | ${contractAddress}`;
     content += `\n\nPrice: $${coinInfo.price}`;
@@ -300,6 +303,7 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
                 return { content: "No coins found. Buy a coin to see it here.", ephemeral: true };
             }
         }
+        // selectedCoin is the coin which will be shown first
         let selectedCoin: CoinStats | undefined = undefined;
         if (typeof page !== "undefined") {
             // if index was given
