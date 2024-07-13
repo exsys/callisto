@@ -7,7 +7,9 @@ const command = {
     data: new SlashCommandBuilder()
         .setName("buy")
         .setDescription("Buy a voin with the given contract address.")
-        .addStringOption(option => option.setName('Contract Address')
+        .addStringOption(option => option
+            .setName('Contract Address')
+            .setRequired(true)
             .setDescription('The contract address of the Solana Token')),
     async execute(interaction: any) {
         try {
