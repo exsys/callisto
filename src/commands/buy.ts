@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { createBuyModal, createPreBuyUI } from "../lib/discord-ui";
+import { createPreBuyUI } from "../lib/discord-ui";
 import { SolanaWeb3 } from "../lib/solanaweb3";
 import { UI } from "../interfaces/ui";
 
