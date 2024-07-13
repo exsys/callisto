@@ -35,7 +35,28 @@ import {
     createTransferInstruction,
     getOrCreateAssociatedTokenAccount
 } from "@solana/spl-token";
-import { ERROR_CODES } from "../config/errors";
+import {
+    ERROR_CODES,
+    invalidNumberError,
+    decryptError,
+    privateKeyNotFoundError,
+    txExpiredError,
+    txMetaError,
+    unknownError,
+    walletNotFoundError,
+    insufficientBalanceError,
+    tokenAccountNotFoundError,
+    destinationTokenAccountError,
+    coinstatsNotFoundError,
+    invalidAmountError,
+    insufficientBalanceErrorRetry,
+    coinMetadataError,
+    quoteResponseError,
+    postSwapTxError,
+    txExpiredErrorRetry,
+    txMetaErrorRetry,
+    unknownErrorRetry
+} from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
 import { QuoteResponse } from "../interfaces/quoteresponse";
@@ -70,24 +91,14 @@ export class SolanaWeb3 {
     static async transferAllSol(userId: any, recipientAddress: string): Promise<UIResponse> {
         try {
             const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-            if (!wallet) {
-                return {
-                    content: ERROR_CODES["0003"].message,
-                    success: false,
-                };
-            }
+            if (!wallet) return walletNotFoundError(userId);
 
             const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-            if (!privateKey) {
-                return {
-                    content: ERROR_CODES["0002"].message,
-                    success: false,
-                };
-            }
+            if (!privateKey) return privateKeyNotFoundError(userId);
 
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet.wallet_address);
             const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
-            if (!signer) return { content: ERROR_CODES["0010"].message, success: false };
+            if (!signer) return decryptError(userId);
 
             const maxSolAmountToSend = balanceInLamports - this.GAS_FEE_FOR_SOL_TRANSFER;
             const tx: Transaction = new Transaction().add(
@@ -113,38 +124,30 @@ export class SolanaWeb3 {
                 },
             });
 
-            if (!result) {
-                return { content: "Failed to swap. Please try again.", success: false };
-            }
-            if (result.meta?.err) {
-                console.log(result.meta?.err);
-                return { content: "Failed to swap. Please try again.", success: false };
-            }
+            if (!result) return txExpiredError(userId);
+            if (result.meta?.err) return txMetaError(userId, result.meta?.err);
 
             return {
+                user_id: userId,
                 content: `Successfully transferred funds. Transaction ID: ${signature}`,
                 success: true,
             };
         } catch (error) {
-            console.log(error);
-            return {
-                content: ERROR_CODES["0004"].message,
-                success: false,
-            }
+            return unknownError(userId, error);
         }
     }
 
     static async transferXSol(userId: any, amount: string, recipientAddress: string): Promise<UIResponse> {
         try {
             const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-            if (!wallet) return { content: ERROR_CODES["0003"].message, success: false };
+            if (!wallet) return walletNotFoundError(userId);
             const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-            if (!privateKey) return { content: ERROR_CODES["0002"].message, success: false };
-            if (!isNumber(amount)) return { content: "Please enter a valid number and try again.", success: false };
+            if (!privateKey) return privateKeyNotFoundError(userId);
+            if (!isNumber(amount)) return invalidNumberError(userId);
 
             const blockhash = await this.getConnection().getLatestBlockhash("finalized");
             const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
-            if (!signer) return { content: ERROR_CODES["0010"].message, success: false };
+            if (!signer) return decryptError(userId);
 
             const tx: Transaction = new Transaction().add(
                 SystemProgram.transfer({
@@ -162,10 +165,10 @@ export class SolanaWeb3 {
             if (!estimatedFeeInLamports) {
                 // get default fee if the estimated fee is not available
                 if (balanceInLamports < (Number(amount) * LAMPORTS_PER_SOL) + this.GAS_FEE_FOR_SOL_TRANSFER) {
-                    return { content: "Insufficient balance. Please check your balance and try again.", success: false };
+                    return insufficientBalanceError(userId);
                 }
             } else if (balanceInLamports < (Number(amount) * LAMPORTS_PER_SOL) + estimatedFeeInLamports) {
-                return { content: "Insufficient balance. Please check your balance and try again.", success: false };
+                return insufficientBalanceError(userId);
             }
 
             tx.sign(signer);
@@ -180,30 +183,27 @@ export class SolanaWeb3 {
                 },
             });
 
-            if (!result) return { content: "Failed to swap. Please try again.", success: false };
-            if (result.meta?.err) {
-                console.log(result.meta?.err);
-                return { content: "Failed to swap. Please try again.", success: false };
-            }
+            if (!result) return txExpiredError(userId);
+            if (result.meta?.err) return txMetaError(userId, result.meta?.err);
 
-            return { content: `Successfully transferred funds. Transaction ID: ${signature}`, success: true };
+            return { user_id: userId, content: `Successfully transferred funds. Transaction ID: ${signature}`, success: true };
         } catch (error) {
-            return { content: ERROR_CODES["0004"].message, success: false };
+            return unknownError(userId, error);
         }
     }
 
     static async sendCoin(userId: any, contractAddress: string, amount: string, destinationAddress: string): Promise<UIResponse> {
         try {
             const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-            if (!wallet) return { content: ERROR_CODES["0003"].message, success: false };
+            if (!wallet) return walletNotFoundError(userId);
             const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-            if (!privateKey) return { content: ERROR_CODES["0002"].message, success: false };
-            if (!isNumber(amount)) return { content: "Please enter a valid number and try again.", success: false };
+            if (!privateKey) return privateKeyNotFoundError(userId);
+            if (!isNumber(amount)) return invalidNumberError(userId);
 
             const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
-            if (!signer) return { content: ERROR_CODES["0010"].message, success: false };
+            if (!signer) return decryptError(userId);
             const walletTokenAccount = await this.getTokenAccountOfWallet(wallet.wallet_address, contractAddress);
-            if (!walletTokenAccount) return { content: ERROR_CODES["0008"].message, success: false };
+            if (!walletTokenAccount) return tokenAccountNotFoundError(userId);
 
             const destinationTokenAccount = await getOrCreateAssociatedTokenAccount(
                 this.getConnection(),
@@ -211,10 +211,10 @@ export class SolanaWeb3 {
                 new PublicKey(contractAddress),
                 new PublicKey(destinationAddress),
             );
-            if (!destinationTokenAccount) return { content: ERROR_CODES["0008"].message, success: false };
+            if (!destinationTokenAccount) return destinationTokenAccountError(userId);
 
             const coinStats: CoinStats | null = await this.getCoinStats(contractAddress, wallet.wallet_address);
-            if (!coinStats) return { content: "Coin not found. Please try again later.", success: false };
+            if (!coinStats) return coinstatsNotFoundError(userId, contractAddress);
 
             const blockhash = await this.getConnection().getLatestBlockhash();
             const amountToSend = Number(coinStats.tokenAmount!.amount) * (Number(amount) / 100);
@@ -241,36 +241,37 @@ export class SolanaWeb3 {
                 },
             });
 
-            if (!result) return { content: "Failed to swap. Please try again.", success: false };
-            if (result.meta?.err) {
-                console.log(result.meta?.err);
-                return { content: "Failed to swap. Please try again.", success: false };
-            }
+            if (!result) return txExpiredError(userId);
+            if (result.meta?.err) return txMetaError(userId, result.meta?.err);
 
-            return { content: `Successfully transferred funds. Transaction ID: ${signature}`, success: true };
+            return { user_id: userId, content: `Successfully transferred funds. Transaction ID: ${signature}`, success: true };
         } catch (error) {
-            console.log(error);
-            return { content: ERROR_CODES["0004"].message, success: false };
+            return unknownError(userId, error);
         }
     }
 
     static async buyCoinViaAPI(userId: string, contractAddress: string, amountToSwap: string): Promise<UIResponse> {
         const startTimeFunction = Date.now();
-        let wallet: any = null;
+        let wallet: any;
         try {
             wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-            if (!wallet) return { content: ERROR_CODES["0003"].message, success: false, ca: contractAddress };
         } catch (error) {
-            return { content: ERROR_CODES["0011"].message, success: false, ca: contractAddress };
+            return unknownError(userId, error, contractAddress);
         }
-
+        if (!wallet) return walletNotFoundError(userId, contractAddress);
         try {
             const conn = this.getConnection();
             const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-            if (!privateKey) return { content: ERROR_CODES["0002"].message, success: false, ca: contractAddress };
+            if (!privateKey) return privateKeyNotFoundError(userId, contractAddress);
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet.wallet_address);
             if (typeof balanceInLamports !== "number") {
-                return { content: "Server error. Please try again later", success: false, ca: contractAddress };
+                return {
+                    user_id: userId,
+                    content: "Server error. Please try again later",
+                    success: false,
+                    ca: contractAddress,
+                    error: "Failed to get wallet balance",
+                };
             }
 
             if (amountToSwap.includes("buy_button_")) {
@@ -280,35 +281,21 @@ export class SolanaWeb3 {
             const txPrio: number = wallet.settings.tx_priority_value;
 
             if (!isNumber(amountToSwap)) {
-                return { content: "Invalid value. Please enter a valid number.", success: false, ca: contractAddress };
+                return invalidNumberError(userId, contractAddress);
             }
             if (Number(amountToSwap) <= 0) {
-                return { content: "Invalid amount. Please enter a number above 0.", success: false, ca: contractAddress };
+                return invalidAmountError(userId, contractAddress);
             }
             if (balanceInLamports < Number(amountToSwap) * LAMPORTS_PER_SOL + txPrio) {
-                return {
-                    content: "Insufficient balance. Please check your balance and try again.",
-                    success: false,
-                    ca: contractAddress,
-                    amount: amountToSwap,
-                    includeRetryButton: true,
-                };
+                return insufficientBalanceErrorRetry(userId, contractAddress, amountToSwap);
             }
 
             // TODO: get metadata from another source if this one doesn't work
             const coinMetadata: CoinMetadata | null = await this.getCoinMetadata(contractAddress);
-            if (!coinMetadata) {
-                return {
-                    content: "Coin not tradeable. Please try again later.",
-                    success: false,
-                    ca: contractAddress,
-                    amount: amountToSwap,
-                    includeRetryButton: true,
-                };
-            }
+            if (!coinMetadata) return coinMetadataError(userId, contractAddress, amountToSwap);
 
             const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
-            if (!signer) return { content: ERROR_CODES["0010"].message, success: false, ca: contractAddress };
+            if (!signer) return decryptError(userId, contractAddress);
             const amount: number = Number(amountToSwap) * LAMPORTS_PER_SOL;
             const slippage: number = wallet.settings.buy_slippage * this.BPS_PER_PERCENT;
             const feeToPayInLamports: number = amount * (wallet.swap_fee / 100);
@@ -321,14 +308,7 @@ export class SolanaWeb3 {
                 )
             ).json();
             if (quoteResponse.error) {
-                console.log(quoteResponse);
-                return {
-                    content: "Failed to swap. Please try again.",
-                    success: false,
-                    ca: contractAddress,
-                    amount: amountToSwap,
-                    includeRetryButton: true,
-                };
+                return quoteResponseError(userId, contractAddress, amountToSwap, quoteResponse);
             }
 
             const swapTx: SwapTx = await (
@@ -347,14 +327,7 @@ export class SolanaWeb3 {
                 })
             ).json();
             if (swapTx.error) {
-                console.log(swapTx);
-                return {
-                    content: "Failed to swap. Please try again.",
-                    success: false,
-                    ca: contractAddress,
-                    amount: amountToSwap,
-                    includeRetryButton: true,
-                };
+                return postSwapTxError(userId, contractAddress, amountToSwap, swapTx);
             }
 
             const swapTxBuf: Buffer = Buffer.from(swapTx.swapTransaction!, 'base64');
@@ -364,6 +337,7 @@ export class SolanaWeb3 {
                 toPubkey: new PublicKey(FEE_ACCOUNT_OWNER),
                 lamports: feeToPayInLamports,
             });
+            // TODO: handle error from Promise.all
             const addressLookupTableAccounts = await Promise.all(
                 tx.message.addressTableLookups.map(async (lookup: MessageAddressTableLookup) => {
                     return new AddressLookupTableAccount({
@@ -388,23 +362,8 @@ export class SolanaWeb3 {
                 },
             });
 
-            if (!result) return {
-                content: "Failed to swap. Please try again.",
-                success: false,
-                ca: contractAddress,
-                amount: amountToSwap,
-                includeRetryButton: true,
-            };
-            if (result.meta?.err) {
-                console.log(result.meta?.err);
-                return {
-                    content: "Failed to swap. Please try again.",
-                    success: false,
-                    ca: contractAddress,
-                    amount: amountToSwap,
-                    includeRetryButton: true,
-                };
-            }
+            if (!result) return txExpiredErrorRetry(userId, contractAddress, amountToSwap);
+            if (result.meta?.err) return txMetaErrorRetry(userId, contractAddress, amountToSwap, result.meta?.err);
 
             const endTimeTx: number = Date.now();
             const txProcessingTime: number = (endTimeTx - startTimeTx) / 1000;
@@ -422,7 +381,7 @@ export class SolanaWeb3 {
                 usd_volume: currentSolPrice ? currentSolPrice * Number(amountToSwap) : undefined,
                 fees_in_sol: feeToPayInSol,
             });
-            return { content: "Successfully swapped. Transaction ID: " + sig, success: true, ca: contractAddress };
+            return { user_id: userId, content: "Successfully swapped. Transaction ID: " + sig, success: true, ca: contractAddress };
         } catch (error) {
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
@@ -435,13 +394,7 @@ export class SolanaWeb3 {
                 processing_time_function: functionProcessingTime,
                 error
             });
-            return {
-                content: "Failed to swap. Please try again.",
-                success: false,
-                ca: contractAddress,
-                amount: amountToSwap,
-                includeRetryButton: true,
-            };
+            return unknownErrorRetry(userId, contractAddress, amountToSwap, error);
         }
     }
 
@@ -449,47 +402,56 @@ export class SolanaWeb3 {
         const startTimeFunction = Date.now();
         const conn = this.getConnection();
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-        if (!wallet) return { content: ERROR_CODES["0003"].message, success: false, ca: contractAddress };
+        if (!wallet) return walletNotFoundError(userId, contractAddress);
         const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-        if (!privateKey) return { content: ERROR_CODES["0002"].message, success: false, ca: contractAddress };
+        if (!privateKey) return privateKeyNotFoundError(userId, contractAddress);
 
         if (amountToSellInPercent.includes("sell_button_")) {
             amountToSellInPercent = wallet.settings[amountToSellInPercent as string];
         }
 
         if (!isNumber(amountToSellInPercent)) {
-            return { content: "Invalid amount. Please enter a valid number.", success: false, ca: contractAddress };
+            return invalidNumberError(userId, contractAddress);
         }
-        if (Number(amountToSellInPercent) < 0.01) {
-            return { content: "Invalid amount. Please enter a number between 0.01 and 100.", success: false, ca: contractAddress };
-        }
-        if (Number(amountToSellInPercent) > 100) {
-            return { content: "Invalid amount. Please enter a number between 0.01 and 100.", success: false, ca: contractAddress };
+        if (Number(amountToSellInPercent) < 0.01 || Number(amountToSellInPercent) > 100) {
+            return invalidAmountError(userId, contractAddress);
         }
 
         const coinStats: CoinStats | null = await this.getCoinStats(contractAddress, wallet.wallet_address);
         if (!coinStats) {
             return {
+                user_id: userId,
                 content: ERROR_CODES["0012"].message,
                 success: false,
                 amount: amountToSellInPercent + "%",
                 ca: contractAddress,
                 includeRetryButton: true,
+                error: "Failed to get coin stats",
             };
         }
         if (Number(coinStats.tokenAmount!.amount) == 0) {
             return {
+                user_id: userId,
                 content: "Insufficient holdings. Please check your balance and try again.",
                 success: false,
                 token: coinStats,
                 amount: amountToSellInPercent + "%",
                 includeRetryButton: true,
+                error: "Insufficient wallet balance."
             };
         }
 
         try {
             const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
-            if (!signer) return { content: ERROR_CODES["0010"].message, success: false, token: coinStats };
+            if (!signer) {
+                return {
+                    user_id: userId,
+                    content: ERROR_CODES["0010"].message,
+                    success: false,
+                    token: coinStats,
+                    error: ERROR_CODES["0010"].context
+                };
+            }
             const amount: number = (Number(coinStats.tokenAmount!.amount) * (Number(amountToSellInPercent) / 100));
             const slippage: number = wallet.settings.sell_slippage * this.BPS_PER_PERCENT;
             const feeAmountInBPS: number = wallet.swap_fee * this.BPS_PER_PERCENT;
@@ -501,11 +463,13 @@ export class SolanaWeb3 {
 
             if (quoteResponse.error) {
                 return {
+                    user_id: userId,
                     content: "Failed to swap. Please try again.",
                     success: false,
                     token: coinStats,
                     amount: amountToSellInPercent + "%",
                     includeRetryButton: true,
+                    error: "Quote response error: " + quoteResponse,
                 };
             }
 
@@ -528,11 +492,13 @@ export class SolanaWeb3 {
 
             if (swapTx.error) {
                 return {
+                    user_id: userId,
                     content: "Failed to swap. Please try again.",
                     success: false,
                     token: coinStats,
                     amount: amountToSellInPercent + "%",
                     includeRetryButton: true,
+                    error: "Post swap tx error: " + swapTx
                 };
             }
 
@@ -553,20 +519,24 @@ export class SolanaWeb3 {
 
             if (!result) {
                 return {
+                    user_id: userId,
                     content: "Failed to swap. Please try again.",
                     success: false,
                     token: coinStats,
                     amount: amountToSellInPercent + "%",
                     includeRetryButton: true,
+                    error: "Transaction expired",
                 };
             }
             if (result.meta?.err) {
                 return {
+                    user_id: userId,
                     content: "Failed to swap. Please try again.",
                     success: false,
                     token: coinStats,
                     amount: amountToSellInPercent + "%",
                     includeRetryButton: true,
+                    error: "Transaction meta error: " + result.meta?.err,
                 };
             }
 
@@ -587,7 +557,7 @@ export class SolanaWeb3 {
                 token_amount: amount,
                 usd_volume: usdVolume,
             });
-            return { content: "Successfully swapped. Transaction ID: " + sig, success: true, token: coinStats };
+            return { user_id: userId, content: "Successfully swapped. Transaction ID: " + sig, success: true, token: coinStats };
         } catch (error) {
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
@@ -601,11 +571,13 @@ export class SolanaWeb3 {
                 error
             });
             return {
+                user_id: userId,
                 content: "Failed to swap. Please try again.",
                 success: false,
                 token: coinStats,
                 amount: amountToSellInPercent + "%",
                 includeRetryButton: true,
+                error,
             };
         }
     }
@@ -630,7 +602,6 @@ export class SolanaWeb3 {
             const balance = await this.connection.getBalance(publicKey, { commitment: "confirmed" });
             return balance;
         } catch (error) {
-            console.log(error);
             return null;
         }
     }

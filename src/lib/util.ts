@@ -168,9 +168,9 @@ export function decryptPKey(encryptedPKey: string, iv: string): string | null {
 export async function buyCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UI> {
     const contractAddress = extractAndValidateCA(msgContent);
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
-
     try {
         const response: UIResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
+        // TODO NEXT: if response.error save in DB
         return createAfterSwapUI(response);
     } catch (error) {
         console.log(error);
@@ -181,9 +181,9 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
 export async function buyCoinX(userId: string, msgContent: string, amount: string): Promise<UI> {
     const contractAddress = extractAndValidateCA(msgContent);
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
-
     try {
         const response: UIResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, amount);
+        // TODO: if response.error save in DB
         return createAfterSwapUI(response);
     } catch (error) {
         console.log(error);
@@ -194,9 +194,9 @@ export async function buyCoinX(userId: string, msgContent: string, amount: strin
 export async function sellCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UI> {
     const contractAddress = extractAndValidateCA(msgContent);
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
-
     try {
         const response: UIResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
+        // TODO: if response.error save in DB
         return createAfterSwapUI(response);
     } catch (error) {
         console.log(error);
@@ -207,9 +207,9 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
 export async function sellCoinX(userId: string, msgContent: string, amountInPercent: string): Promise<UI> {
     const contractAddress = extractAndValidateCA(msgContent);
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
-
     try {
         const response: UIResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, amountInPercent);
+        // TODO: if response.error save in DB
         return createAfterSwapUI(response);
     } catch (error) {
         console.log(error);

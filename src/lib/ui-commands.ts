@@ -479,7 +479,6 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
         }
-
         const buyUI: UI = await createPreBuyUI(interaction.user.id, contractAddress);
         await interaction.editReply(buyUI);
     },

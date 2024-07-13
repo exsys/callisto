@@ -72,3 +72,202 @@ export const ERROR_CODES = {
         short: "Failed to get coin stats.",
     },
 }
+
+export function walletNotFoundError(userId: string, contractAddress?: string) {
+    return {
+        user_id: userId,
+        content: ERROR_CODES["0003"].message,
+        success: false,
+        contractAddress: contractAddress ? contractAddress : undefined,
+        error: ERROR_CODES["0003"].context,
+    };
+}
+
+export function privateKeyNotFoundError(userId: string, contractAddress?: string) {
+    return {
+        user_id: userId,
+        content: ERROR_CODES["0002"].message,
+        success: false,
+        contractAddress: contractAddress ? contractAddress : undefined,
+        error: ERROR_CODES["0002"].context,
+    }
+}
+
+export function decryptError(userId: string, contractAddress?: string) {
+    return {
+        user_id: userId,
+        content: ERROR_CODES["0010"].message,
+        success: false,
+        ca: contractAddress ? contractAddress : undefined,
+        error: ERROR_CODES["0010"].context,
+    };
+}
+
+export function txExpiredError(userId: string) {
+    return {
+        user_id: userId,
+        content: "Failed to swap. Please try again.",
+        success: false,
+        error: "Transaction expired"
+    };
+}
+
+export function txExpiredErrorRetry(userId: string, contractAddress: string, amountToSwap: string) {
+    return {
+        user_id: userId,
+        content: "Failed to swap. Please try again.",
+        success: false,
+        ca: contractAddress,
+        amount: amountToSwap,
+        includeRetryButton: true,
+        error: "Transaction expired.",
+    };
+}
+
+export function txMetaError(userId: string, error: any) {
+    return {
+        user_id: userId,
+        content: "Failed to swap. Please try again.",
+        success: false,
+        error
+    };
+}
+
+export function txMetaErrorRetry(userId: string, contractAddress: string, amountToSwap: string, error: any) {
+    return {
+        user_id: userId,
+        content: "Failed to swap. Please try again.",
+        success: false,
+        ca: contractAddress,
+        amount: amountToSwap,
+        includeRetryButton: true,
+        error,
+    };
+}
+
+export function unknownError(userId: string, error: any, contractAddress?: string) {
+    return {
+        user_id: userId,
+        content: ERROR_CODES["0004"].message,
+        success: false,
+        contractAddress: contractAddress ? contractAddress : undefined,
+        error
+    }
+}
+
+export function unknownErrorRetry(userId: string, contractAddress: string, amountToSwap: string, error: any) {
+    return {
+        user_id: userId,
+        content: "Failed to swap. Please try again.",
+        success: false,
+        ca: contractAddress,
+        amount: amountToSwap,
+        includeRetryButton: true,
+        error,
+    };
+}
+
+export function invalidNumberError(userId: string, contractAddress?: string) {
+    return {
+        user_id: userId,
+        content: "Please enter a valid number and try again.",
+        success: false,
+        contractAddress: contractAddress ? contractAddress : undefined,
+        error: "Invalid number for SOL transfer submitted",
+    };
+}
+
+export function insufficientBalanceError(userId: string, contractAddress?: string) {
+    return {
+        user_id: userId,
+        content: "Insufficient balance. Please check your balance and try again.",
+        success: false,
+        contractAddress: contractAddress ? contractAddress : undefined,
+        error: "Insufficient wallet balance for SOL transfer",
+    };
+}
+
+export function insufficientBalanceErrorRetry(userId: string, contractAddress: string, amountToSwap: string) {
+    return {
+        user_id: userId,
+        content: "Insufficient balance. Please check your balance and try again.",
+        success: false,
+        ca: contractAddress,
+        amount: amountToSwap,
+        includeRetryButton: true,
+        error: "Insufficient wallet balance."
+    };
+}
+
+export function tokenAccountNotFoundError(userId: string) {
+    return {
+        user_id: userId,
+        content: ERROR_CODES["0008"].message,
+        success: false,
+        error: "Source token account not found. This should not be possible. " + ERROR_CODES["0008"].context,
+    }
+}
+
+export function destinationTokenAccountError(userId: string) {
+    return {
+        user_id: userId,
+        content: ERROR_CODES["0008"].message,
+        success: false,
+        error: "Destination token account not found. Maybe it failed to create associated token account or RPC is down. ",
+    }
+}
+
+export function coinstatsNotFoundError(userId: string, contractAddress: string) {
+    return {
+        user_id: userId,
+        content: "Coin not found. Please try again later.",
+        success: false,
+        error: `Error when getting coin stats of ${contractAddress}`
+    };
+}
+
+export function invalidAmountError(userId: string, contractAddress: string) {
+    return {
+        user_id: userId,
+        content: "Invalid amount. Please enter a number above 0.",
+        success: false,
+        ca: contractAddress,
+        error: "Invalid amount for token buy submitted."
+    };
+}
+
+export function coinMetadataError(userId: string, contractAddress: string, amountToSwap: string) {
+    return {
+        user_id: userId,
+        content: "Coin not tradeable. Please try again later.",
+        success: false,
+        ca: contractAddress,
+        amount: amountToSwap,
+        includeRetryButton: true,
+        error: "Error when getting coin metadata"
+    };
+}
+
+export function quoteResponseError(userId: string, contractAddress: string, amountToSwap: string, error: any) {
+    return {
+        user_id: userId,
+        content: "Failed to swap. Please try again.",
+        success: false,
+        ca: contractAddress,
+        includeRetryButton: true,
+        amount: amountToSwap,
+        error: "Quote response error: " + error
+    };
+}
+
+export function postSwapTxError(userId: string, contractAddress: string, amountToSwap: string, error: any) {
+    return {
+        user_id: userId,
+        content: "Failed to swap. Please try again.",
+        success: false,
+        ca: contractAddress,
+        amount: amountToSwap,
+        includeRetryButton: true,
+        error: "Post swap tx error: " + error
+    };
+}
