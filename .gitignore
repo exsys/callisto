@@ -1,6 +1,6 @@
-/.env
+.env
 /build
 /dist
 /node_modules
-/todo.txt
+todo.txt
 /misc
