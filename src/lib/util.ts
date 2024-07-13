@@ -216,7 +216,7 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
     }
 }
 
-export async function getPrivateKeyOfUser(userId: string): Promise<any | null> {
+export async function exportPrivateKeyOfUser(userId: string): Promise<any | null> {
     
     try {
         const defaultWallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();

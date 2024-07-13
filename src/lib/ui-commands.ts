@@ -34,7 +34,7 @@ import {
     extractAmountFromMessage,
     extractAndValidateCA,
     getKeypairFromEncryptedPKey,
-    getPrivateKeyOfUser,
+    exportPrivateKeyOfUser,
     isNumber,
     sellCoin,
     sellCoinX
@@ -217,7 +217,7 @@ export const BUTTON_COMMANDS = {
     },
     exportPrivKey: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const pKey = await getPrivateKeyOfUser(interaction.user.id);
+        const pKey = await exportPrivateKeyOfUser(interaction.user.id);
         if (!pKey) {
             await interaction.editReply({ content: ERROR_CODES["0002"].message, ephemeral: true });
             return;
