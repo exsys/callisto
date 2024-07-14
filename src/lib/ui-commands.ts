@@ -37,7 +37,8 @@ import {
     exportPrivateKeyOfUser,
     isNumber,
     sellCoin,
-    sellCoinX
+    sellCoinX,
+    createRefCodeForUser
 } from "./util";
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -73,8 +74,7 @@ export const BUTTON_COMMANDS = {
     },
     start: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const userId = interaction.user.id;
-        const startUI: UI = await createStartUI(userId);
+        const startUI: UI = await createStartUI(interaction.user.id);
         await interaction.editReply(startUI);
     },
     buy: async (interaction: any) => {
@@ -98,8 +98,7 @@ export const BUTTON_COMMANDS = {
     },
     refresh: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const userId = interaction.user.id;
-        const startUI = await createStartUI(userId);
+        const startUI = await createStartUI(interaction.user.id);
         await interaction.editReply(startUI);
     },
     refreshCoinInfo: async (interaction: any) => {
@@ -129,7 +128,14 @@ export const BUTTON_COMMANDS = {
         await interaction.reply(helpUI);
     },
     refer: async (interaction: any) => {
-        await interaction.reply({ content: "not implemented yet", ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
+        const refCode = await createRefCodeForUser(interaction.user.id);
+        if (refCode) {
+            await interaction.editReply({ content: refCode, ephemeral: true });
+            return;
+        }
+
+        await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
     },
     deposit: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });

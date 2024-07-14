@@ -16,6 +16,7 @@ import { CaAmount } from "../interfaces/caamount";
 import { DBTransaction } from "../interfaces/db-tx";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
+const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
 
 export async function createNewWallet(userId: string): Promise<string | null> {
     const solanaWallet = SolanaWeb3.createNewWallet();
@@ -25,7 +26,6 @@ export async function createNewWallet(userId: string): Promise<string | null> {
 
     try {
         const allWallets = await Wallet.find({ user_id: userId }).lean();
-        // TODO: create ref link for user
         const userStats = await UserStats.findOneAndUpdate(
             { user_id: userId },
             { $inc: { wallets_created: 1 } },
@@ -55,7 +55,8 @@ export async function createNewWallet(userId: string): Promise<string | null> {
         await privateKey.save();
 
         if (walletCount === 1) {
-            // TODO: save server stats
+
+            // TODO: ask for ref code with modal
         }
 
         return solanaWallet.publicKey.toString();
@@ -63,6 +64,41 @@ export async function createNewWallet(userId: string): Promise<string | null> {
         console.log(error);
         return null;
     }
+}
+
+export async function createRefCodeForUser(userId: string): Promise<string | null> {
+    let refLink = createNewRefLink();
+    let msgContent = "Your referral code is: ";
+    try {
+        const user = await UserStats.findOne({ user_id: userId });
+        if (!user) return null;
+        if (user.ref_link) {
+            msgContent += user.ref_link;
+            return msgContent;
+        }
+
+        let userWithRefLinkExistsAlready = await UserStats.findOne({ ref_link: refLink });
+        while (userWithRefLinkExistsAlready) {
+            refLink = createNewRefLink();
+            userWithRefLinkExistsAlready = await UserStats.findOne({ ref_link: refLink });
+        }
+    
+        user.ref_link = refLink;
+        await user.save();
+        msgContent += user.ref_link;
+        return msgContent;
+    } catch (error) {
+        return null;
+    }
+}
+
+export function createNewRefLink(): string {
+    let result = "";
+    for (let i = 0; i < 8; i++) {
+        const randomIndex = Math.floor(Math.random() * REFCODE_CHARSET.length);
+        result += REFCODE_CHARSET[randomIndex];
+    }
+    return result;
 }
 
 export async function getPrivateKeyOfWallet(userId: string, walletAddress: string): Promise<string | null> {
@@ -170,7 +206,10 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
     try {
         const response: UIResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
-        // TODO NEXT: if response.error save in DB
+        if (response.error) {
+            // TODO NEXT: überlegen wie ich responses zurückerhalte. wahrscheinlich ein extra type erstellen dafür und dann für 
+            // alle funktionsaufrufe benutzen und txs in db immer in util speichern, und nicht in solanaweb3
+        }
         return createAfterSwapUI(response);
     } catch (error) {
         console.log(error);

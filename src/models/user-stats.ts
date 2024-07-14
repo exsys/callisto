@@ -7,7 +7,7 @@ const UserStatsSchema = new Schema({
     },
     wallets_created: {
         type: Number,
-        default: 1,
+        default: 0,
     },
     fee: {
         type: Number,
