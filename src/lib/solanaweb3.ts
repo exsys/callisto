@@ -24,7 +24,14 @@ import {
 import { CoinMetadata } from "../interfaces/coinmetadata";
 import { SwapTx } from "../interfaces/swaptx";
 import { UIResponse } from "../interfaces/uiresponse";
-import { FEE_ACCOUNT, FEE_ACCOUNT_OWNER, TOKEN_PROGRAM } from "../config/constants";
+import {
+    BASE_SWAP_FEE,
+    FEE_ACCOUNT,
+    FEE_ACCOUNT_OWNER,
+    FEE_REDUCTION_PERIOD,
+    FEE_REDUCTION_WITH_REF_CODE,
+    TOKEN_PROGRAM
+} from "../config/constants";
 import { ParsedTokenInfo } from "../interfaces/parsedtokeninfo";
 import { CoinInfo } from "../interfaces/coininfo";
 import { CoinStats } from "../interfaces/coinstats";
@@ -55,12 +62,14 @@ import {
     postSwapTxError,
     txExpiredErrorRetry,
     txMetaErrorRetry,
-    unknownErrorRetry
+    unknownErrorRetry,
+    userNotFoundError
 } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CAWithAmount } from "../interfaces/cawithamount";
+import { UserStats } from "../models/user-stats";
 
 type CoinPriceQuote = {
     contractAddress: string;
@@ -253,12 +262,15 @@ export class SolanaWeb3 {
     static async buyCoinViaAPI(userId: string, contractAddress: string, amountToSwap: string): Promise<UIResponse> {
         const startTimeFunction = Date.now();
         let wallet: any;
+        let user: any;
         try {
             wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
+            user = await UserStats.findOne({ user_id: userId });
         } catch (error) {
             return unknownError(userId, error, contractAddress);
         }
         if (!wallet) return walletNotFoundError(userId, contractAddress);
+        if (!user) return userNotFoundError(userId, contractAddress, amountToSwap);
         try {
             const conn = this.getConnection();
             const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
@@ -296,12 +308,21 @@ export class SolanaWeb3 {
 
             const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
             if (!signer) return decryptError(userId, contractAddress);
+            const reducedFeesFromRef: boolean = wallet.swap_fee !== BASE_SWAP_FEE && wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
+            if (reducedFeesFromRef) {
+                // reset the reduced swap fees from using a ref code after 1 month
+                if (user.used_ref_code!.timestamp! >= user.used_ref_code!.timestamp! + FEE_REDUCTION_PERIOD) {
+                    user.fee = BASE_SWAP_FEE;
+                    await user.save();
+                    await Wallet.updateMany({ user_id: userId }, { swap_fee: BASE_SWAP_FEE });
+                    wallet.swap_fee = BASE_SWAP_FEE;
+                }
+            }
             const amount: number = Number(amountToSwap) * LAMPORTS_PER_SOL;
             const slippage: number = wallet.settings.buy_slippage * this.BPS_PER_PERCENT;
             const feeToPayInLamports: number = amount * (wallet.swap_fee / 100);
             const feeToPayInSol: number = Number(amountToSwap) * (wallet.swap_fee / 100);
             const amountMinusFee: number = amount - feeToPayInLamports;
-
             const quoteResponse = await (
                 await fetch(
                     `https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${contractAddress}&amount=${amountMinusFee}&slippageBps=${slippage}`
@@ -405,6 +426,15 @@ export class SolanaWeb3 {
         if (!wallet) return walletNotFoundError(userId, contractAddress);
         const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
         if (!privateKey) return privateKeyNotFoundError(userId, contractAddress);
+        const user = await UserStats.findOne({ user_id: userId });
+        if (!user) {
+            return {
+                user_id: userId,
+                content: ERROR_CODES["0011"].message,
+                success: false,
+                error: ERROR_CODES["0011"].context
+            }
+        }
 
         if (amountToSellInPercent.includes("sell_button_")) {
             amountToSellInPercent = wallet.settings[amountToSellInPercent as string];
@@ -452,11 +482,19 @@ export class SolanaWeb3 {
                     error: ERROR_CODES["0010"].context
                 };
             }
+            const reducedFeesFromRef: boolean = wallet.swap_fee !== BASE_SWAP_FEE && wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
+            if (reducedFeesFromRef) {
+                // reset the reduced swap fees from using a ref code after 1 month
+                if (user.used_ref_code!.timestamp! >= user.used_ref_code!.timestamp! + FEE_REDUCTION_PERIOD) {
+                    user.fee = BASE_SWAP_FEE;
+                    await user.save();
+                    await Wallet.updateMany({ user_id: userId }, { swap_fee: BASE_SWAP_FEE });
+                    wallet.swap_fee = BASE_SWAP_FEE;
+                }
+            }
             const amount: number = (Number(coinStats.tokenAmount!.amount) * (Number(amountToSellInPercent) / 100));
             const slippage: number = wallet.settings.sell_slippage * this.BPS_PER_PERCENT;
             const feeAmountInBPS: number = wallet.swap_fee * this.BPS_PER_PERCENT;
-
-            //const testFetch = await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${amount}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`);
             const quoteResponse = await (
                 await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${amount}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`)
             ).json();

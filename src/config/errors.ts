@@ -1,4 +1,10 @@
 export const ERROR_CODES = {
+    "0000": {
+        code: "0000",
+        message: "Server error. Please try again later. Error code: 0000",
+        context: "Generic error message. Unknown Issue or just a simple server error.",
+        short: "Generic error message.",
+    },
     "0001": {
         code: "0001",
         message: "Server error. Please try again later. Error code: 0001",
@@ -61,9 +67,9 @@ export const ERROR_CODES = {
     },
     "0011": {
         code: "0011",
-        message: "Server error. Please try again later.",
-        context: "Generic error message. Unknown Issue or just a simple server error.",
-        short: "Generic error message.",
+        message: "Server error. Please try again later. Error code: 0011",
+        context: "Could not find user in UserStats collection.",
+        short: "Couldn't find user.",
     },
     "0012": {
         code: "0012",
@@ -71,7 +77,21 @@ export const ERROR_CODES = {
         context: "Couldn't get coin stats. Maybe the RPC is down.",
         short: "Failed to get coin stats.",
     },
+    "0013": {
+        code: "0013",
+        message: "Server error. Please contact support for more information. Error code: 0013",
+        context: "Couldn't find user in DB after using referral code.",
+        short: "Couldn't find user",
+    },
+    "0014": {
+        code: "0014",
+        message: "Couldn't find referral code. Error code: 0014",
+        context: "Couldn't find user of corresponding referral code.",
+        short: "Couldn't find user with ref code",
+    }
 }
+
+// TODO: make it more dynamic, use an object for example. so I can decided with one function wether it's for buy or sell, and if I want to retry etc
 
 export function walletNotFoundError(userId: string, contractAddress?: string) {
     return {
@@ -270,4 +290,16 @@ export function postSwapTxError(userId: string, contractAddress: string, amountT
         includeRetryButton: true,
         error: "Post swap tx error: " + error
     };
+}
+
+export function userNotFoundError(userId: string, contractAddress: string, amountToSwap: string) {
+    return {
+        user_id: userId,
+        content: ERROR_CODES["0011"].message,
+        success: false,
+        ca: contractAddress,
+        amount: amountToSwap,
+        includeRetryButton: true,
+        error: ERROR_CODES["0011"].context,
+    }
 }

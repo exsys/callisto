@@ -352,7 +352,6 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
 
         // TODO: add profit in % and SOL
         // TODO: add total balance in SOL (all coins combined + SOL amount)
-        // TODO: only include coins with value > min_position_value
 
         let content = `Open Positions:\n${coinSymbolsDivided}\n\n`
         content += `${selectedCoin.name} | ${selectedCoin.symbol} | ${selectedCoin.address}\n`
@@ -1006,3 +1005,22 @@ export const createSendCoinModal = (): ModalBuilder => {
     sendCoinModal.addComponents(row1, row2);
     return sendCoinModal;
 };
+
+export const createRefCodeModal = (): ModalBuilder => {
+    const refCodeModal = new ModalBuilder()
+        .setCustomId('enterRefCode')
+        .setTitle('Enter referral code');
+
+    const refCodeInput = new TextInputBuilder()
+        .setCustomId('value1')
+        .setLabel('Get 10% reduced fees in your first month')
+        .setPlaceholder("Referral code")
+        .setRequired(false)
+        .setMinLength(8)
+        .setMaxLength(8)
+        .setStyle(TextInputStyle.Short);
+
+    const row: any = new ActionRowBuilder().addComponents(refCodeInput);
+    refCodeModal.addComponents(row);
+    return refCodeModal;
+}

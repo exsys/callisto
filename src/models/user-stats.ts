@@ -27,10 +27,17 @@ const UserStatsSchema = new Schema({
         type: Number,
         default: 0,
     },
-    ref_link: {
+    ref_code: {
         type: String,
         required: false,
     },
+    used_ref_code: {
+        type: {
+            code: String,
+            timestamp: Number,
+        },
+        required: false,
+    }
 }, { timestamps: true });
 
 export const UserStats = model("UserStats", UserStatsSchema, "user_stats");

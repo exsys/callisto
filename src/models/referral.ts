@@ -5,17 +5,25 @@ const ReferralSchema = new Schema({
         type: String,
         required: true,
     },
-    ref_link_used: {
+    referrer: {
         type: String,
+        required: true,
+    },
+    ref_code: {
+        type: String,
+        required: true,
+    },
+    number_of_referral: {
+        type: Number,
+        required: true,
+    },
+    ref_fee: {
+        type: Number,
         required: true,
     },
     timestamp: {
         type: Number,
         default: Date.now(),
-    },
-    referrer: {
-        type: String,
-        required: true,
     },
 });
 

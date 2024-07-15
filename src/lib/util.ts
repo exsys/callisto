@@ -14,6 +14,7 @@ import { Transaction } from "../models/transaction";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
 import { DBTransaction } from "../interfaces/db-tx";
+import { Referral } from "../models/referral";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -55,8 +56,7 @@ export async function createNewWallet(userId: string): Promise<string | null> {
         await privateKey.save();
 
         if (walletCount === 1) {
-
-            // TODO: ask for ref code with modal
+            return "refcodemodal";
         }
 
         return solanaWallet.publicKey.toString();
@@ -67,32 +67,32 @@ export async function createNewWallet(userId: string): Promise<string | null> {
 }
 
 export async function createRefCodeForUser(userId: string): Promise<string | null> {
-    let refLink = createNewRefLink();
+    let refCode = createNewRefCode();
     let msgContent = "Your referral code is: ";
     try {
         const user = await UserStats.findOne({ user_id: userId });
         if (!user) return null;
-        if (user.ref_link) {
-            msgContent += user.ref_link;
+        if (user.ref_code) {
+            msgContent += user.ref_code;
             return msgContent;
         }
 
-        let userWithRefLinkExistsAlready = await UserStats.findOne({ ref_link: refLink });
-        while (userWithRefLinkExistsAlready) {
-            refLink = createNewRefLink();
-            userWithRefLinkExistsAlready = await UserStats.findOne({ ref_link: refLink });
+        let userWithRefCodeExistsAlready = await UserStats.findOne({ ref_code: refCode });
+        while (userWithRefCodeExistsAlready) {
+            refCode = createNewRefCode();
+            userWithRefCodeExistsAlready = await UserStats.findOne({ ref_code: refCode });
         }
-    
-        user.ref_link = refLink;
+
+        user.ref_code = refCode;
         await user.save();
-        msgContent += user.ref_link;
+        msgContent += user.ref_code;
         return msgContent;
     } catch (error) {
         return null;
     }
 }
 
-export function createNewRefLink(): string {
+export function createNewRefCode(): string {
     let result = "";
     for (let i = 0; i < 8; i++) {
         const randomIndex = Math.floor(Math.random() * REFCODE_CHARSET.length);
@@ -213,7 +213,7 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
         return createAfterSwapUI(response);
     } catch (error) {
         console.log(error);
-        return { content: ERROR_CODES["0011"].message, ephemeral: true };
+        return { content: ERROR_CODES["0000"].message, ephemeral: true };
     }
 }
 
@@ -225,8 +225,7 @@ export async function buyCoinX(userId: string, msgContent: string, amount: strin
         // TODO: if response.error save in DB
         return createAfterSwapUI(response);
     } catch (error) {
-        console.log(error);
-        return { content: ERROR_CODES["0011"].message, ephemeral: true };
+        return { content: ERROR_CODES["0000"].message, ephemeral: true };
     }
 }
 
@@ -238,8 +237,7 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
         // TODO: if response.error save in DB
         return createAfterSwapUI(response);
     } catch (error) {
-        console.log(error);
-        return { content: ERROR_CODES["0011"].message, ephemeral: true };
+        return { content: ERROR_CODES["0000"].message, ephemeral: true };
     }
 }
 
@@ -251,8 +249,7 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
         // TODO: if response.error save in DB
         return createAfterSwapUI(response);
     } catch (error) {
-        console.log(error);
-        return { content: ERROR_CODES["0011"].message, ephemeral: true };
+        return { content: ERROR_CODES["0000"].message, ephemeral: true };
     }
 }
 
@@ -356,3 +353,49 @@ export async function getCurrentTokenPriceInSolAll(cas: CaAmount[]): Promise<num
 }
 
 export const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
+
+export async function saveReferralAndUpdateFees(userId: string, refCode: string): Promise<string> {
+    try {
+        const user = await UserStats.findOne({ user_id: userId });
+        if (!user) {
+            return ERROR_CODES["0013"].message;
+        }
+        const referrer = await UserStats.findOne({ ref_code: refCode });
+        if (!referrer) {
+            return ERROR_CODES["0014"].message;
+        }
+
+        if (user.used_ref_code) {
+            return "This user already used a referral code."
+        }
+    
+        const newRef = new Referral({
+            user_id: user.user_id,
+            referrer: referrer.user_id,
+            ref_code: refCode,
+            number_of_referral: referrer.total_refs,
+            ref_fee: getCorrectRefFee(referrer.total_refs),
+        });
+    
+        user.used_ref_code = {
+            code: refCode,
+            timestamp: Date.now(),
+        }
+        user.fee = user.fee * 0.9;
+        referrer.total_refs++;
+
+        await Wallet.updateMany({ user_id: userId }, { swap_fee: user.fee });
+        await newRef.save();
+        await user.save();
+        await referrer.save();
+        return "Successfully used referral code. Your transaction fees are reduced by 10% for the next 30 days.\n\nUse the /start command to start trading."
+    } catch (error) {
+        return ERROR_CODES["0000"].message;
+    }
+}
+
+export function getCorrectRefFee(numberOfRef: number) {
+    if (numberOfRef <= 10) return 10;
+    if (numberOfRef >= 11 && numberOfRef <= 99) return 20;
+    if (numberOfRef >= 100) return 30;
+}

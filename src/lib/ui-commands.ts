@@ -23,7 +23,8 @@ import {
     createSelectCoinMenu,
     createSellXPercentModal,
     createSendCoinModal,
-    createHelpUI
+    createHelpUI,
+    createRefCodeModal
 } from "./discord-ui";
 import { Wallet } from "../models/wallet";
 import {
@@ -38,7 +39,8 @@ import {
     isNumber,
     sellCoin,
     sellCoinX,
-    createRefCodeForUser
+    createRefCodeForUser,
+    saveReferralAndUpdateFees
 } from "./util";
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -134,7 +136,6 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply({ content: refCode, ephemeral: true });
             return;
         }
-
         await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
     },
     deposit: async (interaction: any) => {
@@ -171,15 +172,26 @@ export const BUTTON_COMMANDS = {
         await interaction.editReply(changeWalletUI);
     },
     createWallet: async (interaction: any) => {
-        await interaction.deferReply({ ephemeral: true });
         const walletAddress = await createNewWallet(interaction.user.id);
         if (!walletAddress) {
-            await interaction.editReply(`Server error. If this issue persists please contact Support. Error code: 0005`);
+            await interaction.editReply({ content: ERROR_CODES["0005"].message, ephemeral: true });
             return;
         }
+
+        if (walletAddress === "refcodemodal") {
+            try {
+                const refCodeModal = createRefCodeModal();
+                await interaction.showModal(refCodeModal);
+                return;
+            } catch (error) {
+                console.log(error);
+                return;
+            }
+        }
+
         const startUI = await createStartUI(interaction.user.id);
         if (!startUI) {
-            await interaction.editReply(`Server error. If this issue persists please contact Support. Error code: 0002`);
+            await interaction.editReply({ content: ERROR_CODES["0002"].message, ephemeral: true });
             return;
         }
         await interaction.editReply(startUI);
@@ -188,7 +200,7 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const walletAddress = await createNewWallet(interaction.user.id);
         if (!walletAddress) {
-            await interaction.editReply(`Server error. If this issue persists please contact Support. Error code: 0005`);
+            await interaction.editReply({ content: ERROR_CODES["0005"].message, ephemeral: true });
             return;
         }
         const setAsDefaultUI: UI = createSetAsDefaultUI(walletAddress as string);
@@ -830,4 +842,9 @@ export const MODAL_COMMANDS = {
         const result = await SolanaWeb3.sendCoin(interaction.user.id, contractAddress, amountToSend, destinationAddress);
         await interaction.editReply({ content: result.content, ephemeral: true });
     },
+    enterRefCode: async (interaction: any, refCode: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        const message = await saveReferralAndUpdateFees(interaction.user.id, refCode);
+        await interaction.editReply({ content: message, ephemeral: true });
+    }
 };
