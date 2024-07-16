@@ -13,7 +13,6 @@ import {
     MessageAddressTableLookup,
 } from '@solana/web3.js';
 import { Wallet } from '../models/wallet';
-import { PrivateKey } from '../models/private-key';
 import {
     formatNumber,
     getCurrentSolPrice,
@@ -46,7 +45,6 @@ import {
     ERROR_CODES,
     invalidNumberError,
     decryptError,
-    privateKeyNotFoundError,
     txExpiredError,
     txMetaError,
     unknownError,
@@ -69,7 +67,7 @@ import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CAWithAmount } from "../interfaces/cawithamount";
-import { UserStats } from "../models/user-stats";
+import { User } from "../models/user";
 
 type CoinPriceQuote = {
     contractAddress: string;
@@ -102,11 +100,8 @@ export class SolanaWeb3 {
             const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
             if (!wallet) return walletNotFoundError(userId);
 
-            const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-            if (!privateKey) return privateKeyNotFoundError(userId);
-
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet.wallet_address);
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
+            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(userId);
 
             const maxSolAmountToSend = balanceInLamports - this.GAS_FEE_FOR_SOL_TRANSFER;
@@ -150,12 +145,10 @@ export class SolanaWeb3 {
         try {
             const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
             if (!wallet) return walletNotFoundError(userId);
-            const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-            if (!privateKey) return privateKeyNotFoundError(userId);
             if (!isNumber(amount)) return invalidNumberError(userId);
 
             const blockhash = await this.getConnection().getLatestBlockhash("finalized");
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
+            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(userId);
 
             const tx: Transaction = new Transaction().add(
@@ -205,11 +198,9 @@ export class SolanaWeb3 {
         try {
             const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
             if (!wallet) return walletNotFoundError(userId);
-            const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-            if (!privateKey) return privateKeyNotFoundError(userId);
             if (!isNumber(amount)) return invalidNumberError(userId);
 
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
+            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(userId);
             const walletTokenAccount = await this.getTokenAccountOfWallet(wallet.wallet_address, contractAddress);
             if (!walletTokenAccount) return tokenAccountNotFoundError(userId);
@@ -265,7 +256,7 @@ export class SolanaWeb3 {
         let user: any;
         try {
             wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-            user = await UserStats.findOne({ user_id: userId });
+            user = await User.findOne({ user_id: userId });
         } catch (error) {
             return unknownError(userId, error, contractAddress);
         }
@@ -273,8 +264,6 @@ export class SolanaWeb3 {
         if (!user) return userNotFoundError(userId, contractAddress, amountToSwap);
         try {
             const conn = this.getConnection();
-            const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-            if (!privateKey) return privateKeyNotFoundError(userId, contractAddress);
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet.wallet_address);
             if (typeof balanceInLamports !== "number") {
                 return {
@@ -305,14 +294,13 @@ export class SolanaWeb3 {
             // TODO: get metadata from another source if this one doesn't work
             const coinMetadata: CoinMetadata | null = await this.getCoinMetadata(contractAddress);
             if (!coinMetadata) return coinMetadataError(userId, contractAddress, amountToSwap);
-
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
+            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(userId, contractAddress);
             const reducedFeesFromRef: boolean = wallet.swap_fee !== BASE_SWAP_FEE && wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
             if (reducedFeesFromRef) {
                 // reset the reduced swap fees from using a ref code after 1 month
-                if (user.used_ref_code!.timestamp! >= user.used_ref_code!.timestamp! + FEE_REDUCTION_PERIOD) {
-                    user.fee = BASE_SWAP_FEE;
+                if (user.used_referral!.timestamp! >= user.used_referral!.timestamp! + FEE_REDUCTION_PERIOD) {
+                    user.swap_fee = BASE_SWAP_FEE;
                     await user.save();
                     await Wallet.updateMany({ user_id: userId }, { swap_fee: BASE_SWAP_FEE });
                     wallet.swap_fee = BASE_SWAP_FEE;
@@ -321,6 +309,8 @@ export class SolanaWeb3 {
             const amount: number = Number(amountToSwap) * LAMPORTS_PER_SOL;
             const slippage: number = wallet.settings.buy_slippage * this.BPS_PER_PERCENT;
             const feeToPayInLamports: number = amount * (wallet.swap_fee / 100);
+            // TODO NEXT: if user used ref code, get the corresponding users wallet, divide the fees, and create an extra instruction 
+            // transfer the fees to that wallet
             const feeToPayInSol: number = Number(amountToSwap) * (wallet.swap_fee / 100);
             const amountMinusFee: number = amount - feeToPayInLamports;
             const quoteResponse = await (
@@ -424,9 +414,7 @@ export class SolanaWeb3 {
         const conn = this.getConnection();
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
         if (!wallet) return walletNotFoundError(userId, contractAddress);
-        const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-        if (!privateKey) return privateKeyNotFoundError(userId, contractAddress);
-        const user = await UserStats.findOne({ user_id: userId });
+        const user = await User.findOne({ user_id: userId });
         if (!user) {
             return {
                 user_id: userId,
@@ -472,7 +460,7 @@ export class SolanaWeb3 {
         }
 
         try {
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
+            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) {
                 return {
                     user_id: userId,
@@ -485,8 +473,8 @@ export class SolanaWeb3 {
             const reducedFeesFromRef: boolean = wallet.swap_fee !== BASE_SWAP_FEE && wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
             if (reducedFeesFromRef) {
                 // reset the reduced swap fees from using a ref code after 1 month
-                if (user.used_ref_code!.timestamp! >= user.used_ref_code!.timestamp! + FEE_REDUCTION_PERIOD) {
-                    user.fee = BASE_SWAP_FEE;
+                if (user.used_referral!.timestamp! >= user.used_referral!.timestamp! + FEE_REDUCTION_PERIOD) {
+                    user.swap_fee = BASE_SWAP_FEE;
                     await user.save();
                     await Wallet.updateMany({ user_id: userId }, { swap_fee: BASE_SWAP_FEE });
                     wallet.swap_fee = BASE_SWAP_FEE;

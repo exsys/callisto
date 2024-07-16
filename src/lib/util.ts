@@ -1,7 +1,6 @@
 import "dotenv/config";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { PrivateKey } from "../models/private-key";
-import { UserStats } from "../models/user-stats";
+import { User } from "../models/user";
 import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
 import bs58 from 'bs58';
@@ -14,7 +13,6 @@ import { Transaction } from "../models/transaction";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
 import { DBTransaction } from "../interfaces/db-tx";
-import { Referral } from "../models/referral";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -27,13 +25,13 @@ export async function createNewWallet(userId: string): Promise<string | null> {
 
     try {
         const allWallets = await Wallet.find({ user_id: userId }).lean();
-        const userStats = await UserStats.findOneAndUpdate(
+        const user = await User.findOneAndUpdate(
             { user_id: userId },
             { $inc: { wallets_created: 1 } },
             { new: true, upsert: true }
         ).lean();
-        if (!userStats) return null;
-        const walletCount = userStats.wallets_created;
+        if (!user) return null;
+        const walletCount = user.wallets_created;
 
         const newWallet = new Wallet({
             wallet_id: walletCount,
@@ -41,19 +39,12 @@ export async function createNewWallet(userId: string): Promise<string | null> {
             wallet_name: `Wallet ${walletCount}`,
             is_default_wallet: walletCount === 1 || !allWallets.length,
             wallet_address: solanaWallet.publicKey.toString(),
-            swap_fee: userStats.fee,
-        });
-
-        const privateKey = new PrivateKey({
-            user_id: userId,
-            wallet_id: walletCount,
+            swap_fee: user.swap_fee,
             encrypted_private_key: encryption.encryptedPrivateKey,
-            wallet_address: solanaWallet.publicKey.toString(),
             iv: encryption?.iv,
         });
 
         await newWallet.save();
-        await privateKey.save();
 
         if (walletCount === 1) {
             return "refcodemodal";
@@ -70,17 +61,17 @@ export async function createRefCodeForUser(userId: string): Promise<string | nul
     let refCode = createNewRefCode();
     let msgContent = "Your referral code is: ";
     try {
-        const user = await UserStats.findOne({ user_id: userId });
+        const user = await User.findOne({ user_id: userId });
         if (!user) return null;
         if (user.ref_code) {
             msgContent += user.ref_code;
             return msgContent;
         }
 
-        let userWithRefCodeExistsAlready = await UserStats.findOne({ ref_code: refCode });
+        let userWithRefCodeExistsAlready = await User.findOne({ ref_code: refCode });
         while (userWithRefCodeExistsAlready) {
             refCode = createNewRefCode();
-            userWithRefCodeExistsAlready = await UserStats.findOne({ ref_code: refCode });
+            userWithRefCodeExistsAlready = await User.findOne({ ref_code: refCode });
         }
 
         user.ref_code = refCode;
@@ -99,11 +90,6 @@ export function createNewRefCode(): string {
         result += REFCODE_CHARSET[randomIndex];
     }
     return result;
-}
-
-export async function getPrivateKeyOfWallet(userId: string, walletAddress: string): Promise<string | null> {
-    const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_address: walletAddress }).lean();
-    return privateKey ? privateKey.encrypted_private_key : null;
 }
 
 export function isNumber(str: string): boolean {
@@ -254,20 +240,16 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
 }
 
 export async function exportPrivateKeyOfUser(userId: string): Promise<any | null> {
-
     try {
-        const defaultWallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-        if (!defaultWallet) return null;
-        const privateKey: any = await PrivateKey.findOne({ user_id: userId, wallet_id: defaultWallet.wallet_id });
-        if (!privateKey) return null;
+        const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
+        if (!wallet) return null;
 
-        privateKey.key_exported = true;
-        await privateKey.save();
-        return privateKey;
+        wallet.key_exported = true;
+        await wallet.save();
+        return wallet;
     } catch (error) {
         return null;
     }
-
 }
 
 export async function saveDbTransaction({
@@ -356,36 +338,35 @@ export const wait = (time: number) => new Promise((resolve) => setTimeout(resolv
 
 export async function saveReferralAndUpdateFees(userId: string, refCode: string): Promise<string> {
     try {
-        const user = await UserStats.findOne({ user_id: userId });
+        const user = await User.findOne({ user_id: userId });
         if (!user) {
             return ERROR_CODES["0013"].message;
         }
-        const referrer = await UserStats.findOne({ ref_code: refCode });
+        const referrer = await User.findOne({ ref_code: refCode });
         if (!referrer) {
             return ERROR_CODES["0014"].message;
         }
 
-        if (user.used_ref_code) {
+        let refsWallet: string = "";
+        const referrersDefaultWallet = await Wallet.findOne({ user_id: referrer.user_id, is_default_wallet: true }).lean();
+        if (referrersDefaultWallet) refsWallet = referrersDefaultWallet.wallet_address;
+
+        if (user.used_referral) {
             return "This user already used a referral code."
         }
-    
-        const newRef = new Referral({
-            user_id: user.user_id,
-            referrer: referrer.user_id,
-            ref_code: refCode,
-            number_of_referral: referrer.total_refs,
-            ref_fee: getCorrectRefFee(referrer.total_refs),
-        });
-    
-        user.used_ref_code = {
+
+        user.used_referral = {
             code: refCode,
+            referrer_user_id: referrer.user_id,
+            refferer_wallet: refsWallet,
+            number_of_referral: referrer.total_refs,
+            fee_level: getCorrectRefFeeLevel(referrer.total_refs),
             timestamp: Date.now(),
-        }
-        user.fee = user.fee * 0.9;
+        };
+        user.swap_fee = user.swap_fee * 0.9;
         referrer.total_refs++;
 
-        await Wallet.updateMany({ user_id: userId }, { swap_fee: user.fee });
-        await newRef.save();
+        await Wallet.updateMany({ user_id: userId }, { swap_fee: user.swap_fee });
         await user.save();
         await referrer.save();
         return "Successfully used referral code. Your transaction fees are reduced by 10% for the next 30 days.\n\nUse the /start command to start trading."
@@ -394,8 +375,8 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
     }
 }
 
-export function getCorrectRefFee(numberOfRef: number) {
-    if (numberOfRef <= 10) return 10;
-    if (numberOfRef >= 11 && numberOfRef <= 99) return 20;
-    if (numberOfRef >= 100) return 30;
+export function getCorrectRefFeeLevel(numberOfRef: number) {
+    if (numberOfRef <= 10) return 1;
+    if (numberOfRef >= 11 && numberOfRef <= 99) return 2;
+    if (numberOfRef >= 100) return 3;
 }

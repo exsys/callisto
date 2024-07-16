@@ -45,7 +45,6 @@ import {
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
-import { PrivateKey } from "../models/private-key";
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: any) => {
@@ -56,13 +55,7 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply({ content: "Test failed. Wallet not found", ephemeral: true });
             return;
         }
-        const privateKey = await PrivateKey.findOne({ user_id: userId, wallet_id: wallet.wallet_id }).lean();
-        if (!privateKey) {
-            await interaction.editReply({ content: "Test failed. Private Key not found", ephemeral: true });
-            return;
-        }
-
-        const signer: Keypair | null = getKeypairFromEncryptedPKey(privateKey.encrypted_private_key, privateKey.iv);
+        const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) {
             await interaction.editReply({ content: "Test failed. Signer not found", ephemeral: true });
             return;
@@ -235,12 +228,12 @@ export const BUTTON_COMMANDS = {
     },
     exportPrivKey: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const pKey = await exportPrivateKeyOfUser(interaction.user.id);
-        if (!pKey) {
+        const wallet = await exportPrivateKeyOfUser(interaction.user.id);
+        if (!wallet) {
             await interaction.editReply({ content: ERROR_CODES["0002"].message, ephemeral: true });
             return;
         } else {
-            await interaction.editReply({ content: `Your private key:\n${decryptPKey(pKey.encrypted_private_key, pKey.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.`, ephemeral: true });
+            await interaction.editReply({ content: `Your private key:\n${decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.`, ephemeral: true });
         }
     },
     buyButton1: async (interaction: any) => {

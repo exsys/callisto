@@ -1,6 +1,6 @@
 import { Schema, model } from "mongoose";
 
-const UserStatsSchema = new Schema({
+const UserSchema = new Schema({
     user_id: {
         type: String,
         required: true,
@@ -9,7 +9,7 @@ const UserStatsSchema = new Schema({
         type: Number,
         default: 0,
     },
-    fee: {
+    swap_fee: {
         type: Number,
         default: 0.75, // fee in percent
     },
@@ -18,26 +18,26 @@ const UserStatsSchema = new Schema({
         type: Number,
         default: 0,
     },
+    ref_code: {
+        type: String,
+        required: false,
+    },
     total_refs: {
         // total number of people referred by the user
         type: Number,
         default: 0,
     },
-    ref_rewards_received: {
-        type: Number,
-        default: 0,
-    },
-    ref_code: {
-        type: String,
-        required: false,
-    },
-    used_ref_code: {
+    used_referral: {
         type: {
             code: String,
             timestamp: Number,
+            referrer_user_id: String,
+            refferer_wallet: String,
+            fee_level: Number,
+            number_of_referral: Number,
         },
         required: false,
     }
 }, { timestamps: true });
 
-export const UserStats = model("UserStats", UserStatsSchema, "user_stats");
+export const User = model("User", UserSchema, "users");

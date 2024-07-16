@@ -43,6 +43,18 @@ const WalletSchema = new Schema({
         type: Number,
         default: 0,
     },
+    encrypted_private_key: {
+        type: String,
+        required: true,
+    },
+    key_exported: {
+        type: Boolean,
+        default: false,
+    },
+    iv: {
+        type: String,
+        required: true,
+    },
     settings: {
         type: SettingsSchema,
         default: DEFAULT_SETTINGS,

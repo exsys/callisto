@@ -103,16 +103,6 @@ export function walletNotFoundError(userId: string, contractAddress?: string) {
     };
 }
 
-export function privateKeyNotFoundError(userId: string, contractAddress?: string) {
-    return {
-        user_id: userId,
-        content: ERROR_CODES["0002"].message,
-        success: false,
-        contractAddress: contractAddress ? contractAddress : undefined,
-        error: ERROR_CODES["0002"].context,
-    }
-}
-
 export function decryptError(userId: string, contractAddress?: string) {
     return {
         user_id: userId,
