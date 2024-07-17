@@ -513,6 +513,7 @@ export const MODAL_COMMANDS = {
             const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
             if (!success) {
                 // TODO: store in db as unpaid
+                // ich muss laptop nehmen und mit shiranai ref code benutzen
             }
         }
         await interaction.editReply(ui);

@@ -93,9 +93,10 @@ export const ERROR_CODES = {
     }
 }
 
-export function walletNotFoundError({ user_id, contract_address }: TxResponse): TxResponse {
+export function walletNotFoundError({ user_id, tx_type, contract_address }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
         response: ERROR_CODES["0003"].message,
         success: false,
         contract_address,
@@ -103,9 +104,11 @@ export function walletNotFoundError({ user_id, contract_address }: TxResponse): 
     };
 }
 
-export function decryptError({ user_id, contract_address, token_stats }: TxResponse): TxResponse {
+export function decryptError({ user_id, tx_type, wallet_address, contract_address, token_stats }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: ERROR_CODES["0010"].message,
         success: false,
         contract_address,
@@ -114,12 +117,25 @@ export function decryptError({ user_id, contract_address, token_stats }: TxRespo
     };
 }
 
-export function txExpiredError({ user_id, contract_address, token_amount, sell_amount, token_stats, include_retry_button = true }: TxResponse): TxResponse {
+export function txExpiredError({
+    user_id,
+    tx_type,
+    wallet_address,
+    contract_address,
+    tx_signature,
+    token_amount,
+    sell_amount,
+    token_stats,
+    include_retry_button = true
+}: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Transaction expired. Please try again.",
         success: false,
         contract_address,
+        tx_signature,
         token_amount,
         sell_amount,
         token_stats,
@@ -128,12 +144,26 @@ export function txExpiredError({ user_id, contract_address, token_amount, sell_a
     };
 }
 
-export function txMetaError({ user_id, contract_address, token_amount, sell_amount, token_stats, include_retry_button = true, error }: TxResponse): TxResponse {
+export function txMetaError({
+    user_id,
+    tx_type,
+    wallet_address,
+    contract_address,
+    tx_signature,
+    token_amount,
+    sell_amount,
+    token_stats,
+    include_retry_button = true,
+    error
+}: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Failed to swap. Please try again.",
         success: false,
         contract_address,
+        tx_signature,
         token_amount,
         sell_amount,
         token_stats,
@@ -144,6 +174,8 @@ export function txMetaError({ user_id, contract_address, token_amount, sell_amou
 
 export function unknownError({
     user_id,
+    tx_type,
+    wallet_address,
     contract_address,
     token_amount,
     sell_amount,
@@ -154,6 +186,8 @@ export function unknownError({
 }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: ERROR_CODES["0004"].message,
         success: false,
         contract_address,
@@ -166,9 +200,11 @@ export function unknownError({
     }
 }
 
-export function invalidNumberError({ user_id, contract_address }: TxResponse): TxResponse {
+export function invalidNumberError({ user_id, tx_type, wallet_address, contract_address }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Please enter a valid number and try again.",
         success: false,
         contract_address,
@@ -178,6 +214,8 @@ export function invalidNumberError({ user_id, contract_address }: TxResponse): T
 
 export function insufficientBalanceError({
     user_id,
+    tx_type,
+    wallet_address,
     contract_address,
     token_stats,
     token_amount,
@@ -186,6 +224,8 @@ export function insufficientBalanceError({
 }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Insufficient balance. Please check your balance and try again.",
         success: false,
         contract_address,
@@ -197,27 +237,33 @@ export function insufficientBalanceError({
     };
 }
 
-export function tokenAccountNotFoundError({ user_id }: TxResponse): TxResponse {
+export function tokenAccountNotFoundError({ user_id, tx_type, wallet_address }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: ERROR_CODES["0008"].message,
         success: false,
         error: "Source token account not found. This should not be possible. " + ERROR_CODES["0008"].context,
     }
 }
 
-export function destinationTokenAccountError({ user_id }: TxResponse): TxResponse {
+export function destinationTokenAccountError({ user_id, tx_type, wallet_address }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: ERROR_CODES["0008"].message,
         success: false,
         error: "Destination token account not found. Maybe it failed to create associated token account or RPC is down. ",
     }
 }
 
-export function coinstatsNotFoundError({ user_id, contract_address, sell_amount }: TxResponse): TxResponse {
+export function coinstatsNotFoundError({ user_id, tx_type, wallet_address, contract_address, sell_amount }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Coin not found. Please try again later.",
         success: false,
         contract_address,
@@ -227,9 +273,11 @@ export function coinstatsNotFoundError({ user_id, contract_address, sell_amount 
     };
 }
 
-export function invalidAmountError({ user_id, contract_address }: TxResponse): TxResponse {
+export function invalidAmountError({ user_id, tx_type, wallet_address, contract_address }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Invalid amount. Please enter a number above 0.",
         success: false,
         contract_address,
@@ -237,9 +285,11 @@ export function invalidAmountError({ user_id, contract_address }: TxResponse): T
     };
 }
 
-export function coinMetadataError({ user_id, contract_address, token_amount }: TxResponse): TxResponse {
+export function coinMetadataError({ user_id, tx_type, wallet_address, contract_address, token_amount }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Coin not tradeable. Please try again later.",
         success: false,
         contract_address,
@@ -249,9 +299,19 @@ export function coinMetadataError({ user_id, contract_address, token_amount }: T
     };
 }
 
-export function quoteResponseError({ user_id, contract_address, token_amount, sell_amount, error }: TxResponse): TxResponse {
+export function quoteResponseError({
+    user_id,
+    tx_type,
+    wallet_address,
+    contract_address,
+    token_amount,
+    sell_amount,
+    error
+}: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Failed to swap. Please try again.",
         success: false,
         contract_address,
@@ -262,9 +322,20 @@ export function quoteResponseError({ user_id, contract_address, token_amount, se
     };
 }
 
-export function postSwapTxError({ user_id, contract_address, token_amount, sell_amount, token_stats, error }: TxResponse): TxResponse {
+export function postSwapTxError({
+    user_id,
+    tx_type,
+    wallet_address,
+    contract_address,
+    token_amount,
+    sell_amount,
+    token_stats,
+    error
+}: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Failed to swap. Please try again.",
         success: false,
         contract_address,
@@ -276,9 +347,18 @@ export function postSwapTxError({ user_id, contract_address, token_amount, sell_
     };
 }
 
-export function userNotFoundError({ user_id, contract_address, token_amount, sell_amount }: TxResponse): TxResponse {
+export function userNotFoundError({
+    user_id,
+    tx_type,
+    wallet_address,
+    contract_address,
+    token_amount,
+    sell_amount
+}: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: ERROR_CODES["0011"].message,
         success: false,
         contract_address,
@@ -289,9 +369,11 @@ export function userNotFoundError({ user_id, contract_address, token_amount, sel
     }
 }
 
-export function walletBalanceError({ user_id, contract_address }: TxResponse): TxResponse {
+export function walletBalanceError({ user_id, tx_type, wallet_address, contract_address }: TxResponse): TxResponse {
     return {
         user_id,
+        tx_type,
+        wallet_address,
         response: "Server error. Please try again later",
         success: false,
         contract_address,

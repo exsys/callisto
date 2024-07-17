@@ -10,17 +10,21 @@ const TransactionSchema = new Schema<DBTransaction>({
         type: String,
         required: true,
     },
-    token_address: {
+    contract_address: {
         type: String,
-        required: true,
+        required: false,
     },
-    buy_or_sell: {
+    tx_type: {
         type: String,
-        required: true,
+        required: false,
     },
     success: {
         type: Boolean,
         required: true,
+    },
+    tx_signature: {
+        type: String,
+        required: false,
     },
     token_amount: {
         type: Number,
@@ -49,18 +53,14 @@ const TransactionSchema = new Schema<DBTransaction>({
     },
     processing_time_function: {
         type: Number,
-        required: true,
+        required: false,
     },
     processing_time_tx: {
         type: Number,
         required: false,
     },
-    utc_timestamp: {
-        type: String,
-        required: false,
-    },
-    unix_timestamp: {
-        type: String,
+    timestamp: {
+        type: Number,
         required: false,
     },
     error: {

@@ -27,6 +27,10 @@ const UserSchema = new Schema({
         type: Number,
         default: 0,
     },
+    unpaid_ref_fees: {
+        type: Number,
+        default: 0,
+    },
     referrer: {
         // the user who referred this user and some stats
         type: {

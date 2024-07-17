@@ -11,7 +11,6 @@ import { createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
-import { DBTransaction } from "../interfaces/db-tx";
 import { LEVEL1_FEE_IN_PERCENT, LEVEL2_FEE_IN_PERCENT, LEVEL3_FEE_IN_PERCENT, REFCODE_MODAL_STRING } from "../config/constants";
 import { TxResponse } from "../interfaces/tx-response";
 
@@ -193,7 +192,7 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
     try {
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
-        // TODO NEXT: überall transaction in db speichern
+        await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
         console.log(error);
@@ -206,6 +205,7 @@ export async function buyCoinX(userId: string, msgContent: string, amount: strin
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
     try {
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, amount);
+        await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
@@ -217,6 +217,7 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
     try {
         const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
+        await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
@@ -228,6 +229,7 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
     try {
         const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, amountInPercent);
+        await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
@@ -250,32 +252,33 @@ export async function exportPrivateKeyOfUser(userId: string): Promise<any | null
 export async function saveDbTransaction({
     user_id,
     wallet_address,
-    buy_or_sell,
-    token_address,
+    contract_address,
+    tx_type,
+    tx_signature,
     success,
     processing_time_function,
     processing_time_tx,
     token_amount,
+    sell_amount,
     usd_volume,
     total_fees,
     callisto_fees,
     ref_fees,
     error,
-}: DBTransaction): Promise<boolean> {
+}: TxResponse): Promise<boolean> {
     try {
-        const date = new Date();
-        const utcTime = date.toUTCString();
         const dbTx = new Transaction({
-            buy_or_sell,
             user_id,
             wallet_address,
-            token_address,
+            contract_address,
+            tx_type,
+            tx_signature,
             success,
             processing_time_function,
             processing_time_tx,
-            utcTime,
-            unix_timestamp: Date.now(),
+            timestamp: Date.now(),
             token_amount,
+            sell_amount,
             usd_volume,
             total_fees,
             callisto_fees,

@@ -3,11 +3,11 @@ import { Referrer } from "./referrer";
 
 export interface TxResponse {
     user_id: string;
-    user_wallet_address?: string;
+    wallet_address?: string;
     success?: boolean;
     response?: string;
     contract_address?: string;
-    buy_or_sell?: "buy" | "sell";
+    tx_type: string;
     tx_signature?: string; // transaction signature
     token_amount?: string; // in decimal
     sell_amount?: number; // in percent
@@ -21,4 +21,5 @@ export interface TxResponse {
     callisto_fees?: number;
     ref_fees?: number;
     usd_volume?: number;
+    timestamp?: number;
 }
