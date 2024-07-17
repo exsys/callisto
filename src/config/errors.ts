@@ -87,7 +87,7 @@ export const ERROR_CODES = {
     },
     "0014": {
         code: "0014",
-        message: "Couldn't find referral code. Error code: 0014",
+        message: "The submitted referral code does not exist. Please contact support if you believe there was a mistake.",
         context: "Couldn't find user of corresponding referral code.",
         short: "Couldn't find user with ref code",
     }

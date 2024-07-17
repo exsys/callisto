@@ -343,6 +343,7 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
         }
         const referrer = await User.findOne({ ref_code: refCode });
         if (!referrer) {
+            // TODO: store error and submitted ref code in db
             return ERROR_CODES["0014"].message;
         }
 
