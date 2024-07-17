@@ -27,12 +27,13 @@ const UserSchema = new Schema({
         type: Number,
         default: 0,
     },
-    used_referral: {
+    referrer: {
+        // the user who referred this user and some stats
         type: {
             code: String,
             timestamp: Number,
             referrer_user_id: String,
-            refferer_wallet: String,
+            referrer_wallet: String,
             fee_level: Number,
             number_of_referral: Number,
         },

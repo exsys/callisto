@@ -8,6 +8,8 @@ export type DBTransaction = {
     processing_time_tx?: number;
     token_amount?: number; // SOL if swap was a buy. in lamports, or decimals included in case of tokens
     usd_volume?: number;
-    fees_in_sol?: number;
+    total_fees?: number;
+    callisto_fees?: number;
+    ref_fees?: number;
     error?: any;
 }

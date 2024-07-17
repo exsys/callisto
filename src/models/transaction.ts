@@ -46,7 +46,16 @@ const TransactionSchema = new Schema({
         type: Number,
         required: false,
     },
-    fees_in_sol: {
+    // fees are in SOL
+    total_fees: {
+        type: Number,
+        required: false,
+    },
+    fees_to_callisto: {
+        type: Number,
+        required: false,
+    },
+    fees_to_ref: {
         type: Number,
         required: false,
     },

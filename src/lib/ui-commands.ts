@@ -261,6 +261,8 @@ export const BUTTON_COMMANDS = {
         await interaction.showModal(modal);
     },
     sellButton1: async (interaction: any) => {
+        // TODO NEXT: after swap and sending discord message send ref fee from calli wallet to referrer wallet
+        // if it fails to transfer store in DB that we owe the referrer some $$ so they can claim it manually
         await interaction.deferReply({ ephemeral: true });
         const ui: UI = await sellCoin(interaction.user.id, interaction.message.content, "1");
         await interaction.editReply(ui);

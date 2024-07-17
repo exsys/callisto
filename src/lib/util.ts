@@ -13,6 +13,7 @@ import { Transaction } from "../models/transaction";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
 import { DBTransaction } from "../interfaces/db-tx";
+import { LEVEL1_FEE_IN_PERCENT, LEVEL2_FEE_IN_PERCENT, LEVEL3_FEE_IN_PERCENT } from "../config/constants";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -262,7 +263,9 @@ export async function saveDbTransaction({
     processing_time_tx,
     token_amount,
     usd_volume,
-    fees_in_sol,
+    total_fees,
+    callisto_fees,
+    ref_fees,
     error,
 }: DBTransaction): Promise<boolean> {
     try {
@@ -280,7 +283,9 @@ export async function saveDbTransaction({
             unix_timestamp: Date.now(),
             token_amount,
             usd_volume,
-            fees_in_sol,
+            total_fees,
+            callisto_fees,
+            ref_fees,
             error: error,
         });
         await dbTx.save();
@@ -351,14 +356,14 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
         const referrersDefaultWallet = await Wallet.findOne({ user_id: referrer.user_id, is_default_wallet: true }).lean();
         if (referrersDefaultWallet) refsWallet = referrersDefaultWallet.wallet_address;
 
-        if (user.used_referral) {
+        if (user.referrer) {
             return "This user already used a referral code."
         }
 
-        user.used_referral = {
+        user.referrer = {
             code: refCode,
             referrer_user_id: referrer.user_id,
-            refferer_wallet: refsWallet,
+            referrer_wallet: refsWallet,
             number_of_referral: referrer.total_refs,
             fee_level: getCorrectRefFeeLevel(referrer.total_refs),
             timestamp: Date.now(),
@@ -375,8 +380,16 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
     }
 }
 
-export function getCorrectRefFeeLevel(numberOfRef: number) {
-    if (numberOfRef <= 10) return 1;
+export function getCorrectRefFeeLevel(numberOfRef: number): number {
+    if (numberOfRef >= 1 && numberOfRef <= 10) return 1;
     if (numberOfRef >= 11 && numberOfRef <= 99) return 2;
     if (numberOfRef >= 100) return 3;
+    return 0;
+}
+
+export function getFeeInPercentFromFeeLevel(feeLevel: number): number {
+    if (feeLevel === 1) return LEVEL1_FEE_IN_PERCENT;
+    if (feeLevel === 2) return LEVEL2_FEE_IN_PERCENT;
+    if (feeLevel === 3) return LEVEL3_FEE_IN_PERCENT;
+    return 0;
 }

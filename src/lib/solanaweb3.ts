@@ -11,11 +11,13 @@ import {
     TransactionMessage,
     GetProgramAccountsFilter,
     MessageAddressTableLookup,
+    TransactionInstruction,
 } from '@solana/web3.js';
 import { Wallet } from '../models/wallet';
 import {
     formatNumber,
     getCurrentSolPrice,
+    getFeeInPercentFromFeeLevel,
     getKeypairFromEncryptedPKey,
     isNumber,
     saveDbTransaction
@@ -25,7 +27,7 @@ import { SwapTx } from "../interfaces/swaptx";
 import { UIResponse } from "../interfaces/uiresponse";
 import {
     BASE_SWAP_FEE,
-    FEE_ACCOUNT,
+    FEE_TOKEN_ACCOUNT,
     FEE_ACCOUNT_OWNER,
     FEE_REDUCTION_PERIOD,
     FEE_REDUCTION_WITH_REF_CODE,
@@ -296,26 +298,33 @@ export class SolanaWeb3 {
             if (!coinMetadata) return coinMetadataError(userId, contractAddress, amountToSwap);
             const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(userId, contractAddress);
-            const reducedFeesFromRef: boolean = wallet.swap_fee !== BASE_SWAP_FEE && wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
-            if (reducedFeesFromRef) {
+            const userHasReducedFeesFromRef: boolean = wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
+            if (userHasReducedFeesFromRef) {
                 // reset the reduced swap fees from using a ref code after 1 month
-                if (user.used_referral!.timestamp! >= user.used_referral!.timestamp! + FEE_REDUCTION_PERIOD) {
+                if (user.referrer!.timestamp! >= user.referrer!.timestamp! + FEE_REDUCTION_PERIOD) {
                     user.swap_fee = BASE_SWAP_FEE;
                     await user.save();
                     await Wallet.updateMany({ user_id: userId }, { swap_fee: BASE_SWAP_FEE });
                     wallet.swap_fee = BASE_SWAP_FEE;
                 }
             }
-            const amount: number = Number(amountToSwap) * LAMPORTS_PER_SOL;
+            const amountInLamports: number = Number(amountToSwap) * LAMPORTS_PER_SOL;
+            const totalFeesInLamports: number = amountInLamports * (wallet.swap_fee / 100);
+            const totalFeesInSol: number = Number(amountToSwap) * (wallet.swap_fee / 100);
             const slippage: number = wallet.settings.buy_slippage * this.BPS_PER_PERCENT;
-            const feeToPayInLamports: number = amount * (wallet.swap_fee / 100);
-            // TODO NEXT: if user used ref code, get the corresponding users wallet, divide the fees, and create an extra instruction 
-            // transfer the fees to that wallet
-            const feeToPayInSol: number = Number(amountToSwap) * (wallet.swap_fee / 100);
-            const amountMinusFee: number = amount - feeToPayInLamports;
+            let refFeesInLamports: number = 0;
+            let refFeesInSol: number = 0;
+            if (user.referrer) {
+                const feeAmountInPercent: number = getFeeInPercentFromFeeLevel(user.referrer.fee_level);
+                refFeesInLamports = totalFeesInLamports * (1 - feeAmountInPercent / 100);
+                refFeesInSol = refFeesInLamports / LAMPORTS_PER_SOL;
+            }
+            const callistoFeesInLamports: number = totalFeesInLamports - refFeesInLamports;
+            const callistoFeesInSol: number = callistoFeesInLamports / LAMPORTS_PER_SOL;
+            const amountInLamportsMinusFees: number = amountInLamports - totalFeesInLamports;
             const quoteResponse = await (
                 await fetch(
-                    `https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${contractAddress}&amount=${amountMinusFee}&slippageBps=${slippage}`
+                    `https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${contractAddress}&amount=${amountInLamportsMinusFees}&slippageBps=${slippage}`
                 )
             ).json();
             if (quoteResponse.error) {
@@ -343,11 +352,19 @@ export class SolanaWeb3 {
 
             const swapTxBuf: Buffer = Buffer.from(swapTx.swapTransaction!, 'base64');
             const tx: VersionedTransaction = VersionedTransaction.deserialize(swapTxBuf);
-            const feeInstruction = SystemProgram.transfer({
+            const callistoFeeInstruction: TransactionInstruction = SystemProgram.transfer({
                 fromPubkey: new PublicKey(wallet.wallet_address),
                 toPubkey: new PublicKey(FEE_ACCOUNT_OWNER),
-                lamports: feeToPayInLamports,
+                lamports: callistoFeesInLamports,
             });
+            let refFeeInstruction: TransactionInstruction | null = null;
+            if (refFeesInLamports > 0) {
+                refFeeInstruction = SystemProgram.transfer({
+                    fromPubkey: new PublicKey(wallet.wallet_address),
+                    toPubkey: new PublicKey(user.referrer.referrer_wallet),
+                    lamports: refFeesInLamports,
+                });
+            }
             // TODO: handle error from Promise.all
             const addressLookupTableAccounts = await Promise.all(
                 tx.message.addressTableLookups.map(async (lookup: MessageAddressTableLookup) => {
@@ -358,7 +375,10 @@ export class SolanaWeb3 {
                 })
             );
             const txMessage = TransactionMessage.decompile(tx.message, { addressLookupTableAccounts: addressLookupTableAccounts });
-            txMessage.instructions.push(feeInstruction);
+            txMessage.instructions.push(callistoFeeInstruction);
+            if (refFeesInLamports > 0 && refFeeInstruction) {
+                txMessage.instructions.push(refFeeInstruction)
+            }
             tx.message = txMessage.compileToV0Message(addressLookupTableAccounts);
             tx.sign([signer]);
             const sig = this.getSignature(tx);
@@ -388,9 +408,11 @@ export class SolanaWeb3 {
                 success: true,
                 processing_time_function: functionProcessingTime,
                 processing_time_tx: txProcessingTime,
-                token_amount: amount,
+                token_amount: amountInLamports,
                 usd_volume: currentSolPrice ? currentSolPrice * Number(amountToSwap) : undefined,
-                fees_in_sol: feeToPayInSol,
+                total_fees: totalFeesInSol,
+                callisto_fees: callistoFeesInSol,
+                ref_fees: refFeesInSol,
             });
             return { user_id: userId, content: "Successfully swapped. Transaction ID: " + sig, success: true, ca: contractAddress };
         } catch (error) {
@@ -403,7 +425,7 @@ export class SolanaWeb3 {
                 token_address: contractAddress,
                 success: false,
                 processing_time_function: functionProcessingTime,
-                error
+                error,
             });
             return unknownErrorRetry(userId, contractAddress, amountToSwap, error);
         }
@@ -470,21 +492,21 @@ export class SolanaWeb3 {
                     error: ERROR_CODES["0010"].context
                 };
             }
-            const reducedFeesFromRef: boolean = wallet.swap_fee !== BASE_SWAP_FEE && wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
-            if (reducedFeesFromRef) {
+            const userHasReducedFeesFromRef: boolean = wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
+            if (userHasReducedFeesFromRef) {
                 // reset the reduced swap fees from using a ref code after 1 month
-                if (user.used_referral!.timestamp! >= user.used_referral!.timestamp! + FEE_REDUCTION_PERIOD) {
+                if (user.referrer!.timestamp! >= user.referrer!.timestamp! + FEE_REDUCTION_PERIOD) {
                     user.swap_fee = BASE_SWAP_FEE;
                     await user.save();
                     await Wallet.updateMany({ user_id: userId }, { swap_fee: BASE_SWAP_FEE });
                     wallet.swap_fee = BASE_SWAP_FEE;
                 }
             }
-            const amount: number = (Number(coinStats.tokenAmount!.amount) * (Number(amountToSellInPercent) / 100));
+            const amountInLamports: number = (Number(coinStats.tokenAmount!.amount) * (Number(amountToSellInPercent) / 100));
             const slippage: number = wallet.settings.sell_slippage * this.BPS_PER_PERCENT;
             const feeAmountInBPS: number = wallet.swap_fee * this.BPS_PER_PERCENT;
             const quoteResponse = await (
-                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${amount}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`)
+                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${amountInLamports}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`)
             ).json();
 
             if (quoteResponse.error) {
@@ -511,7 +533,7 @@ export class SolanaWeb3 {
                         wrapAndUnwrapSol: true,
                         prioritizationFeeLamports: wallet.settings.tx_priority_value,
                         dynamicComputeUnitLimit: true,
-                        feeAccount: FEE_ACCOUNT,
+                        feeAccount: FEE_TOKEN_ACCOUNT,
                     })
                 })
             ).json();
@@ -568,9 +590,9 @@ export class SolanaWeb3 {
 
             const endTimeTx: number = Date.now();
             const txProcessingTime: number = (endTimeTx - startTimeTx) / 1000;
-            const currentSolPrice = await getCurrentSolPrice();
-            const minReceivedValueInSol = Number(quoteResponse.otherAmountThreshold) / LAMPORTS_PER_SOL;
-            const usdVolume = currentSolPrice ? currentSolPrice * minReceivedValueInSol : undefined;
+            //const currentSolPrice = await getCurrentSolPrice();
+            //const minReceivedValueInSol = Number(quoteResponse.otherAmountThreshold) / LAMPORTS_PER_SOL;
+            //const usdVolume = currentSolPrice ? currentSolPrice * minReceivedValueInSol : undefined;
             const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
             await saveDbTransaction({
                 user_id: userId,
@@ -580,8 +602,8 @@ export class SolanaWeb3 {
                 success: true,
                 processing_time_function: functionProcessingTime,
                 processing_time_tx: txProcessingTime,
-                token_amount: amount,
-                usd_volume: usdVolume,
+                token_amount: amountInLamports,
+                //usd_volume: usdVolume,
             });
             return { user_id: userId, content: "Successfully swapped. Transaction ID: " + sig, success: true, token: coinStats };
         } catch (error) {
