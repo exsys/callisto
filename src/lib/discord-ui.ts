@@ -1,6 +1,11 @@
 import {
-    ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder,
-    StringSelectMenuOptionBuilder, ModalBuilder, TextInputBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    StringSelectMenuBuilder,
+    StringSelectMenuOptionBuilder,
+    ModalBuilder,
+    TextInputBuilder,
     TextInputStyle
 } from "discord.js";
 import { UI } from "../interfaces/ui";
@@ -8,10 +13,10 @@ import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
 import { formatNumber } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { UIResponse } from "../interfaces/uiresponse";
 import { CoinStats } from "../interfaces/coinstats";
 import { CoinInfo } from "../interfaces/coininfo";
 import { ERROR_CODES } from "../config/errors";
+import { TxResponse } from "../interfaces/tx-response";
 
 export const createStartUI = async (userId: string): Promise<UI> => {
     const defaultWallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
@@ -205,7 +210,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
             content += `Not enough SOL for autobuy. Please deposit more SOL to your wallet.`;
             return { content, ephemeral: true };
         }
-        const response: UIResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
+        const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
 
         // TODO: create either special UI for autobuy or use the same as for manual buy before the swap. instead of createAfterSwapUI
         return createAfterSwapUI(response);
@@ -457,18 +462,22 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
     }
 };
 
-export const createAfterSwapUI = (response: UIResponse): UI => {
-    const token: CoinInfo | undefined = response.token;
-    let amount: string = response.amount ? String(response.amount) : "";
-    if (amount) {
-        amount = amount.includes("%") ? amount = `${amount} | ` : amount = `${amount} SOL | `;
+export const createAfterSwapUI = (txResponse: TxResponse): UI => {
+    const token: CoinStats | undefined = txResponse.token_stats;
+    let amount: string = txResponse.token_amount ? String(txResponse.token_amount) : "";
+    if (txResponse.sell_amount) {
+        amount = `${amount}% | `;
+    } else {
+        amount = `${amount} SOL | `;
     }
 
     if (token) {
-        response.content = `${amount}${token.name} | ${token.symbol} | ${token.address}\n\n${response.content}`;
+        // means it was a sell. needed for the retry button
+        txResponse.response = `${amount}${token.name} | ${token.symbol} | ${token.address}\n\n${txResponse.response}`;
     }
-    if (response.ca) {
-        response.content = `${amount}${response.ca}\n\n${response.content}`;
+    if (txResponse.contract_address) {
+        // needed for the retry button
+        txResponse.response = `${amount}${txResponse.contract_address}\n\n${txResponse.response}`;
     }
 
     const startButton = new ButtonBuilder()
@@ -487,12 +496,12 @@ export const createAfterSwapUI = (response: UIResponse): UI => {
         .setStyle(ButtonStyle.Secondary);
 
     const buttons = [startButton, positionsButton];
-    if (response.includeRetryButton) buttons.push(retryButton);
+    if (txResponse.include_retry_button) buttons.push(retryButton);
 
     const row = new ActionRowBuilder().addComponents(buttons);
 
     return {
-        content: response.content,
+        content: txResponse.response!,
         components: [row],
         ephemeral: true,
     };

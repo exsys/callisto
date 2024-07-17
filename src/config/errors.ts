@@ -1,3 +1,5 @@
+import { TxResponse } from "../interfaces/tx-response";
+
 export const ERROR_CODES = {
     "0000": {
         code: "0000",
@@ -68,7 +70,7 @@ export const ERROR_CODES = {
     "0011": {
         code: "0011",
         message: "Server error. Please try again later. Error code: 0011",
-        context: "Could not find user in UserStats collection.",
+        context: "Could not find user in User collection.",
         short: "Couldn't find user.",
     },
     "0012": {
@@ -91,205 +93,208 @@ export const ERROR_CODES = {
     }
 }
 
-// TODO: make it more dynamic, use an object for example. so I can decided with one function wether it's for buy or sell, and if I want to retry etc
-
-export function walletNotFoundError(userId: string, contractAddress?: string) {
+export function walletNotFoundError({ user_id, contract_address }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: ERROR_CODES["0003"].message,
+        user_id,
+        response: ERROR_CODES["0003"].message,
         success: false,
-        contractAddress: contractAddress ? contractAddress : undefined,
+        contract_address,
         error: ERROR_CODES["0003"].context,
     };
 }
 
-export function decryptError(userId: string, contractAddress?: string) {
+export function decryptError({ user_id, contract_address, token_stats }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: ERROR_CODES["0010"].message,
+        user_id,
+        response: ERROR_CODES["0010"].message,
         success: false,
-        ca: contractAddress ? contractAddress : undefined,
+        contract_address,
+        token_stats,
         error: ERROR_CODES["0010"].context,
     };
 }
 
-export function txExpiredError(userId: string) {
+export function txExpiredError({ user_id, contract_address, token_amount, sell_amount, token_stats, include_retry_button = true }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Failed to swap. Please try again.",
+        user_id,
+        response: "Transaction expired. Please try again.",
         success: false,
-        error: "Transaction expired"
-    };
-}
-
-export function txExpiredErrorRetry(userId: string, contractAddress: string, amountToSwap: string) {
-    return {
-        user_id: userId,
-        content: "Failed to swap. Please try again.",
-        success: false,
-        ca: contractAddress,
-        amount: amountToSwap,
-        includeRetryButton: true,
+        contract_address,
+        token_amount,
+        sell_amount,
+        token_stats,
+        include_retry_button,
         error: "Transaction expired.",
     };
 }
 
-export function txMetaError(userId: string, error: any) {
+export function txMetaError({ user_id, contract_address, token_amount, sell_amount, token_stats, include_retry_button = true, error }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Failed to swap. Please try again.",
+        user_id,
+        response: "Failed to swap. Please try again.",
         success: false,
-        error
+        contract_address,
+        token_amount,
+        sell_amount,
+        token_stats,
+        include_retry_button,
+        error: "Transaction meta error: " + error,
     };
 }
 
-export function txMetaErrorRetry(userId: string, contractAddress: string, amountToSwap: string, error: any) {
+export function unknownError({
+    user_id,
+    contract_address,
+    token_amount,
+    sell_amount,
+    token_stats,
+    include_retry_button = true,
+    processing_time_function,
+    error
+}: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Failed to swap. Please try again.",
+        user_id,
+        response: ERROR_CODES["0004"].message,
         success: false,
-        ca: contractAddress,
-        amount: amountToSwap,
-        includeRetryButton: true,
-        error,
-    };
-}
-
-export function unknownError(userId: string, error: any, contractAddress?: string) {
-    return {
-        user_id: userId,
-        content: ERROR_CODES["0004"].message,
-        success: false,
-        contractAddress: contractAddress ? contractAddress : undefined,
+        contract_address,
+        token_amount,
+        sell_amount,
+        token_stats,
+        include_retry_button,
+        processing_time_function,
         error
     }
 }
 
-export function unknownErrorRetry(userId: string, contractAddress: string, amountToSwap: string, error: any) {
+export function invalidNumberError({ user_id, contract_address }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Failed to swap. Please try again.",
+        user_id,
+        response: "Please enter a valid number and try again.",
         success: false,
-        ca: contractAddress,
-        amount: amountToSwap,
-        includeRetryButton: true,
-        error,
-    };
-}
-
-export function invalidNumberError(userId: string, contractAddress?: string) {
-    return {
-        user_id: userId,
-        content: "Please enter a valid number and try again.",
-        success: false,
-        contractAddress: contractAddress ? contractAddress : undefined,
+        contract_address,
         error: "Invalid number for SOL transfer submitted",
     };
 }
 
-export function insufficientBalanceError(userId: string, contractAddress?: string) {
+export function insufficientBalanceError({
+    user_id,
+    contract_address,
+    token_stats,
+    token_amount,
+    sell_amount,
+    include_retry_button = true
+}: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Insufficient balance. Please check your balance and try again.",
+        user_id,
+        response: "Insufficient balance. Please check your balance and try again.",
         success: false,
-        contractAddress: contractAddress ? contractAddress : undefined,
+        contract_address,
+        token_stats,
+        token_amount,
+        sell_amount,
+        include_retry_button,
         error: "Insufficient wallet balance for SOL transfer",
     };
 }
 
-export function insufficientBalanceErrorRetry(userId: string, contractAddress: string, amountToSwap: string) {
+export function tokenAccountNotFoundError({ user_id }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Insufficient balance. Please check your balance and try again.",
-        success: false,
-        ca: contractAddress,
-        amount: amountToSwap,
-        includeRetryButton: true,
-        error: "Insufficient wallet balance."
-    };
-}
-
-export function tokenAccountNotFoundError(userId: string) {
-    return {
-        user_id: userId,
-        content: ERROR_CODES["0008"].message,
+        user_id,
+        response: ERROR_CODES["0008"].message,
         success: false,
         error: "Source token account not found. This should not be possible. " + ERROR_CODES["0008"].context,
     }
 }
 
-export function destinationTokenAccountError(userId: string) {
+export function destinationTokenAccountError({ user_id }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: ERROR_CODES["0008"].message,
+        user_id,
+        response: ERROR_CODES["0008"].message,
         success: false,
         error: "Destination token account not found. Maybe it failed to create associated token account or RPC is down. ",
     }
 }
 
-export function coinstatsNotFoundError(userId: string, contractAddress: string) {
+export function coinstatsNotFoundError({ user_id, contract_address, sell_amount }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Coin not found. Please try again later.",
+        user_id,
+        response: "Coin not found. Please try again later.",
         success: false,
-        error: `Error when getting coin stats of ${contractAddress}`
+        contract_address,
+        sell_amount,
+        include_retry_button: true,
+        error: `Error when getting coin stats of ${contract_address}`
     };
 }
 
-export function invalidAmountError(userId: string, contractAddress: string) {
+export function invalidAmountError({ user_id, contract_address }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Invalid amount. Please enter a number above 0.",
+        user_id,
+        response: "Invalid amount. Please enter a number above 0.",
         success: false,
-        ca: contractAddress,
+        contract_address,
         error: "Invalid amount for token buy submitted."
     };
 }
 
-export function coinMetadataError(userId: string, contractAddress: string, amountToSwap: string) {
+export function coinMetadataError({ user_id, contract_address, token_amount }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Coin not tradeable. Please try again later.",
+        user_id,
+        response: "Coin not tradeable. Please try again later.",
         success: false,
-        ca: contractAddress,
-        amount: amountToSwap,
-        includeRetryButton: true,
+        contract_address,
+        token_amount,
+        include_retry_button: true,
         error: "Error when getting coin metadata"
     };
 }
 
-export function quoteResponseError(userId: string, contractAddress: string, amountToSwap: string, error: any) {
+export function quoteResponseError({ user_id, contract_address, token_amount, sell_amount, error }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Failed to swap. Please try again.",
+        user_id,
+        response: "Failed to swap. Please try again.",
         success: false,
-        ca: contractAddress,
-        includeRetryButton: true,
-        amount: amountToSwap,
+        contract_address,
+        include_retry_button: true,
+        token_amount,
+        sell_amount,
         error: "Quote response error: " + error
     };
 }
 
-export function postSwapTxError(userId: string, contractAddress: string, amountToSwap: string, error: any) {
+export function postSwapTxError({ user_id, contract_address, token_amount, sell_amount, token_stats, error }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: "Failed to swap. Please try again.",
+        user_id,
+        response: "Failed to swap. Please try again.",
         success: false,
-        ca: contractAddress,
-        amount: amountToSwap,
-        includeRetryButton: true,
+        contract_address,
+        token_amount,
+        sell_amount,
+        token_stats,
+        include_retry_button: true,
         error: "Post swap tx error: " + error
     };
 }
 
-export function userNotFoundError(userId: string, contractAddress: string, amountToSwap: string) {
+export function userNotFoundError({ user_id, contract_address, token_amount, sell_amount }: TxResponse): TxResponse {
     return {
-        user_id: userId,
-        content: ERROR_CODES["0011"].message,
+        user_id,
+        response: ERROR_CODES["0011"].message,
         success: false,
-        ca: contractAddress,
-        amount: amountToSwap,
-        includeRetryButton: true,
+        contract_address,
+        token_amount,
+        sell_amount,
+        include_retry_button: true,
         error: ERROR_CODES["0011"].context,
+    }
+}
+
+export function walletBalanceError({ user_id, contract_address }: TxResponse): TxResponse {
+    return {
+        user_id,
+        response: "Server error. Please try again later",
+        success: false,
+        contract_address,
+        error: "Failed to get wallet balance",
     }
 }

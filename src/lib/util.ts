@@ -5,7 +5,6 @@ import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
 import bs58 from 'bs58';
 import crypto from 'crypto';
-import { UIResponse } from "../interfaces/uiresponse";
 import { ERROR_CODES } from "../config/errors";
 import { UI } from "../interfaces/ui";
 import { createAfterSwapUI } from "./discord-ui";
@@ -14,6 +13,7 @@ import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
 import { DBTransaction } from "../interfaces/db-tx";
 import { LEVEL1_FEE_IN_PERCENT, LEVEL2_FEE_IN_PERCENT, LEVEL3_FEE_IN_PERCENT } from "../config/constants";
+import { TxResponse } from "../interfaces/tx-response";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -192,11 +192,8 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
     const contractAddress = extractAndValidateCA(msgContent);
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
     try {
-        const response: UIResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
-        if (response.error) {
-            // TODO NEXT: überlegen wie ich responses zurückerhalte. wahrscheinlich ein extra type erstellen dafür und dann für 
-            // alle funktionsaufrufe benutzen und txs in db immer in util speichern, und nicht in solanaweb3
-        }
+        const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
+        // TODO NEXT: überall transaction in db speichern
         return createAfterSwapUI(response);
     } catch (error) {
         console.log(error);
@@ -208,8 +205,7 @@ export async function buyCoinX(userId: string, msgContent: string, amount: strin
     const contractAddress = extractAndValidateCA(msgContent);
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
     try {
-        const response: UIResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, amount);
-        // TODO: if response.error save in DB
+        const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, amount);
         return createAfterSwapUI(response);
     } catch (error) {
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
@@ -220,8 +216,7 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
     const contractAddress = extractAndValidateCA(msgContent);
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
     try {
-        const response: UIResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
-        // TODO: if response.error save in DB
+        const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
         return createAfterSwapUI(response);
     } catch (error) {
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
@@ -232,8 +227,7 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
     const contractAddress = extractAndValidateCA(msgContent);
     if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
     try {
-        const response: UIResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, amountInPercent);
-        // TODO: if response.error save in DB
+        const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, amountInPercent);
         return createAfterSwapUI(response);
     } catch (error) {
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
@@ -392,4 +386,8 @@ export function getFeeInPercentFromFeeLevel(feeLevel: number): number {
     if (feeLevel === 2) return LEVEL2_FEE_IN_PERCENT;
     if (feeLevel === 3) return LEVEL3_FEE_IN_PERCENT;
     return 0;
+}
+
+export function successResponse(txResponse: TxResponse): TxResponse {
+    return { ...txResponse };
 }

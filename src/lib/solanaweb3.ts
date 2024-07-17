@@ -20,11 +20,10 @@ import {
     getFeeInPercentFromFeeLevel,
     getKeypairFromEncryptedPKey,
     isNumber,
-    saveDbTransaction
+    successResponse
 } from './util';
 import { CoinMetadata } from "../interfaces/coinmetadata";
 import { SwapTx } from "../interfaces/swaptx";
-import { UIResponse } from "../interfaces/uiresponse";
 import {
     BASE_SWAP_FEE,
     FEE_TOKEN_ACCOUNT,
@@ -44,7 +43,6 @@ import {
     getOrCreateAssociatedTokenAccount
 } from "@solana/spl-token";
 import {
-    ERROR_CODES,
     invalidNumberError,
     decryptError,
     txExpiredError,
@@ -56,23 +54,21 @@ import {
     destinationTokenAccountError,
     coinstatsNotFoundError,
     invalidAmountError,
-    insufficientBalanceErrorRetry,
     coinMetadataError,
     quoteResponseError,
     postSwapTxError,
-    txExpiredErrorRetry,
-    txMetaErrorRetry,
-    unknownErrorRetry,
-    userNotFoundError
+    userNotFoundError,
+    walletBalanceError
 } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CAWithAmount } from "../interfaces/cawithamount";
 import { User } from "../models/user";
+import { TxResponse } from "../interfaces/tx-response";
 
 type CoinPriceQuote = {
-    contractAddress: string;
+    contract_address: string;
     priceInSol: string;
     priceInUsd: string;
 }
@@ -97,14 +93,14 @@ export class SolanaWeb3 {
         return solanaWallet;
     }
 
-    static async transferAllSol(userId: any, recipientAddress: string): Promise<UIResponse> {
+    static async transferAllSol(user_id: string, recipientAddress: string): Promise<TxResponse> {
         try {
-            const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-            if (!wallet) return walletNotFoundError(userId);
+            const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+            if (!wallet) return walletNotFoundError({ user_id });
 
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet.wallet_address);
             const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
-            if (!signer) return decryptError(userId);
+            if (!signer) return decryptError({ user_id });
 
             const maxSolAmountToSend = balanceInLamports - this.GAS_FEE_FOR_SOL_TRANSFER;
             const tx: Transaction = new Transaction().add(
@@ -130,28 +126,28 @@ export class SolanaWeb3 {
                 },
             });
 
-            if (!result) return txExpiredError(userId);
-            if (result.meta?.err) return txMetaError(userId, result.meta?.err);
+            if (!result) return txExpiredError({ user_id });
+            if (result.meta?.err) return txMetaError({ user_id, error: result.meta?.err });
 
-            return {
-                user_id: userId,
-                content: `Successfully transferred funds. Transaction ID: ${signature}`,
+            return successResponse({
+                user_id,
+                response: `Successfully transferred funds. Transaction ID: ${signature}`,
                 success: true,
-            };
+            });
         } catch (error) {
-            return unknownError(userId, error);
+            return unknownError({ user_id, error });
         }
     }
 
-    static async transferXSol(userId: any, amount: string, recipientAddress: string): Promise<UIResponse> {
+    static async transferXSol(user_id: string, amount: string, recipientAddress: string): Promise<TxResponse> {
         try {
-            const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-            if (!wallet) return walletNotFoundError(userId);
-            if (!isNumber(amount)) return invalidNumberError(userId);
+            const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+            if (!wallet) return walletNotFoundError({ user_id });
+            if (!isNumber(amount)) return invalidNumberError({ user_id });
 
             const blockhash = await this.getConnection().getLatestBlockhash("finalized");
             const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
-            if (!signer) return decryptError(userId);
+            if (!signer) return decryptError({ user_id });
 
             const tx: Transaction = new Transaction().add(
                 SystemProgram.transfer({
@@ -169,10 +165,10 @@ export class SolanaWeb3 {
             if (!estimatedFeeInLamports) {
                 // get default fee if the estimated fee is not available
                 if (balanceInLamports < (Number(amount) * LAMPORTS_PER_SOL) + this.GAS_FEE_FOR_SOL_TRANSFER) {
-                    return insufficientBalanceError(userId);
+                    return insufficientBalanceError({ user_id: user_id });
                 }
             } else if (balanceInLamports < (Number(amount) * LAMPORTS_PER_SOL) + estimatedFeeInLamports) {
-                return insufficientBalanceError(userId);
+                return insufficientBalanceError({ user_id: user_id });
             }
 
             tx.sign(signer);
@@ -187,36 +183,40 @@ export class SolanaWeb3 {
                 },
             });
 
-            if (!result) return txExpiredError(userId);
-            if (result.meta?.err) return txMetaError(userId, result.meta?.err);
+            if (!result) return txExpiredError({ user_id });
+            if (result.meta?.err) return txMetaError({ user_id, error: result.meta?.err });
 
-            return { user_id: userId, content: `Successfully transferred funds. Transaction ID: ${signature}`, success: true };
+            return successResponse({
+                user_id,
+                response: `Successfully transferred funds. Transaction ID: ${signature}`,
+                success: true
+            });
         } catch (error) {
-            return unknownError(userId, error);
+            return unknownError({ user_id, error });
         }
     }
 
-    static async sendCoin(userId: any, contractAddress: string, amount: string, destinationAddress: string): Promise<UIResponse> {
+    static async sendCoin(user_id: string, contract_address: string, amount: string, destinationAddress: string): Promise<TxResponse> {
         try {
-            const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-            if (!wallet) return walletNotFoundError(userId);
-            if (!isNumber(amount)) return invalidNumberError(userId);
+            const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+            if (!wallet) return walletNotFoundError({ user_id });;
+            if (!isNumber(amount)) return invalidNumberError({ user_id });
 
             const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
-            if (!signer) return decryptError(userId);
-            const walletTokenAccount = await this.getTokenAccountOfWallet(wallet.wallet_address, contractAddress);
-            if (!walletTokenAccount) return tokenAccountNotFoundError(userId);
+            if (!signer) return decryptError({ user_id: user_id });
+            const walletTokenAccount = await this.getTokenAccountOfWallet(wallet.wallet_address, contract_address);
+            if (!walletTokenAccount) return tokenAccountNotFoundError({ user_id });
 
             const destinationTokenAccount = await getOrCreateAssociatedTokenAccount(
                 this.getConnection(),
                 signer,
-                new PublicKey(contractAddress),
+                new PublicKey(contract_address),
                 new PublicKey(destinationAddress),
             );
-            if (!destinationTokenAccount) return destinationTokenAccountError(userId);
+            if (!destinationTokenAccount) return destinationTokenAccountError({ user_id });
 
-            const coinStats: CoinStats | null = await this.getCoinStats(contractAddress, wallet.wallet_address);
-            if (!coinStats) return coinstatsNotFoundError(userId, contractAddress);
+            const coinStats: CoinStats | null = await this.getCoinStats(contract_address, wallet.wallet_address);
+            if (!coinStats) return coinstatsNotFoundError({ user_id, contract_address });
 
             const blockhash = await this.getConnection().getLatestBlockhash();
             const amountToSend = Number(coinStats.tokenAmount!.amount) * (Number(amount) / 100);
@@ -243,38 +243,36 @@ export class SolanaWeb3 {
                 },
             });
 
-            if (!result) return txExpiredError(userId);
-            if (result.meta?.err) return txMetaError(userId, result.meta?.err);
+            if (!result) return txExpiredError({ user_id });
+            if (result.meta?.err) return txMetaError({ user_id, error: result.meta?.err });
 
-            return { user_id: userId, content: `Successfully transferred funds. Transaction ID: ${signature}`, success: true };
+            return successResponse({
+                user_id,
+                response: `Successfully transferred funds. Transaction ID: ${signature}`,
+                success: true
+            });
         } catch (error) {
-            return unknownError(userId, error);
+            return unknownError({ user_id, error });
         }
     }
 
-    static async buyCoinViaAPI(userId: string, contractAddress: string, amountToSwap: string): Promise<UIResponse> {
+    static async buyCoinViaAPI(user_id: string, contract_address: string, amountToSwap: string): Promise<TxResponse> {
         const startTimeFunction = Date.now();
         let wallet: any;
         let user: any;
         try {
-            wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-            user = await User.findOne({ user_id: userId });
+            wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+            user = await User.findOne({ user_id });
         } catch (error) {
-            return unknownError(userId, error, contractAddress);
+            return unknownError({ user_id, contract_address, error });
         }
-        if (!wallet) return walletNotFoundError(userId, contractAddress);
-        if (!user) return userNotFoundError(userId, contractAddress, amountToSwap);
+        if (!wallet) return walletNotFoundError({ user_id, contract_address });
+        if (!user) return userNotFoundError({ user_id, contract_address, token_amount: amountToSwap });
         try {
             const conn = this.getConnection();
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet.wallet_address);
             if (typeof balanceInLamports !== "number") {
-                return {
-                    user_id: userId,
-                    content: "Server error. Please try again later",
-                    success: false,
-                    ca: contractAddress,
-                    error: "Failed to get wallet balance",
-                };
+                return walletBalanceError({ user_id, contract_address });
             }
 
             if (amountToSwap.includes("buy_button_")) {
@@ -284,27 +282,27 @@ export class SolanaWeb3 {
             const txPrio: number = wallet.settings.tx_priority_value;
 
             if (!isNumber(amountToSwap)) {
-                return invalidNumberError(userId, contractAddress);
+                return invalidNumberError({ user_id, contract_address });
             }
             if (Number(amountToSwap) <= 0) {
-                return invalidAmountError(userId, contractAddress);
+                return invalidAmountError({ user_id, contract_address });
             }
             if (balanceInLamports < Number(amountToSwap) * LAMPORTS_PER_SOL + txPrio) {
-                return insufficientBalanceErrorRetry(userId, contractAddress, amountToSwap);
+                return insufficientBalanceError({ user_id, contract_address, token_amount: amountToSwap });
             }
 
             // TODO: get metadata from another source if this one doesn't work
-            const coinMetadata: CoinMetadata | null = await this.getCoinMetadata(contractAddress);
-            if (!coinMetadata) return coinMetadataError(userId, contractAddress, amountToSwap);
+            const coinMetadata: CoinMetadata | null = await this.getCoinMetadata(contract_address);
+            if (!coinMetadata) return coinMetadataError({ user_id, contract_address, token_amount: amountToSwap });
             const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
-            if (!signer) return decryptError(userId, contractAddress);
+            if (!signer) return decryptError({ user_id, contract_address });
             const userHasReducedFeesFromRef: boolean = wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
             if (userHasReducedFeesFromRef) {
                 // reset the reduced swap fees from using a ref code after 1 month
                 if (user.referrer!.timestamp! >= user.referrer!.timestamp! + FEE_REDUCTION_PERIOD) {
                     user.swap_fee = BASE_SWAP_FEE;
                     await user.save();
-                    await Wallet.updateMany({ user_id: userId }, { swap_fee: BASE_SWAP_FEE });
+                    await Wallet.updateMany({ user_id: user_id }, { swap_fee: BASE_SWAP_FEE });
                     wallet.swap_fee = BASE_SWAP_FEE;
                 }
             }
@@ -324,11 +322,11 @@ export class SolanaWeb3 {
             const amountInLamportsMinusFees: number = amountInLamports - totalFeesInLamports;
             const quoteResponse = await (
                 await fetch(
-                    `https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${contractAddress}&amount=${amountInLamportsMinusFees}&slippageBps=${slippage}`
+                    `https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${contract_address}&amount=${amountInLamportsMinusFees}&slippageBps=${slippage}`
                 )
             ).json();
             if (quoteResponse.error) {
-                return quoteResponseError(userId, contractAddress, amountToSwap, quoteResponse);
+                return quoteResponseError({ user_id, contract_address, token_amount: amountToSwap, error: quoteResponse });
             }
 
             const swapTx: SwapTx = await (
@@ -347,7 +345,7 @@ export class SolanaWeb3 {
                 })
             ).json();
             if (swapTx.error) {
-                return postSwapTxError(userId, contractAddress, amountToSwap, swapTx);
+                return postSwapTxError({ user_id, contract_address, token_amount: amountToSwap, error: swapTx });
             }
 
             const swapTxBuf: Buffer = Buffer.from(swapTx.swapTransaction!, 'base64');
@@ -393,132 +391,121 @@ export class SolanaWeb3 {
                 },
             });
 
-            if (!result) return txExpiredErrorRetry(userId, contractAddress, amountToSwap);
-            if (result.meta?.err) return txMetaErrorRetry(userId, contractAddress, amountToSwap, result.meta?.err);
-
             const endTimeTx: number = Date.now();
             const txProcessingTime: number = (endTimeTx - startTimeTx) / 1000;
-            const currentSolPrice = await getCurrentSolPrice();
             const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
-            await saveDbTransaction({
-                user_id: userId,
-                wallet_address: wallet.wallet_address,
-                buy_or_sell: "buy",
-                token_address: contractAddress,
+
+            if (!result) {
+                return txExpiredError({
+                    user_id,
+                    contract_address,
+                    token_amount: amountToSwap,
+                    processing_time_function: functionProcessingTime,
+                    processing_time_tx: txProcessingTime,
+                });
+            }
+            if (result.meta?.err) {
+                return txMetaError({
+                    user_id,
+                    contract_address,
+                    token_amount: amountToSwap,
+                    error: result.meta?.err,
+                    processing_time_function: functionProcessingTime,
+                    processing_time_tx: txProcessingTime,
+                });
+            }
+
+            return successResponse({
+                user_id,
+                response: "Successfully swapped. Transaction ID: " + sig,
                 success: true,
-                processing_time_function: functionProcessingTime,
-                processing_time_tx: txProcessingTime,
-                token_amount: amountInLamports,
-                usd_volume: currentSolPrice ? currentSolPrice * Number(amountToSwap) : undefined,
+                contract_address,
                 total_fees: totalFeesInSol,
                 callisto_fees: callistoFeesInSol,
                 ref_fees: refFeesInSol,
+                processing_time_function: functionProcessingTime,
+                processing_time_tx: txProcessingTime,
             });
-            return { user_id: userId, content: "Successfully swapped. Transaction ID: " + sig, success: true, ca: contractAddress };
         } catch (error) {
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
-            await saveDbTransaction({
-                user_id: userId,
-                wallet_address: wallet.wallet_address,
-                buy_or_sell: "buy",
-                token_address: contractAddress,
-                success: false,
-                processing_time_function: functionProcessingTime,
+            return unknownError({
+                user_id,
+                contract_address,
+                token_amount: amountToSwap,
                 error,
+                processing_time_function: functionProcessingTime,
             });
-            return unknownErrorRetry(userId, contractAddress, amountToSwap, error);
         }
     }
 
-    static async sellCoinViaAPI(userId: string, contractAddress: string, amountToSellInPercent: string): Promise<UIResponse> {
+    static async sellCoinViaAPI(user_id: string, contract_address: string, amountToSellInPercentString: string): Promise<TxResponse> {
         const startTimeFunction = Date.now();
         const conn = this.getConnection();
-        const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-        if (!wallet) return walletNotFoundError(userId, contractAddress);
-        const user = await User.findOne({ user_id: userId });
-        if (!user) {
-            return {
-                user_id: userId,
-                content: ERROR_CODES["0011"].message,
-                success: false,
-                error: ERROR_CODES["0011"].context
-            }
+        let wallet: any;
+        let user: any;
+        try {
+            wallet = await Wallet.findOne({ user_id: user_id, is_default_wallet: true }).lean();
+            if (!wallet) return walletNotFoundError({ user_id, contract_address });
+            user = await User.findOne({ user_id: user_id });
+            if (!user) return userNotFoundError({ user_id, contract_address });
+        } catch (error) {
+            return unknownError({ user_id, contract_address, error });
         }
 
-        if (amountToSellInPercent.includes("sell_button_")) {
-            amountToSellInPercent = wallet.settings[amountToSellInPercent as string];
+        if (amountToSellInPercentString.includes("sell_button_")) {
+            amountToSellInPercentString = wallet.settings[amountToSellInPercentString as string];
         }
+        if (!isNumber(amountToSellInPercentString)) return invalidNumberError({ user_id, contract_address });
 
-        if (!isNumber(amountToSellInPercent)) {
-            return invalidNumberError(userId, contractAddress);
-        }
-        if (Number(amountToSellInPercent) < 0.01 || Number(amountToSellInPercent) > 100) {
-            return invalidAmountError(userId, contractAddress);
-        }
+        const amountToSellInPercent: number = Number(amountToSellInPercentString);
+        if (amountToSellInPercent < 0.01 || amountToSellInPercent > 100) return invalidAmountError({ user_id, contract_address });
 
-        const coinStats: CoinStats | null = await this.getCoinStats(contractAddress, wallet.wallet_address);
+        const coinStats: CoinStats | null = await this.getCoinStats(contract_address, wallet.wallet_address);
         if (!coinStats) {
-            return {
-                user_id: userId,
-                content: ERROR_CODES["0012"].message,
-                success: false,
-                amount: amountToSellInPercent + "%",
-                ca: contractAddress,
-                includeRetryButton: true,
-                error: "Failed to get coin stats",
-            };
+            return coinstatsNotFoundError({
+                user_id,
+                contract_address,
+                sell_amount: amountToSellInPercent,
+            });
         }
         if (Number(coinStats.tokenAmount!.amount) == 0) {
-            return {
-                user_id: userId,
-                content: "Insufficient holdings. Please check your balance and try again.",
-                success: false,
-                token: coinStats,
-                amount: amountToSellInPercent + "%",
-                includeRetryButton: true,
-                error: "Insufficient wallet balance."
-            };
+            return insufficientBalanceError({
+                user_id,
+                contract_address,
+                token_stats: coinStats,
+                sell_amount: amountToSellInPercent,
+            });
         }
 
         try {
             const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
-            if (!signer) {
-                return {
-                    user_id: userId,
-                    content: ERROR_CODES["0010"].message,
-                    success: false,
-                    token: coinStats,
-                    error: ERROR_CODES["0010"].context
-                };
-            }
+            if (!signer) return decryptError({ user_id, contract_address, token_stats: coinStats });
             const userHasReducedFeesFromRef: boolean = wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
             if (userHasReducedFeesFromRef) {
                 // reset the reduced swap fees from using a ref code after 1 month
                 if (user.referrer!.timestamp! >= user.referrer!.timestamp! + FEE_REDUCTION_PERIOD) {
                     user.swap_fee = BASE_SWAP_FEE;
                     await user.save();
-                    await Wallet.updateMany({ user_id: userId }, { swap_fee: BASE_SWAP_FEE });
+                    await Wallet.updateMany({ user_id: user_id }, { swap_fee: BASE_SWAP_FEE });
                     wallet.swap_fee = BASE_SWAP_FEE;
                 }
             }
-            const amountInLamports: number = (Number(coinStats.tokenAmount!.amount) * (Number(amountToSellInPercent) / 100));
+            const amountInLamports: number = (Number(coinStats.tokenAmount!.amount) * (amountToSellInPercent / 100));
             const slippage: number = wallet.settings.sell_slippage * this.BPS_PER_PERCENT;
             const feeAmountInBPS: number = wallet.swap_fee * this.BPS_PER_PERCENT;
             const quoteResponse = await (
-                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${amountInLamports}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`)
+                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${amountInLamports}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`)
             ).json();
 
             if (quoteResponse.error) {
-                return {
-                    user_id: userId,
-                    content: "Failed to swap. Please try again.",
-                    success: false,
-                    token: coinStats,
-                    amount: amountToSellInPercent + "%",
-                    includeRetryButton: true,
-                    error: "Quote response error: " + quoteResponse,
-                };
+                return quoteResponseError({
+                    user_id,
+                    contract_address,
+                    token_stats: coinStats,
+                    sell_amount: amountToSellInPercent,
+                    error: quoteResponse,
+                });
             }
 
             const swapTx: SwapTx = await (
@@ -539,21 +526,19 @@ export class SolanaWeb3 {
             ).json();
 
             if (swapTx.error) {
-                return {
-                    user_id: userId,
-                    content: "Failed to swap. Please try again.",
-                    success: false,
-                    token: coinStats,
-                    amount: amountToSellInPercent + "%",
-                    includeRetryButton: true,
-                    error: "Post swap tx error: " + swapTx
-                };
+                return postSwapTxError({
+                    user_id,
+                    contract_address,
+                    token_stats: coinStats,
+                    sell_amount: amountToSellInPercent,
+                    error: swapTx,
+                });
             }
 
             const swapTxBuf = Buffer.from(swapTx.swapTransaction!, 'base64');
             const tx: VersionedTransaction = VersionedTransaction.deserialize(swapTxBuf);
             tx.sign([signer]);
-            const sig = this.getSignature(tx);
+            const sig: string | null = this.getSignature(tx);
             const serializedTx = Buffer.from(tx.serialize());
             const startTimeTx: number = Date.now();
             const result = await transactionSenderAndConfirmationWaiter({
@@ -565,68 +550,50 @@ export class SolanaWeb3 {
                 },
             });
 
-            if (!result) {
-                return {
-                    user_id: userId,
-                    content: "Failed to swap. Please try again.",
-                    success: false,
-                    token: coinStats,
-                    amount: amountToSellInPercent + "%",
-                    includeRetryButton: true,
-                    error: "Transaction expired",
-                };
-            }
-            if (result.meta?.err) {
-                return {
-                    user_id: userId,
-                    content: "Failed to swap. Please try again.",
-                    success: false,
-                    token: coinStats,
-                    amount: amountToSellInPercent + "%",
-                    includeRetryButton: true,
-                    error: "Transaction meta error: " + result.meta?.err,
-                };
-            }
-
             const endTimeTx: number = Date.now();
             const txProcessingTime: number = (endTimeTx - startTimeTx) / 1000;
-            //const currentSolPrice = await getCurrentSolPrice();
-            //const minReceivedValueInSol = Number(quoteResponse.otherAmountThreshold) / LAMPORTS_PER_SOL;
-            //const usdVolume = currentSolPrice ? currentSolPrice * minReceivedValueInSol : undefined;
             const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
-            await saveDbTransaction({
-                user_id: userId,
-                wallet_address: wallet.wallet_address,
-                buy_or_sell: "sell",
-                token_address: contractAddress,
+            if (!result) {
+                return txExpiredError({
+                    user_id,
+                    contract_address,
+                    token_stats: coinStats,
+                    sell_amount: amountToSellInPercent,
+                    processing_time_function: functionProcessingTime,
+                    processing_time_tx: txProcessingTime,
+                });
+            }
+            if (result.meta?.err) {
+                return txMetaError({
+                    user_id,
+                    contract_address,
+                    token_stats: coinStats,
+                    sell_amount: amountToSellInPercent,
+                    error: result.meta?.err,
+                    processing_time_function: functionProcessingTime,
+                    processing_time_tx: txProcessingTime,
+                });
+            }
+
+            return successResponse({
+                user_id,
+                response: "Successfully swapped. Transaction ID: " + sig,
                 success: true,
+                token_stats: coinStats,
                 processing_time_function: functionProcessingTime,
                 processing_time_tx: txProcessingTime,
-                token_amount: amountInLamports,
-                //usd_volume: usdVolume,
+                tx_signature: sig ? sig : undefined,
             });
-            return { user_id: userId, content: "Successfully swapped. Transaction ID: " + sig, success: true, token: coinStats };
         } catch (error) {
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
-            await saveDbTransaction({
-                user_id: userId,
-                wallet_address: wallet.wallet_address,
-                buy_or_sell: "sell",
-                token_address: contractAddress,
-                success: false,
+            return unknownError({
+                user_id,
+                contract_address,
+                token_stats: coinStats,
+                sell_amount: amountToSellInPercent,
                 processing_time_function: functionProcessingTime,
-                error
             });
-            return {
-                user_id: userId,
-                content: "Failed to swap. Please try again.",
-                success: false,
-                token: coinStats,
-                amount: amountToSellInPercent + "%",
-                includeRetryButton: true,
-                error,
-            };
         }
     }
 
@@ -669,8 +636,8 @@ export class SolanaWeb3 {
         // only get tokenInfos where the amount is higher than 0
         const tokenInfos: ParsedTokenInfo[] = (coins.map((coin: any) => coin.account.data.parsed.info)).filter((coinStats: any) => coinStats.tokenAmount.uiAmount !== 0);
         const contractAddresses: string[] = tokenInfos.map((tokenInfo: ParsedTokenInfo) => tokenInfo.mint);
-        const caObjects: CAWithAmount[] = contractAddresses.map((ca: string, index: number) => {
-            return { contractAddress: ca, amount: tokenInfos[index].tokenAmount.amount }
+        const caObjects: CAWithAmount[] = contractAddresses.map((contract_address: string, index: number) => {
+            return { contract_address, amount: tokenInfos[index].tokenAmount.amount }
         });
         // get coin infos and coin prices
         const results = await Promise.all([this.getCoinPriceStatsAll(contractAddresses), this.getCoinValuesOfHoldings(caObjects)]);
@@ -685,7 +652,7 @@ export class SolanaWeb3 {
             const correspondingTokenInfo: ParsedTokenInfo | undefined = tokenInfos.find((tokenInfo: ParsedTokenInfo) => tokenInfo.mint === coinInfo.address);
             if (!correspondingTokenInfo) return null;
             coinInfo.tokenAmount = correspondingTokenInfo.tokenAmount;
-            const priceInfo: CoinPriceQuote | undefined = priceInfos?.find((priceQuote: CoinPriceQuote) => priceQuote.contractAddress === coinInfo.address);
+            const priceInfo: CoinPriceQuote | undefined = priceInfos?.find((priceQuote: CoinPriceQuote) => priceQuote.contract_address === coinInfo.address);
             const coinValueInUsd: number = Number(coinInfo.price) * Number(correspondingTokenInfo.tokenAmount.uiAmount);
             if (!priceInfo) {
                 // in case quote response returned an error
@@ -708,7 +675,7 @@ export class SolanaWeb3 {
         return allCoins;
     }
 
-    static async getCoinStats(contractAddress: string, walletAddress: string): Promise<CoinStats | null> {
+    static async getCoinStats(contract_address: string, walletAddress: string): Promise<CoinStats | null> {
         try {
             const conn = this.getConnection();
             const filters: GetProgramAccountsFilter[] = [
@@ -716,10 +683,10 @@ export class SolanaWeb3 {
                 { memcmp: { offset: 32, bytes: walletAddress } }
             ];
             const coins: any = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters, commitment: "confirmed" });
-            const selectedCoin = coins.find((coin: any) => coin.account.data.parsed.info.mint === contractAddress);
+            const selectedCoin = coins.find((coin: any) => coin.account.data.parsed.info.mint === contract_address);
             if (!selectedCoin) return null;
 
-            const priceInfo: CoinStats | null = await this.getCoinPriceStats(contractAddress);
+            const priceInfo: CoinStats | null = await this.getCoinPriceStats(contract_address);
             if (!priceInfo) return null;
             const tokenInfo = selectedCoin.account.data.parsed.info;
             priceInfo.tokenAmount = tokenInfo.tokenAmount;
@@ -755,10 +722,10 @@ export class SolanaWeb3 {
         return allCoins;
     }
 
-    static async getTokenAccountOfWallet(walletAddress: string, contractAddress: string): Promise<any> {
+    static async getTokenAccountOfWallet(walletAddress: string, contract_address: string): Promise<any> {
         try {
             const associatedTokenAddress = await getAssociatedTokenAddress(
-                new PublicKey(contractAddress),
+                new PublicKey(contract_address),
                 new PublicKey(walletAddress),
                 false,
                 TOKEN_PROGRAM_ID,
@@ -781,10 +748,10 @@ export class SolanaWeb3 {
         }
     }
 
-    static async getCoinPriceStatsAll(contractAddresses: string[]): Promise<CoinStats[] | null> {
+    static async getCoinPriceStatsAll(contract_addresses: string[]): Promise<CoinStats[] | null> {
         try {
-            const coinInfos = contractAddresses.map((contractAddress: string) => {
-                return fetch(`https://api.dexscreener.io/latest/dex/tokens/${contractAddress}`);
+            const coinInfos = contract_addresses.map((contract_address: string) => {
+                return fetch(`https://api.dexscreener.io/latest/dex/tokens/${contract_address}`);
             });
 
             const responses = await Promise.all(coinInfos);
@@ -807,10 +774,10 @@ export class SolanaWeb3 {
         }
     }
 
-    static async getCoinPriceStats(contractAddress: string): Promise<CoinStats | null> {
+    static async getCoinPriceStats(contract_address: string): Promise<CoinStats | null> {
         try {
             const pairInfo = await (
-                await fetch(`https://api.dexscreener.io/latest/dex/tokens/${contractAddress}`)
+                await fetch(`https://api.dexscreener.io/latest/dex/tokens/${contract_address}`)
             ).json();
             const coinStats: CoinStats = {
                 ...pairInfo.pairs[0].baseToken,
@@ -823,7 +790,6 @@ export class SolanaWeb3 {
 
             return coinStats;
         } catch (error) {
-            console.log(error);
             return null;
         }
     }
@@ -831,13 +797,13 @@ export class SolanaWeb3 {
     static async getCoinValueOfHolding(caWithAmount: CAWithAmount): Promise<CoinPriceQuote | null> {
         try {
             const quoteResponse = await (
-                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caWithAmount.contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${caWithAmount.amount}`)
+                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caWithAmount.contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${caWithAmount.amount}`)
             ).json();
             const priceInSol = Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL;
             const currentSolPrice: number | null = await getCurrentSolPrice();
 
             return {
-                contractAddress: caWithAmount.contractAddress,
+                contract_address: caWithAmount.contract_address,
                 priceInSol: priceInSol.toFixed(4),
                 priceInUsd: currentSolPrice ? (priceInSol * currentSolPrice).toFixed(2) : "0",
             };
@@ -852,7 +818,7 @@ export class SolanaWeb3 {
         try {
             const currentSolPrice: number | null = await getCurrentSolPrice();
             const quotes = casWithAmount.map((caObj: CAWithAmount) => {
-                return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caObj.contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${caObj.amount}`);
+                return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caObj.contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${caObj.amount}`);
             });
             const responses = await Promise.all(quotes);
             const quoteResponsesJson = responses.map((response: any) => response.json());
@@ -860,7 +826,7 @@ export class SolanaWeb3 {
             return quoteResponses.map((quote: QuoteResponse) => {
                 const priceInSol = Number(quote.outAmount) / LAMPORTS_PER_SOL;
                 return {
-                    contractAddress: quote.inputMint,
+                    contract_address: quote.inputMint,
                     priceInSol: priceInSol.toFixed(4),
                     priceInUsd: currentSolPrice ? (currentSolPrice * priceInSol).toFixed(2) : "0",
                 }
@@ -872,10 +838,10 @@ export class SolanaWeb3 {
         }
     }
 
-    static async getCoinInfo(contractAddress: string): Promise<CoinInfo | null> {
+    static async getCoinInfo(contract_address: string): Promise<CoinInfo | null> {
         try {
             const pairInfo = await (
-                await fetch(`https://api.dexscreener.io/latest/dex/tokens/${contractAddress},So11111111111111111111111111111111111111112`)
+                await fetch(`https://api.dexscreener.io/latest/dex/tokens/${contract_address},So11111111111111111111111111111111111111112`)
             ).json();
             const coinInfo: CoinInfo = pairInfo.pairs[0].baseToken;
             return coinInfo;
@@ -885,8 +851,8 @@ export class SolanaWeb3 {
         }
     }
 
-    static async getAllCoinInfos(userId: string): Promise<CoinInfo[]> {
-        const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
+    static async getAllCoinInfos(user_id: string): Promise<CoinInfo[]> {
+        const wallet: any = await Wallet.findOne({ user_id: user_id, is_default_wallet: true }).lean();
         if (!wallet) return [];
 
         const coinStats: CoinStats[] = await this.getAllCoinStatsFromWallet(wallet.wallet_address, wallet.settings.min_position_value);
@@ -902,8 +868,8 @@ export class SolanaWeb3 {
         return coinInfos;
     }
 
-    static async getCoinMetadata(contractAddress: string): Promise<CoinMetadata | null> {
-        const response: any = await this.connection.getParsedAccountInfo(new PublicKey(contractAddress));
+    static async getCoinMetadata(contract_address: string): Promise<CoinMetadata | null> {
+        const response: any = await this.connection.getParsedAccountInfo(new PublicKey(contract_address));
         if (!response.value) return null;
         return response.value.data.parsed.info;
     }

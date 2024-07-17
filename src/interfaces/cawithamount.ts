@@ -1,4 +1,4 @@
 export interface CAWithAmount {
-    contractAddress: string;
+    contract_address: string;
     amount: string;
 }

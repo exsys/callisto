@@ -45,6 +45,7 @@ import {
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
+import { TxResponse } from "../interfaces/tx-response";
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: any) => {
@@ -516,8 +517,8 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            const result = await SolanaWeb3.transferXSol(interaction.user.id, amountToWithdraw, destinationAddress);
-            await interaction.editReply({ content: result.content, ephemeral: true });
+            const result: TxResponse = await SolanaWeb3.transferXSol(interaction.user.id, amountToWithdraw, destinationAddress);
+            await interaction.editReply({ content: result.response, ephemeral: true });
         } catch (error) {
             console.log(error);
             await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
@@ -533,8 +534,8 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            const result = await SolanaWeb3.transferAllSol(interaction.user.id, destinationAddress);
-            await interaction.editReply({ content: result.content, ephemeral: true });
+            const result: TxResponse = await SolanaWeb3.transferAllSol(interaction.user.id, destinationAddress);
+            await interaction.editReply({ content: result.response, ephemeral: true });
         } catch (error) {
             console.log(error);
             await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
@@ -834,8 +835,8 @@ export const MODAL_COMMANDS = {
             return;
         }
 
-        const result = await SolanaWeb3.sendCoin(interaction.user.id, contractAddress, amountToSend, destinationAddress);
-        await interaction.editReply({ content: result.content, ephemeral: true });
+        const result: TxResponse = await SolanaWeb3.sendCoin(interaction.user.id, contractAddress, amountToSend, destinationAddress);
+        await interaction.editReply({ content: result.response, ephemeral: true });
     },
     enterRefCode: async (interaction: any, refCode: string) => {
         await interaction.deferReply({ ephemeral: true });
