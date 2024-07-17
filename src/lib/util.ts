@@ -195,7 +195,7 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
-        console.log(error);
+        await saveDbTransaction({ user_id: userId, tx_type: "swap_buy", error });
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
     }
 }
@@ -208,6 +208,7 @@ export async function buyCoinX(userId: string, msgContent: string, amount: strin
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
+        await saveDbTransaction({ user_id: userId, tx_type: "swap_buy", error });
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
     }
 }
@@ -220,6 +221,7 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
+        await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
     }
 }
@@ -232,6 +234,7 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
+        await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
         return { content: ERROR_CODES["0000"].message, ephemeral: true };
     }
 }

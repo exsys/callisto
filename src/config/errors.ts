@@ -90,6 +90,12 @@ export const ERROR_CODES = {
         message: "The submitted referral code does not exist. Please contact support if you believe there was a mistake.",
         context: "Couldn't find user of corresponding referral code.",
         short: "Couldn't find user with ref code",
+    },
+    "0015": {
+        code: "0015",
+        message: "Server error. Please try again later. Error code: 0015",
+        context: "Error while trying to get wallet balance. Check RPC",
+        short: "Got null for wallet balance",
     }
 }
 

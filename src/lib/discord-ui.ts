@@ -199,11 +199,10 @@ export const createReferUI = (): any => {
 
 export const createPreBuyUI = async (userId: string, contractAddress: string): Promise<UI> => {
     let content: string = "";
-
     const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
     if (!wallet) return { content: "No default wallet found. Create one with the /create command.", ephemeral: true };
-
     const walletBalance = await SolanaWeb3.getBalanceOfWalletInLamports(wallet.wallet_address);
+    if (!walletBalance) return { content: ERROR_CODES["0015"].message, ephemeral: true };
     if (wallet.settings.auto_buy_value > 0) {
         const txPrio: number = wallet.settings.tx_priority_value;
 
@@ -213,7 +212,6 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
             return { content, ephemeral: true };
         }
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
-
         // TODO: create either special UI for autobuy or use the same as for manual buy before the swap. instead of createAfterSwapUI
         return createAfterSwapUI(response);
     }
