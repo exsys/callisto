@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
-import { createStartUI } from "../lib/discord-ui";
+import { createRefCodeModal, createStartUI } from "../lib/discord-ui";
+import { REFCODE_MODAL_STRING } from "../config/constants";
 
 const command = {
     data: new SlashCommandBuilder()
@@ -7,13 +8,21 @@ const command = {
         .setDescription("Displays the Callisto UI."),
     async execute(interaction: any) {
         try {
-            await interaction.deferReply({ ephemeral: true });
-            const userId = interaction.user.id;
-            const startUI = await createStartUI(userId);
-            await interaction.editReply(startUI);
+            const startUI = await createStartUI(interaction.user.id);
+            if (startUI.content === REFCODE_MODAL_STRING) {
+                try {
+                    const refCodeModal = createRefCodeModal();
+                    await interaction.showModal(refCodeModal);
+                    return;
+                } catch (error) {
+                    console.log(error);
+                    return;
+                }
+            }
+            await interaction.reply(startUI);
         } catch (error) {
             console.log(error);
-            await interaction.editReply("Server error. Please try again later.");
+            await interaction.reply("Server error. Please try again later.");
         }
     }
 }

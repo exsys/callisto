@@ -12,7 +12,7 @@ import { Transaction } from "../models/transaction";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
 import { DBTransaction } from "../interfaces/db-tx";
-import { LEVEL1_FEE_IN_PERCENT, LEVEL2_FEE_IN_PERCENT, LEVEL3_FEE_IN_PERCENT } from "../config/constants";
+import { LEVEL1_FEE_IN_PERCENT, LEVEL2_FEE_IN_PERCENT, LEVEL3_FEE_IN_PERCENT, REFCODE_MODAL_STRING } from "../config/constants";
 import { TxResponse } from "../interfaces/tx-response";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
@@ -48,7 +48,7 @@ export async function createNewWallet(userId: string): Promise<string | null> {
         await newWallet.save();
 
         if (walletCount === 1) {
-            return "refcodemodal";
+            return REFCODE_MODAL_STRING;
         }
 
         return solanaWallet.publicKey.toString();

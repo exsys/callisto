@@ -46,6 +46,7 @@ import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../interfaces/tx-response";
+import { REFCODE_MODAL_STRING } from "../config/constants";
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: any) => {
@@ -172,7 +173,7 @@ export const BUTTON_COMMANDS = {
             return;
         }
 
-        if (walletAddress === "refcodemodal") {
+        if (walletAddress === REFCODE_MODAL_STRING) {
             try {
                 const refCodeModal = createRefCodeModal();
                 await interaction.showModal(refCodeModal);
@@ -262,11 +263,15 @@ export const BUTTON_COMMANDS = {
         await interaction.showModal(modal);
     },
     sellButton1: async (interaction: any) => {
-        // TODO NEXT: after swap and sending discord message send ref fee from calli wallet to referrer wallet
-        // if it fails to transfer store in DB that we owe the referrer some $$ so they can claim it manually
         await interaction.deferReply({ ephemeral: true });
         const ui: UI = await sellCoin(interaction.user.id, interaction.message.content, "1");
         await interaction.editReply(ui);
+        if (ui.signature && ui.referrer) {
+            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
+            if (!success) {
+                // TODO: store in db as unpaid
+            }
+        }
     },
     sellButton2: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
@@ -504,6 +509,12 @@ export const MODAL_COMMANDS = {
     sellXPercent: async (interaction: any, percent: string) => {
         await interaction.deferReply({ ephemeral: true });
         const ui: UI = await sellCoinX(interaction.user.id, interaction.message.content, percent);
+        if (ui.signature && ui.referrer) {
+            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
+            if (!success) {
+                // TODO: store in db as unpaid
+            }
+        }
         await interaction.editReply(ui);
     },
     withdrawXSol: async (interaction: any, values: string[]) => {

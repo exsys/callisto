@@ -11,3 +11,4 @@ export const FEE_REDUCTION_PERIOD = 2592000; // 2592000 = 30 days
 export const LEVEL1_FEE_IN_PERCENT = 10;
 export const LEVEL2_FEE_IN_PERCENT = 20;
 export const LEVEL3_FEE_IN_PERCENT = 30;
+export const REFCODE_MODAL_STRING = "refcodemodal";

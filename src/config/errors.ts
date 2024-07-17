@@ -138,7 +138,7 @@ export function txMetaError({ user_id, contract_address, token_amount, sell_amou
         sell_amount,
         token_stats,
         include_retry_button,
-        error: "Transaction meta error: " + error,
+        error: "Transaction meta error: " + JSON.stringify(error),
     };
 }
 
@@ -258,7 +258,7 @@ export function quoteResponseError({ user_id, contract_address, token_amount, se
         include_retry_button: true,
         token_amount,
         sell_amount,
-        error: "Quote response error: " + error
+        error: "Quote response error: " + JSON.stringify(error),
     };
 }
 
@@ -272,7 +272,7 @@ export function postSwapTxError({ user_id, contract_address, token_amount, sell_
         sell_amount,
         token_stats,
         include_retry_button: true,
-        error: "Post swap tx error: " + error
+        error: "Post swap tx error: " + JSON.stringify(error),
     };
 }
 

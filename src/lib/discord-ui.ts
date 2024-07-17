@@ -11,39 +11,41 @@ import {
 import { UI } from "../interfaces/ui";
 import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
-import { formatNumber } from "./util";
+import { createNewWallet, formatNumber } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../interfaces/coinstats";
 import { CoinInfo } from "../interfaces/coininfo";
 import { ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../interfaces/tx-response";
+import { User } from "../models/user";
+import { REFCODE_MODAL_STRING } from "../config/constants";
 
 export const createStartUI = async (userId: string): Promise<UI> => {
-    const defaultWallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-    if (!defaultWallet) {
-        const createButton = new ButtonBuilder()
-            .setCustomId('createWallet')
-            .setLabel('Create Wallet')
-            .setStyle(ButtonStyle.Primary);
+    const user = await User.findOne({ user_id: userId }).lean();
+    if (!user) {
+        const walletAddress = await createNewWallet(userId);
+        if (!walletAddress) {
+            return {
+                content: "Error while trying to create a wallet. If the issue persists please contact support.",
+                ephemeral: true
+            };
+        }
 
-        const createRow = new ActionRowBuilder()
-            .addComponents(createButton);
-
-        return {
-            content: "Solana's fastest Discord bot to trade any coin.\n\nTo get started you need to create a wallet first. Use the /create command or the button below to create a new wallet.",
-            components: [createRow],
-            ephemeral: true,
-        };
+        if (walletAddress === REFCODE_MODAL_STRING) {
+            return {
+                content: REFCODE_MODAL_STRING,
+                ephemeral: true
+            };
+        }
     }
+
+    const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
+    if (!wallet) return { content: "Server error. Please try again later. ", ephemeral: true };
 
     let content = "Solana's fastest Discord bot to trade any coin.";
-    const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(defaultWallet.wallet_address);
-    if (walletBalance === null) {
-        return {
-            content: "Server error. Please try again later.",
-            ephemeral: true,
-        };
-    }
+    const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+    // TODO: if walletBalance is null return start UI anyways but NaN for SOL balance
+    if (walletBalance === null) return { content: "Server error. Please try again later.", ephemeral: true };
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
 
     if (formattedBalance == "0" || formattedBalance == "0.0") {
@@ -52,7 +54,7 @@ export const createStartUI = async (userId: string): Promise<UI> => {
         content += `\n\nYour current balance is ${formattedBalance} SOL.`;
     }
 
-    content += `\n\nWallet: ${defaultWallet.wallet_address}`;
+    content += `\n\nWallet: ${wallet.wallet_address}`;
     content += "\n\nTo buy a coin tap the Buy button.";
     content += "\n\nWe guarantee the safety of user funds on Callisto, but if you expose your private key your funds will not be safe.";
 
@@ -464,11 +466,12 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
 
 export const createAfterSwapUI = (txResponse: TxResponse): UI => {
     const token: CoinStats | undefined = txResponse.token_stats;
-    let amount: string = txResponse.token_amount ? String(txResponse.token_amount) : "";
+    let amount: string = "";
     if (txResponse.sell_amount) {
-        amount = `${amount}% | `;
-    } else {
-        amount = `${amount} SOL | `;
+        amount = `${txResponse.sell_amount}% | `;
+    }
+    if (txResponse.token_amount) {
+        amount = `${txResponse.token_amount} SOL | `;
     }
 
     if (token) {
@@ -504,6 +507,8 @@ export const createAfterSwapUI = (txResponse: TxResponse): UI => {
         content: txResponse.response!,
         components: [row],
         ephemeral: true,
+        signature: txResponse.tx_signature,
+        referrer: txResponse.referrer,
     };
 };
 
@@ -1025,8 +1030,8 @@ export const createRefCodeModal = (): ModalBuilder => {
         .setLabel('Get 10% reduced fees in your first month')
         .setPlaceholder("Referral code")
         .setRequired(false)
-        .setMinLength(8)
-        .setMaxLength(8)
+        .setMinLength(4)
+        .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
     const row: any = new ActionRowBuilder().addComponents(refCodeInput);
