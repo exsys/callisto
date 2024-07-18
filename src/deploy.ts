@@ -2,6 +2,7 @@ import "dotenv/config";
 import { REST, Routes } from "discord.js";
 import fs from "fs";
 
+const isDevelopment = process.env.NODE_ENV === "development";
 // Grab all the command files from the commands directory you created earlier
 const commands = [];
 const commandFiles = fs.readdirSync('src/commands').filter(file => file.endsWith('.ts'));
@@ -12,13 +13,13 @@ for (const file of commandFiles) {
     commands.push(command.default.data.toJSON());
 }
 
-const rest = new REST({ version: '10' }).setToken(String(process.env.BOT_TOKEN));
+const rest = new REST({ version: '10' }).setToken(String(isDevelopment ? process.env.BOT_TOKEN_DEV : process.env.BOT_TOKEN_PROD));
 
 (async () => {
     try {
         console.log(`Updating commands...`);
         const data: any = await rest.put(
-            Routes.applicationCommands(String(process.env.BOT_APP_ID)),
+            Routes.applicationCommands(String(isDevelopment ? process.env.BOT_APP_ID : process.env.BOT_APP_PROD)),
             { body: commands },
         );
         console.log(`Successfully updated ${data.length} application (/) commands.`);

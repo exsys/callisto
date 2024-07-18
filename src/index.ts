@@ -47,4 +47,4 @@ client.on("ready", async () => {
     await connectDb();
     console.log("Bot started.");
 });
-client.login(process.env.BOT_TOKEN);
+client.login(isDevelopment ? process.env.BOT_TOKEN_DEV : process.env.BOT_TOKEN_PROD);
