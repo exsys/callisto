@@ -257,11 +257,7 @@ export const BUTTON_COMMANDS = {
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "1");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee) {
-            if (!uiResponse.transaction?.ref_fee) {
-                console.log("Ref fee field not found. Sell response: " + uiResponse);
-                return;
-            }
-            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
@@ -270,11 +266,7 @@ export const BUTTON_COMMANDS = {
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "2");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee) {
-            if (!uiResponse.transaction?.ref_fee) {
-                console.log("Ref fee field not found. Sell response: " + uiResponse);
-                return;
-            }
-            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
@@ -283,11 +275,7 @@ export const BUTTON_COMMANDS = {
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "3");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee) {
-            if (!uiResponse.transaction?.ref_fee) {
-                console.log("Ref fee field not found. Sell response: " + uiResponse);
-                return;
-            }
-            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
@@ -296,11 +284,7 @@ export const BUTTON_COMMANDS = {
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "4");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee) {
-            if (!uiResponse.transaction?.ref_fee) {
-                console.log("Ref fee field not found. Sell response: " + uiResponse);
-                return;
-            }
-            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
@@ -433,11 +417,7 @@ export const BUTTON_COMMANDS = {
             const uiResponseSell: UIResponse = await sellCoinX(interaction.user.id, interaction.message.content, amountWithoutPercentSymbol);
             await interaction.editReply(uiResponseSell.ui);
             if (uiResponseSell.store_ref_fee) {
-                if (!uiResponseSell.transaction?.ref_fee) {
-                    console.log("Ref fee field not found. Sell response: " + uiResponseSell);
-                    return;
-                }
-                const success = await storeUnpaidRefFee(interaction.user.id, uiResponseSell.transaction?.ref_fee);
+                const success = await storeUnpaidRefFee(uiResponseSell.transaction!);
                 if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponseSell));
             }
         } else {
@@ -535,11 +515,7 @@ export const MODAL_COMMANDS = {
         const uiResponse: UIResponse = await sellCoinX(interaction.user.id, interaction.message.content, percent);
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee) {
-            if (!uiResponse.transaction?.ref_fee) {
-                console.log("Ref fee field not found. Sell response: " + uiResponse);
-                return;
-            }
-            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },

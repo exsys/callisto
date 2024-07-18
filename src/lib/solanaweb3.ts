@@ -504,7 +504,7 @@ export class SolanaWeb3 {
             }
             const amountInLamports: number = Math.floor((Number(coinStats.tokenAmount!.amount) * (amountToSellInPercent / 100)));
             const slippage: number = wallet.settings.sell_slippage * this.BPS_PER_PERCENT;
-            const feeAmountInBPS: number = wallet.swap_fee * this.BPS_PER_PERCENT;
+            const feeAmountInBPS: number = Math.ceil(wallet.swap_fee * this.BPS_PER_PERCENT);
             const quoteResponse = await (
                 await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${amountInLamports}&slippageBps=${slippage}&platformFeeBps=${feeAmountInBPS}`)
             ).json();
@@ -565,18 +565,6 @@ export class SolanaWeb3 {
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
             txResponse.processing_time_function = functionProcessingTime;
             return unknownError({ ...txResponse, error: `sellCoinViaAPI unknown error: ${error}` });
-        }
-    }
-
-    static async payRefFee(sig: string, referrer: Referrer): Promise<boolean> {
-        try {
-            const conn = this.getConnection();
-         
-            // TODO: transfer unpaid ref fee
-
-            return true;
-        } catch (error) {
-            return false;
         }
     }
 
@@ -791,8 +779,7 @@ export class SolanaWeb3 {
                 priceInUsd: currentSolPrice ? (priceInSol * currentSolPrice).toFixed(2) : "0",
             };
         } catch (error) {
-            console.log(error);
-            // TODO: store error in db and remove log
+            // TODO: store error in db
             return null;
         }
     }
@@ -815,8 +802,7 @@ export class SolanaWeb3 {
                 }
             });
         } catch (error) {
-            console.log(error);
-            // TODO: store error in db and remove log
+            // TODO: store error in db
             return null;
         }
     }
