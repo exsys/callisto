@@ -556,6 +556,9 @@ export class SolanaWeb3 {
             if (!result) return txExpiredError(txResponse);
             if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
 
+            if (wallet.swap_fee === 0) {
+                txResponse.total_fee = -1;
+            }
             return successResponse({
                 ...txResponse,
                 success: true,
