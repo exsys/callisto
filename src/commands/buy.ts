@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from "discord.js";
 import { createPreBuyUI } from "../lib/discord-ui";
 import { SolanaWeb3 } from "../lib/solanaweb3";
 import { UI } from "../interfaces/ui";
+import { UIResponse } from "../interfaces/ui-response";
 
 const command = {
     data: new SlashCommandBuilder()
@@ -21,8 +22,8 @@ const command = {
                 return;
             }
 
-            const buyUI: UI = await createPreBuyUI(interaction.user.id, contractAddress);
-            await interaction.editReply(buyUI);
+            const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress);
+            await interaction.editReply(uiResponse.ui);
         } catch (error) {
             await interaction.editReply("Server error. Please try again later.");
         }
