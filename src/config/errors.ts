@@ -40,8 +40,8 @@ export const ERROR_CODES = {
     "0006": {
         code: "0006",
         message: "Contract address not found. If the issue persists please contact support. Error code: 0006",
-        context: "Failed to find contract address from message. (the one from the bot to which the user replied)",
-        short: "Failed to get CA",
+        context: "Failed to find contract address from message. (the one from the discord message to which the bot replies)",
+        short: "Failed to get CA from message",
     },
     "0007": {
         code: "0007",
@@ -194,7 +194,7 @@ export function unknownError({
         user_id,
         tx_type,
         wallet_address,
-        response: ERROR_CODES["0004"].message,
+        response: ERROR_CODES["0000"].message,
         success: false,
         contract_address,
         token_amount,
@@ -202,7 +202,7 @@ export function unknownError({
         token_stats,
         include_retry_button,
         processing_time_function,
-        error
+        error,
     }
 }
 

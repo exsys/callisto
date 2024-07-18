@@ -38,16 +38,16 @@ const TransactionSchema = new Schema<DBTransaction>({
         type: Number,
         required: false,
     },
-    // fees are in SOL
-    total_fees: {
+    // fees are in lamports
+    total_fee: {
         type: Number,
         required: false,
     },
-    callisto_fees: {
+    callisto_fee: {
         type: Number,
         required: false,
     },
-    ref_fees: {
+    ref_fee: {
         type: Number,
         required: false,
     },

@@ -356,22 +356,22 @@ export class SolanaWeb3 {
                 }
             }
             const amountInLamports: number = Number(amountToSwap) * LAMPORTS_PER_SOL;
-            const totalFeesInLamports: number = amountInLamports * (wallet.swap_fee / 100);
-            const totalFeesInSol: number = Number(amountToSwap) * (wallet.swap_fee / 100);
+            const totalFeesInLamports: number = Math.floor(amountInLamports * (wallet.swap_fee / 100));
             const slippage: number = wallet.settings.buy_slippage * this.BPS_PER_PERCENT;
             let refFeesInLamports: number = 0;
-            let refFeesInSol: number = 0;
             if (user.referrer) {
+                // calculate how much of the fee will be sent to the referrer
                 const feeAmountInPercent: number = getFeeInPercentFromFeeLevel(user.referrer.fee_level);
-                refFeesInLamports = totalFeesInLamports * (1 - feeAmountInPercent / 100);
-                refFeesInSol = refFeesInLamports / LAMPORTS_PER_SOL;
+                refFeesInLamports = Math.floor(totalFeesInLamports * (feeAmountInPercent / 100));
+                txResponse.ref_fee = refFeesInLamports;
+                user.unclaimed_ref_fees += refFeesInLamports;
+                // TODO: move user.save() to after interaction.editReply
+                await user.save();
             }
             const callistoFeesInLamports: number = totalFeesInLamports - refFeesInLamports;
-            const callistoFeesInSol: number = callistoFeesInLamports / LAMPORTS_PER_SOL;
             const amountInLamportsMinusFees: number = amountInLamports - totalFeesInLamports;
-            txResponse.total_fees = totalFeesInSol;
-            txResponse.callisto_fees = callistoFeesInSol;
-            txResponse.ref_fees = refFeesInSol;
+            txResponse.total_fee = totalFeesInLamports;
+            txResponse.callisto_fee = callistoFeesInLamports;
             const quoteResponse = await (
                 await fetch(
                     `https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${contract_address}&amount=${amountInLamportsMinusFees}&slippageBps=${slippage}`
@@ -401,16 +401,9 @@ export class SolanaWeb3 {
             const callistoFeeInstruction: TransactionInstruction = SystemProgram.transfer({
                 fromPubkey: new PublicKey(wallet_address),
                 toPubkey: new PublicKey(FEE_ACCOUNT_OWNER),
-                lamports: callistoFeesInLamports,
+                lamports: totalFeesInLamports,
             });
-            let refFeeInstruction: TransactionInstruction | null = null;
-            if (refFeesInLamports > 0) {
-                refFeeInstruction = SystemProgram.transfer({
-                    fromPubkey: new PublicKey(wallet_address),
-                    toPubkey: new PublicKey(user.referrer.referrer_wallet),
-                    lamports: refFeesInLamports,
-                });
-            }
+
             // TODO: handle error from Promise.all
             const addressLookupTableAccounts = await Promise.all(
                 tx.message.addressTableLookups.map(async (lookup: MessageAddressTableLookup) => {
@@ -422,9 +415,6 @@ export class SolanaWeb3 {
             );
             const txMessage = TransactionMessage.decompile(tx.message, { addressLookupTableAccounts: addressLookupTableAccounts });
             txMessage.instructions.push(callistoFeeInstruction);
-            if (refFeesInLamports > 0 && refFeeInstruction) {
-                txMessage.instructions.push(refFeeInstruction)
-            }
             tx.message = txMessage.compileToV0Message(addressLookupTableAccounts);
             tx.sign([signer]);
             const signature: string | undefined = this.getSignature(tx);
@@ -457,7 +447,7 @@ export class SolanaWeb3 {
             const endTimeFunction: number = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
             txResponse.processing_time_function = functionProcessingTime;
-            return unknownError({ ...txResponse, error });
+            return unknownError({ ...txResponse, error: `buyCoinViaAPI unknown error: ${error}` });
         }
     }
 
@@ -574,25 +564,15 @@ export class SolanaWeb3 {
             const endTimeFunction = Date.now();
             const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
             txResponse.processing_time_function = functionProcessingTime;
-            return unknownError({ ...txResponse, error });
+            return unknownError({ ...txResponse, error: `sellCoinViaAPI unknown error: ${error}` });
         }
     }
 
     static async payRefFee(sig: string, referrer: Referrer): Promise<boolean> {
         try {
             const conn = this.getConnection();
-            const tx: VersionedTransactionResponse | null = await conn.getTransaction(sig, {
-                commitment: "confirmed",
-                maxSupportedTransactionVersion: 0,
-            });
-
-            // TODO: wait until it is finalized
-
-            const txMeta = tx?.meta;
-            const txMsg = tx?.transaction.message;
-            console.log(txMeta);
-            console.log("*************************");
-            console.log(txMsg);
+         
+            // TODO: transfer unpaid ref fee
 
             return true;
         } catch (error) {

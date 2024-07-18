@@ -19,7 +19,7 @@ import { ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../interfaces/tx-response";
 import { User } from "../models/user";
 import { REFCODE_MODAL_STRING } from "../config/constants";
-import { UIWithRef } from "../interfaces/ui-with-ref";
+import { UIResponse } from "../interfaces/ui-response";
 
 
 /* ADDITIONAL */
@@ -35,91 +35,91 @@ export const addStartButton = (content: string): UI => {
 /* UIs */
 
 export const createStartUI = async (userId: string): Promise<UI> => {
-    const user = await User.findOne({ user_id: userId }).lean();
-    if (!user) {
-        const walletAddress = await createNewWallet(userId);
-        if (!walletAddress) {
-            return {
-                content: "Error while trying to create a wallet. If the issue persists please contact support.",
-                ephemeral: true
-            };
+    try {
+        const user: any = await User.findOne({ user_id: userId }).lean();
+        if (!user) {
+            const walletAddress = await createNewWallet(userId);
+            if (!walletAddress) {
+                return {
+                    content: "Error while trying to create a wallet. If the issue persists please contact support.",
+                    ephemeral: true
+                };
+            }
+
+            if (walletAddress === REFCODE_MODAL_STRING) {
+                return {
+                    content: REFCODE_MODAL_STRING,
+                    ephemeral: true
+                };
+            }
         }
 
-        if (walletAddress === REFCODE_MODAL_STRING) {
-            return {
-                content: REFCODE_MODAL_STRING,
-                ephemeral: true
-            };
+        const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
+        if (!wallet) return { content: "Server error. Please try again later. ", ephemeral: true };
+
+        let content = "Solana's fastest Discord bot to trade any coin.";
+        const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+        // TODO: if walletBalance is null return start UI anyways but NaN for SOL balance
+        if (walletBalance === null) return { content: "Server error. Please try again later.", ephemeral: true };
+        const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
+
+        if (formattedBalance == "0" || formattedBalance == "0.0") {
+            content += "\n\nYou currently have no SOL balance. To get started with trading, send some SOL to your Callisto wallet address. Once done tap refresh and your balance will appear here.";
+        } else {
+            content += `\n\nYour current balance is ${formattedBalance} SOL.`;
         }
+
+        content += `\n\nWallet: ${wallet.wallet_address}`;
+        content += "\n\nTo buy a coin tap the Buy button.";
+        content += "\n\nWe guarantee the safety of user funds on Callisto, but if you expose your private key your funds will not be safe.";
+
+        //const testButton = new ButtonBuilder().setCustomId('test').setLabel('Test').setStyle(ButtonStyle.Secondary);
+
+        const buyButton = new ButtonBuilder()
+            .setCustomId('buy')
+            .setLabel('Buy')
+            .setStyle(ButtonStyle.Secondary);
+
+        const sellButton = new ButtonBuilder()
+            .setCustomId('sellAndManage')
+            .setLabel('Sell & Manage')
+            .setStyle(ButtonStyle.Secondary);
+
+        const walletButton = new ButtonBuilder()
+            .setCustomId('wallet')
+            .setLabel('Wallet')
+            .setStyle(ButtonStyle.Secondary);
+
+        const settingsButton = new ButtonBuilder()
+            .setCustomId('settings')
+            .setLabel('Settings')
+            .setStyle(ButtonStyle.Secondary);
+
+        const refreshButton = new ButtonBuilder()
+            .setCustomId('refresh')
+            .setLabel('Refresh')
+            .setStyle(ButtonStyle.Secondary);
+
+        const helpButton = new ButtonBuilder()
+            .setCustomId('help')
+            .setLabel('Help')
+            .setStyle(ButtonStyle.Secondary);
+
+        const referButton = new ButtonBuilder()
+            .setCustomId('refer')
+            .setLabel('Refer Friends')
+            .setStyle(ButtonStyle.Secondary);
+
+        const firstRow = new ActionRowBuilder()
+            .addComponents(buyButton, sellButton, walletButton, settingsButton, refreshButton);
+
+        const secondRow = new ActionRowBuilder()
+            .addComponents(helpButton, referButton);
+
+        return { content, components: [firstRow, secondRow], ephemeral: true };
+    } catch (error) {
+        return { content: "Server error. Please try again later", ephemeral: true };
     }
-
-    const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
-    if (!wallet) return { content: "Server error. Please try again later. ", ephemeral: true };
-
-    let content = "Solana's fastest Discord bot to trade any coin.";
-    const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
-    // TODO: if walletBalance is null return start UI anyways but NaN for SOL balance
-    if (walletBalance === null) return { content: "Server error. Please try again later.", ephemeral: true };
-    const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
-
-    if (formattedBalance == "0" || formattedBalance == "0.0") {
-        content += "\n\nYou currently have no SOL balance. To get started with trading, send some SOL to your Callisto wallet address. Once done tap refresh and your balance will appear here.";
-    } else {
-        content += `\n\nYour current balance is ${formattedBalance} SOL.`;
-    }
-
-    content += `\n\nWallet: ${wallet.wallet_address}`;
-    content += "\n\nTo buy a coin tap the Buy button.";
-    content += "\n\nWe guarantee the safety of user funds on Callisto, but if you expose your private key your funds will not be safe.";
-
-    //const testButton = new ButtonBuilder().setCustomId('test').setLabel('Test').setStyle(ButtonStyle.Secondary);
-
-    const buyButton = new ButtonBuilder()
-        .setCustomId('buy')
-        .setLabel('Buy')
-        .setStyle(ButtonStyle.Secondary);
-
-    const sellButton = new ButtonBuilder()
-        .setCustomId('sellAndManage')
-        .setLabel('Sell & Manage')
-        .setStyle(ButtonStyle.Secondary);
-
-    const walletButton = new ButtonBuilder()
-        .setCustomId('wallet')
-        .setLabel('Wallet')
-        .setStyle(ButtonStyle.Secondary);
-
-    const settingsButton = new ButtonBuilder()
-        .setCustomId('settings')
-        .setLabel('Settings')
-        .setStyle(ButtonStyle.Secondary);
-
-    const refreshButton = new ButtonBuilder()
-        .setCustomId('refresh')
-        .setLabel('Refresh')
-        .setStyle(ButtonStyle.Secondary);
-
-    const helpButton = new ButtonBuilder()
-        .setCustomId('help')
-        .setLabel('Help')
-        .setStyle(ButtonStyle.Secondary);
-
-    const referButton = new ButtonBuilder()
-        .setCustomId('refer')
-        .setLabel('Refer Friends')
-        .setStyle(ButtonStyle.Secondary);
-
-    const firstRow = new ActionRowBuilder()
-        .addComponents(buyButton, sellButton, walletButton, settingsButton, refreshButton);
-
-    const secondRow = new ActionRowBuilder()
-        .addComponents(helpButton, referButton);
-
-    return {
-        content,
-        components: [firstRow, secondRow],
-        ephemeral: true,
-    };
 };
 
 export const createWalletUI = async (userId: string): Promise<UI> => {
@@ -207,19 +207,19 @@ export const createHelpUI = (): UI => {
     }
 };
 
-export const createPreBuyUI = async (userId: string, contractAddress: string): Promise<UI> => {
+export const createPreBuyUI = async (userId: string, contractAddress: string): Promise<UIResponse> => {
     let content: string = "";
     const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-    if (!wallet) return { content: "No default wallet found. Create one with the /create command.", ephemeral: true };
+    if (!wallet) return { ui: { content: "No default wallet found. Create one with the /create command.", ephemeral: true } };
     const walletBalance = await SolanaWeb3.getBalanceOfWalletInLamports(wallet.wallet_address);
-    if (!walletBalance) return { content: ERROR_CODES["0015"].message, ephemeral: true };
+    if (!walletBalance) return { ui: { content: ERROR_CODES["0015"].message, ephemeral: true } };
     if (wallet.settings.auto_buy_value > 0) {
         const txPrio: number = wallet.settings.tx_priority_value;
 
         if (walletBalance < wallet.settings.auto_buy_value * LAMPORTS_PER_SOL + txPrio + 105000) {
             // 105000 is the minimum amount of lamports needed for a swap
             content += `Not enough SOL for autobuy. Please deposit more SOL to your wallet.`;
-            return { content, ephemeral: true };
+            return { ui: { content, ephemeral: true } };
         }
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
         // TODO: create either special UI for autobuy or use the same as for manual buy before the swap. instead of createAfterSwapUI
@@ -230,7 +230,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
     // TODO: find a way to get a more up-to-date price of the coin, because dex price can lag like 1 min behind
     // best way for this would be to know how much SOL and how much of the token are in the LP and then simply calculate the price
     const coinInfo: CoinStats | null = await SolanaWeb3.getCoinPriceStats(contractAddress);
-    if (!coinInfo) return { content: "Coin not found. Please enter a valid contract address.", ephemeral: true };
+    if (!coinInfo) return { ui: { content: "Coin not found. Please enter a valid contract address.", ephemeral: true } };
 
     // TODO: calculate price impact
     // TODO: calculate price changes in last minutes/hours
@@ -291,9 +291,11 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
         .addComponents(refreshButton);
 
     return {
-        content,
-        components: [firstRow, secondRow, thirdRow],
-        ephemeral: true,
+        ui: {
+            content,
+            components: [firstRow, secondRow, thirdRow],
+            ephemeral: true,
+        }
     };
 };
 
@@ -468,11 +470,12 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
             ephemeral: true,
         };
     } catch (error) {
+        // TODO: store error in db
         return { content: "Server error. Please try again later.", ephemeral: true };
     }
 };
 
-export const createAfterSwapUI = (txResponse: TxResponse): UI => {
+export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean = false): UIResponse => {
     const token: CoinStats | undefined = txResponse.token_stats;
     let amount: string = "";
     if (txResponse.sell_amount) {
@@ -512,59 +515,13 @@ export const createAfterSwapUI = (txResponse: TxResponse): UI => {
     const row = new ActionRowBuilder().addComponents(buttons);
 
     return {
-        content: txResponse.response!,
-        components: [row],
-        ephemeral: true,
-    };
-};
-
-export const createAfterSwapUIWithRef = (txResponse: TxResponse): UIWithRef => {
-    const token: CoinStats | undefined = txResponse.token_stats;
-    let amount: string = "";
-    if (txResponse.sell_amount) {
-        amount = `${txResponse.sell_amount}% | `;
-    }
-    if (txResponse.token_amount) {
-        amount = `${txResponse.token_amount} SOL | `;
-    }
-
-    if (token) {
-        // means it was a sell. needed for the retry button
-        txResponse.response = `${amount}${token.name} | ${token.symbol} | ${token.address}\n\n${txResponse.response}`;
-    }
-    if (txResponse.contract_address) {
-        // needed for the retry button
-        txResponse.response = `${amount}${txResponse.contract_address}\n\n${txResponse.response}`;
-    }
-
-    const startButton = new ButtonBuilder()
-        .setCustomId('start')
-        .setLabel('Start')
-        .setStyle(ButtonStyle.Secondary);
-
-    const positionsButton = new ButtonBuilder()
-        .setCustomId('sellAndManage')
-        .setLabel('Positions')
-        .setStyle(ButtonStyle.Secondary);
-
-    const retryButton = new ButtonBuilder()
-        .setCustomId('retryLastSwap')
-        .setLabel('Retry')
-        .setStyle(ButtonStyle.Secondary);
-
-    const buttons = [startButton, positionsButton];
-    if (txResponse.include_retry_button) buttons.push(retryButton);
-
-    const row = new ActionRowBuilder().addComponents(buttons);
-
-    return {
+        transaction: txResponse,
         ui: {
             content: txResponse.response!,
             components: [row],
             ephemeral: true,
         },
-        signature: txResponse.tx_signature,
-        referrer: txResponse.referrer,
+        store_ref_fee: storeRefFee,
     };
 };
 
@@ -856,7 +813,7 @@ export const createChangeSellButtonModal = (buttonNumber: string): ModalBuilder 
     return changeSellButton1Modal;
 };
 
-export const createWithdrawXSolModal = (): any => {
+export const createWithdrawXSolModal = (): ModalBuilder => {
     const withdrawXSolModal = new ModalBuilder()
         .setCustomId('withdrawXSol')
         .setTitle('Withdraw X SOL');
@@ -886,7 +843,7 @@ export const createWithdrawXSolModal = (): any => {
     return withdrawXSolModal;
 };
 
-export const createWithdrawAllSolModal = (): any => {
+export const createWithdrawAllSolModal = (): ModalBuilder => {
     const withdrawXSolModal = new ModalBuilder()
         .setCustomId('withdrawAllSol')
         .setTitle('Withdraw all SOL');

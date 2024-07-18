@@ -8,9 +8,9 @@ export type DBTransaction = {
     token_amount?: number; // in lamports
     sell_amount?: number; // in percent
     usd_volume?: number;
-    total_fees?: number;
-    callisto_fees?: number;
-    ref_fees?: number;
+    total_fee?: number;
+    callisto_fee?: number;
+    ref_fee?: number;
     processing_time_function?: number;
     processing_time_tx?: number;
     timestamp?: number;

@@ -7,18 +7,19 @@ import bs58 from 'bs58';
 import crypto from 'crypto';
 import { ERROR_CODES } from "../config/errors";
 import { UI } from "../interfaces/ui";
-import { addStartButton, createAfterSwapUI, createAfterSwapUIWithRef } from "./discord-ui";
+import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
 import { LEVEL1_FEE_IN_PERCENT, LEVEL2_FEE_IN_PERCENT, LEVEL3_FEE_IN_PERCENT, REFCODE_MODAL_STRING } from "../config/constants";
 import { TxResponse } from "../interfaces/tx-response";
-import { UIWithRef } from "../interfaces/ui-with-ref";
+import { UIResponse } from "../interfaces/ui-response";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
 
 export async function createNewWallet(userId: string): Promise<string | null> {
+    // TODO: make it so only string is returned
     const solanaWallet = SolanaWeb3.createNewWallet();
     const solanaPrivateKey = bs58.encode(solanaWallet.secretKey);
     const encryption = encryptPKey(solanaPrivateKey);
@@ -145,9 +146,8 @@ export function formatNumber(num: string): string {
         return (number / 1000000).toFixed(2).replace(/\.0$/, '') + 'M';
     } else if (number >= 1000) {
         return (number / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-    } else {
-        return number.toString();
     }
+    return number.toString();
 }
 
 export function getKeypairFromEncryptedPKey(encryptedPKey: string, iv: string): Keypair | null {
@@ -159,9 +159,7 @@ export function getKeypairFromEncryptedPKey(encryptedPKey: string, iv: string): 
 export function encryptPKey(pKey: string): { encryptedPrivateKey: string, iv: string } | null {
     try {
         const secretKey = process.env.ENCRYPTION_SECRET_KEY;
-        if (!secretKey) {
-            throw new Error("Encryption key not found.");
-        }
+        if (!secretKey) throw new Error("Encryption key not found.");
         const iv = crypto.randomBytes(16);
         const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, secretKey, iv);
         let encrypted = cipher.update(pKey, 'utf8', 'hex');
@@ -177,7 +175,6 @@ export function decryptPKey(encryptedPKey: string, iv: string): string | null {
     try {
         const secretKey = process.env.ENCRYPTION_SECRET_KEY;
         if (!secretKey) return null;
-
         const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, secretKey, Buffer.from(iv, 'hex'));
         let decrypted = decipher.update(encryptedPKey, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
@@ -188,54 +185,52 @@ export function decryptPKey(encryptedPKey: string, iv: string): string | null {
     }
 }
 
-export async function buyCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UI> {
+export async function buyCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
     const contractAddress = extractAndValidateCA(msgContent);
-    if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
+    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
     try {
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_buy", error });
-        return { content: ERROR_CODES["0000"].message, ephemeral: true };
+        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
     }
 }
 
-export async function buyCoinX(userId: string, msgContent: string, amount: string): Promise<UI> {
+export async function buyCoinX(userId: string, msgContent: string, amount: string): Promise<UIResponse> {
     const contractAddress = extractAndValidateCA(msgContent);
-    if (!contractAddress) return { content: ERROR_CODES["0006"].message, ephemeral: true };
+    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
     try {
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, amount);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_buy", error });
-        return { content: ERROR_CODES["0000"].message, ephemeral: true };
+        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
     }
 }
 
-export async function sellCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIWithRef> {
+export async function sellCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
     const contractAddress = extractAndValidateCA(msgContent);
-    if (!contractAddress) {
-        return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
-    }
+    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
     try {
         const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
         await saveDbTransaction(response);
-        return createAfterSwapUIWithRef(response);
+        return createAfterSwapUI(response, true);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
         return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
     }
 }
 
-export async function sellCoinX(userId: string, msgContent: string, amountInPercent: string): Promise<UIWithRef> {
+export async function sellCoinX(userId: string, msgContent: string, amountInPercent: string): Promise<UIResponse> {
     const contractAddress = extractAndValidateCA(msgContent);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
     try {
         const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, amountInPercent);
         await saveDbTransaction(response);
-        return createAfterSwapUIWithRef(response);
+        return createAfterSwapUI(response, true);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
         return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
@@ -267,9 +262,9 @@ export async function saveDbTransaction({
     token_amount,
     sell_amount,
     usd_volume,
-    total_fees,
-    callisto_fees,
-    ref_fees,
+    total_fee,
+    callisto_fee,
+    ref_fee,
     error,
 }: TxResponse): Promise<boolean> {
     try {
@@ -286,9 +281,9 @@ export async function saveDbTransaction({
             token_amount,
             sell_amount,
             usd_volume,
-            total_fees,
-            callisto_fees,
-            ref_fees,
+            total_fee,
+            callisto_fee,
+            ref_fee,
             error: error,
         });
         await dbTx.save();
@@ -355,7 +350,7 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
             // TODO: store error and submitted ref code in db
             return addStartButton(ERROR_CODES["0014"].message);
         }
-        
+
         let refsWallet: string = "";
         const referrersDefaultWallet = await Wallet.findOne({ user_id: referrer.user_id, is_default_wallet: true }).lean();
         if (referrersDefaultWallet) refsWallet = referrersDefaultWallet.wallet_address;
@@ -364,6 +359,8 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
             return addStartButton("This user already used a referral code.");
         }
 
+        referrer.total_refs++;
+        user.swap_fee = user.swap_fee * 0.9;
         user.referrer = {
             code: refCode,
             referrer_user_id: referrer.user_id,
@@ -372,8 +369,6 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
             fee_level: getCorrectRefFeeLevel(referrer.total_refs),
             timestamp: Date.now(),
         };
-        user.swap_fee = user.swap_fee * 0.9;
-        referrer.total_refs++;
 
         await Wallet.updateMany({ user_id: userId }, { swap_fee: user.swap_fee });
         await user.save();
@@ -400,4 +395,14 @@ export function getFeeInPercentFromFeeLevel(feeLevel: number): number {
 
 export function successResponse(txResponse: TxResponse): TxResponse {
     return { ...txResponse };
+}
+
+export async function storeUnpaidRefFee(amount: number): Promise<boolean> {
+    try {
+        // TODO: store 
+
+        return true;
+    } catch (error) {
+        return false;
+    }
 }

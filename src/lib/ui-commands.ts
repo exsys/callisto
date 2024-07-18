@@ -40,19 +40,21 @@ import {
     sellCoin,
     sellCoinX,
     createRefCodeForUser,
-    saveReferralAndUpdateFees
+    saveReferralAndUpdateFees,
+    storeUnpaidRefFee
 } from "./util";
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../interfaces/tx-response";
 import { REFCODE_MODAL_STRING } from "../config/constants";
-import { UIWithRef } from "../interfaces/ui-with-ref";
+import { UIResponse } from "../interfaces/ui-response";
+import { ModalBuilder } from "discord.js";
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const userId = interaction.user.id;
+        const userId: string = interaction.user.id;
         const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
         if (!wallet) {
             await interaction.editReply({ content: "Test failed. Wallet not found", ephemeral: true });
@@ -96,28 +98,26 @@ export const BUTTON_COMMANDS = {
     },
     refresh: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const startUI = await createStartUI(interaction.user.id);
+        const startUI: UI = await createStartUI(interaction.user.id);
         await interaction.editReply(startUI);
     },
     refreshCoinInfo: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
-            await interaction.editReply({ content: "Contract address not found. If the issue persists please contact Support. Error code: 0006", ephemeral: true });
+            await interaction.editReply({ content: ERROR_CODES["0006"].message, ephemeral: true });
             return;
         }
-
-        const buyUI: UI = await createPreBuyUI(interaction.user.id, contractAddress);
-        await interaction.editReply(buyUI);
+        const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress);
+        await interaction.editReply(uiResponse.ui);
     },
     refreshManageInfo: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
-            await interaction.editReply({ content: "Contract address not found. If the issue persists please contact Support. Error code: 0006", ephemeral: true });
+            await interaction.editReply({ content: ERROR_CODES["0006"].message, ephemeral: true });
             return;
         }
-
         const sellAndManageUI: UI = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
         await interaction.editReply(sellAndManageUI);
     },
@@ -127,34 +127,33 @@ export const BUTTON_COMMANDS = {
     },
     refer: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const refCode = await createRefCodeForUser(interaction.user.id);
-        if (refCode) {
-            await interaction.editReply({ content: refCode, ephemeral: true });
+        const refCodeMsg: string | null = await createRefCodeForUser(interaction.user.id);
+        if (refCodeMsg) {
+            await interaction.editReply({ content: refCodeMsg, ephemeral: true });
             return;
         }
         await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
     },
     deposit: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const allWallets = await Wallet.find({ user_id: interaction.user.id }).lean();
-        if (!allWallets.length) {
-            await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started.", ephemeral: true });
-            return;
-        }
-        const defaultWallet = allWallets.find((wallet: any) => wallet.is_default_wallet);
-        if (!defaultWallet) {
-            await interaction.editReply({ content: "No default wallet found. If the issue persists please contact support.", ephemeral: true });
-            return;
+        try {
+            const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
+            if (!wallet) {
+                await interaction.editReply({ content: ERROR_CODES["0003"].message, ephemeral: true });
+                return;
+            }
+            await interaction.editReply({ content: wallet.wallet_address, ephemeral: true });
+        } catch (error) {
+            await interaction.editReply({ content: ERROR_CODES["0000"].message, ephemeral: true });
         }
 
-        await interaction.editReply({ content: defaultWallet.wallet_address, ephemeral: true });
     },
     withdrawAllSol: async (interaction: any) => {
-        const modal = createWithdrawAllSolModal();
+        const modal: ModalBuilder = createWithdrawAllSolModal();
         await interaction.showModal(modal);
     },
     withdrawXSol: async (interaction: any) => {
-        const modal = createWithdrawXSolModal();
+        const modal: ModalBuilder = createWithdrawXSolModal();
         await interaction.showModal(modal);
     },
     removeWallet: async (interaction: any) => {
@@ -168,33 +167,23 @@ export const BUTTON_COMMANDS = {
         await interaction.editReply(changeWalletUI);
     },
     createWallet: async (interaction: any) => {
-        const walletAddress = await createNewWallet(interaction.user.id);
+        const walletAddress: string | null = await createNewWallet(interaction.user.id);
         if (!walletAddress) {
             await interaction.editReply({ content: ERROR_CODES["0005"].message, ephemeral: true });
             return;
         }
 
         if (walletAddress === REFCODE_MODAL_STRING) {
-            try {
-                const refCodeModal = createRefCodeModal();
-                await interaction.showModal(refCodeModal);
-                return;
-            } catch (error) {
-                console.log(error);
-                return;
-            }
+            const refCodeModal = createRefCodeModal();
+            await interaction.showModal(refCodeModal);
         }
 
-        const startUI = await createStartUI(interaction.user.id);
-        if (!startUI) {
-            await interaction.editReply({ content: ERROR_CODES["0002"].message, ephemeral: true });
-            return;
-        }
+        const startUI: UI = await createStartUI(interaction.user.id);
         await interaction.editReply(startUI);
     },
     addNewWallet: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const walletAddress = await createNewWallet(interaction.user.id);
+        const walletAddress: string | null = await createNewWallet(interaction.user.id);
         if (!walletAddress) {
             await interaction.editReply({ content: ERROR_CODES["0005"].message, ephemeral: true });
             return;
@@ -204,21 +193,21 @@ export const BUTTON_COMMANDS = {
     },
     setAsDefault: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const allWallets = await Wallet.find({ user_id: interaction.user.id }).lean();
-        if (!allWallets.length) {
-            await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started.", ephemeral: true });
-            return;
-        }
-        const oldDefaultWallet = allWallets.find((wallet: any) => wallet.is_default_wallet);
-        const newDefaultWallet = allWallets.sort((a: any, b: any) => a.createdAt - b.createdAt)[0]; // find the latest wallet by date
-        if (!newDefaultWallet || !oldDefaultWallet) {
-            await interaction.editReply({ content: "Server error. Please try again later", ephemeral: true });
-            return;
-        }
-
         try {
-            await Wallet.updateOne({ wallet_address: oldDefaultWallet.wallet_address }, { is_default_wallet: false });
-            await Wallet.updateOne({ wallet_address: newDefaultWallet.wallet_address }, { is_default_wallet: true });
+            const allWallets: any[] = await Wallet.find({ user_id: interaction.user.id }).lean();
+            if (!allWallets.length) {
+                await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started.", ephemeral: true });
+                return;
+            }
+            const oldDefaultWallet: any = allWallets.find((wallet: any) => wallet.is_default_wallet);
+            const newDefaultWallet: any = allWallets.sort((a: any, b: any) => a.createdAt - b.createdAt)[0]; // find the latest wallet by date
+            if (!newDefaultWallet || !oldDefaultWallet) {
+                await interaction.editReply({ content: "Server error. Please try again later", ephemeral: true });
+                return;
+            }
+
+            await Wallet.updateOne({ user_id: interaction.user.id, wallet_address: oldDefaultWallet.wallet_address }, { is_default_wallet: false });
+            await Wallet.updateOne({ user_id: interaction.user.id, wallet_address: newDefaultWallet.wallet_address }, { is_default_wallet: true });
             await interaction.editReply({ content: "Successfully set as your default wallet!", ephemeral: true });
         } catch (error) {
             await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
@@ -241,74 +230,78 @@ export const BUTTON_COMMANDS = {
     },
     buyButton1: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await buyCoin(interaction.user.id, interaction.message.content, "1");
-        await interaction.editReply(ui);
+        const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "1");
+        await interaction.editReply(uiResponse.ui);
     },
     buyButton2: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await buyCoin(interaction.user.id, interaction.message.content, "2");
-        await interaction.editReply(ui);
+        const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "2");
+        await interaction.editReply(uiResponse.ui);
     },
     buyButton3: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await buyCoin(interaction.user.id, interaction.message.content, "3");
-        await interaction.editReply(ui);
+        const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "3");
+        await interaction.editReply(uiResponse.ui);
     },
     buyButton4: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await buyCoin(interaction.user.id, interaction.message.content, "4");
-        await interaction.editReply(ui);
+        const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "4");
+        await interaction.editReply(uiResponse.ui);
     },
     buyButtonX: async (interaction: any) => {
-        const modal = createBuyXSolModal();
+        const modal: ModalBuilder = createBuyXSolModal();
         await interaction.showModal(modal);
     },
     sellButton1: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UIWithRef = await sellCoin(interaction.user.id, interaction.message.content, "1");
-        await interaction.editReply(ui.ui);
-        if (ui.signature && ui.referrer) {
-            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
-            if (!success) {
-                // TODO: store in db as unpaid
+        const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "1");
+        await interaction.editReply(uiResponse.ui);
+        if (uiResponse.store_ref_fee) {
+            if (!uiResponse.transaction?.ref_fee) {
+                console.log("Ref fee field not found. Sell response: " + uiResponse);
+                return;
             }
+            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
         }
     },
     sellButton2: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UIWithRef = await sellCoin(interaction.user.id, interaction.message.content, "2");
-        await interaction.editReply(ui.ui);
-        if (ui.signature && ui.referrer) {
-            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
-            if (!success) {
-                // TODO: store in db as unpaid
+        const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "2");
+        await interaction.editReply(uiResponse.ui);
+        if (uiResponse.store_ref_fee) {
+            if (!uiResponse.transaction?.ref_fee) {
+                console.log("Ref fee field not found. Sell response: " + uiResponse);
+                return;
             }
+            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
         }
     },
     sellButton3: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UIWithRef = await sellCoin(interaction.user.id, interaction.message.content, "3");
-        await interaction.editReply(ui.ui);
-        if (ui.signature && ui.referrer) {
-            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
-            if (!success) {
-                // TODO: store in db as unpaid
+        const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "3");
+        await interaction.editReply(uiResponse.ui);
+        if (uiResponse.store_ref_fee) {
+            if (!uiResponse.transaction?.ref_fee) {
+                console.log("Ref fee field not found. Sell response: " + uiResponse);
+                return;
             }
+            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
         }
     },
     sellButton4: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UIWithRef = await sellCoin(interaction.user.id, interaction.message.content, "4");
-        await interaction.editReply(ui.ui);
-        if (ui.signature && ui.referrer) {
-            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
-            if (!success) {
-                // TODO: store in db as unpaid
+        const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "4");
+        await interaction.editReply(uiResponse.ui);
+        if (uiResponse.store_ref_fee) {
+            if (!uiResponse.transaction?.ref_fee) {
+                console.log("Ref fee field not found. Sell response: " + uiResponse);
+                return;
             }
+            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
         }
     },
     sellButtonX: async (interaction: any) => {
-        const modal = createSellXPercentModal();
+        const modal: ModalBuilder = createSellXPercentModal();
         await interaction.showModal(modal);
     },
     generalSettings: async (interaction: any) => {
@@ -324,11 +317,11 @@ export const BUTTON_COMMANDS = {
         await interaction.reply({ content: "TRANSACTION CONFIG\n\nMEV Protection: Accelerates your transactions and protect against frontruns to make sure you get the best price possible or turn it off for faster transactions.\nOff: Callisto will not use MEV protection. Transactions will be faster but might get frontrun.\nOn: Transactions are guaranteed to be protected from MEV, but transactions may be slower or fail.\n\nTransaction Priority: Increase your Transaction Priority to improve transaction speed. Tap to edit.", ephemeral: true });
     },
     minPositionValue: async (interaction: any) => {
-        const modal = createMinPositionValueModal();
+        const modal: ModalBuilder = createMinPositionValueModal();
         await interaction.showModal(modal);
     },
     autoBuyValue: async (interaction: any) => {
-        const modal = createAutoBuyValueModal();
+        const modal: ModalBuilder = createAutoBuyValueModal();
         await interaction.showModal(modal);
     },
     mevProtection: async (interaction: any) => {
@@ -336,47 +329,47 @@ export const BUTTON_COMMANDS = {
         await interaction.editReply({ content: "Not implemented yet.", ephemeral: true });
     },
     txPriority: async (interaction: any) => {
-        const modal = createTransactionPriorityModal();
+        const modal: ModalBuilder = createTransactionPriorityModal();
         await interaction.showModal(modal);
     },
     buySlippage: async (interaction: any) => {
-        const modal = createBuySlippageModal();
+        const modal: ModalBuilder = createBuySlippageModal();
         await interaction.showModal(modal);
     },
     sellSlippage: async (interaction: any) => {
-        const modal = createSellSlippageModal();
+        const modal: ModalBuilder = createSellSlippageModal();
         await interaction.showModal(modal);
     },
     buyButtons1st: async (interaction: any) => {
-        const modal = createChangeBuyButtonModal("1");
+        const modal: ModalBuilder = createChangeBuyButtonModal("1");
         await interaction.showModal(modal);
     },
     buyButtons2nd: async (interaction: any) => {
-        const modal = createChangeBuyButtonModal("2");
+        const modal: ModalBuilder = createChangeBuyButtonModal("2");
         await interaction.showModal(modal);
     },
     buyButtons3rd: async (interaction: any) => {
-        const modal = createChangeBuyButtonModal("3");
+        const modal: ModalBuilder = createChangeBuyButtonModal("3");
         await interaction.showModal(modal);
     },
     buyButtons4th: async (interaction: any) => {
-        const modal = createChangeBuyButtonModal("4");
+        const modal: ModalBuilder = createChangeBuyButtonModal("4");
         await interaction.showModal(modal);
     },
     sellButtons1st: async (interaction: any) => {
-        const modal = createChangeSellButtonModal("1");
+        const modal: ModalBuilder = createChangeSellButtonModal("1");
         await interaction.showModal(modal);
     },
     sellButtons2nd: async (interaction: any) => {
-        const modal = createChangeSellButtonModal("2");
+        const modal: ModalBuilder = createChangeSellButtonModal("2");
         await interaction.showModal(modal);
     },
     sellButtons3rd: async (interaction: any) => {
-        const modal = createChangeSellButtonModal("3");
+        const modal: ModalBuilder = createChangeSellButtonModal("3");
         await interaction.showModal(modal);
     },
     sellButtons4th: async (interaction: any) => {
-        const modal = createChangeSellButtonModal("4");
+        const modal: ModalBuilder = createChangeSellButtonModal("4");
         await interaction.showModal(modal);
     },
     firstCoin: async (interaction: any) => {
@@ -386,7 +379,7 @@ export const BUTTON_COMMANDS = {
     },
     previousCoin: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
@@ -396,7 +389,7 @@ export const BUTTON_COMMANDS = {
     },
     nextCoin: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
@@ -415,12 +408,12 @@ export const BUTTON_COMMANDS = {
         await interaction.editReply(selectCoinMenu);
     },
     sendCoin: async (interaction: any) => {
-        const modal = createSendCoinModal();
+        const modal: ModalBuilder = createSendCoinModal();
         await interaction.showModal(modal);
     },
     retryLastSwap: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
@@ -433,17 +426,18 @@ export const BUTTON_COMMANDS = {
 
         if (amount.includes("%")) {
             const amountWithoutPercentSymbol = amount.slice(0, -1);
-            const ui: UIWithRef = await sellCoinX(interaction.user.id, interaction.message.content, amountWithoutPercentSymbol);
-            await interaction.editReply(ui);
-            if (ui.signature && ui.referrer) {
-                const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
-                if (!success) {
-                    // TODO: store in db as unpaid
+            const uiResponseSell: UIResponse = await sellCoinX(interaction.user.id, interaction.message.content, amountWithoutPercentSymbol);
+            await interaction.editReply(uiResponseSell.ui);
+            if (uiResponseSell.store_ref_fee) {
+                if (!uiResponseSell.transaction?.ref_fee) {
+                    console.log("Ref fee field not found. Sell response: " + uiResponseSell);
+                    return;
                 }
+                await storeUnpaidRefFee(uiResponseSell.transaction?.ref_fee);
             }
         } else {
-            const ui: UI = await buyCoinX(interaction.user.id, interaction.message.content, amount);
-            await interaction.editReply(ui);
+            const uiResponseBuy: UIResponse = await buyCoinX(interaction.user.id, interaction.message.content, amount);
+            await interaction.editReply(uiResponseBuy.ui);
         }
     },
 };
@@ -451,13 +445,13 @@ export const BUTTON_COMMANDS = {
 export const MENU_COMMANDS = {
     selectWallet: async (interaction: any, newDefault: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const allWallets = await Wallet.find({ user_id: interaction.user.id }).lean();
+        const allWallets: any[] = await Wallet.find({ user_id: interaction.user.id }).lean();
         if (!allWallets.length) {
             await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started.", ephemeral: true });
             return;
         }
-        const oldDefaultWallet = allWallets.find((wallet: any) => wallet.is_default_wallet);
-        const newDefaultWallet = allWallets.find((wallet: any) => wallet.wallet_address === newDefault);
+        const oldDefaultWallet: any = allWallets.find((wallet: any) => wallet.is_default_wallet);
+        const newDefaultWallet: any = allWallets.find((wallet: any) => wallet.wallet_address === newDefault);
         if (!newDefaultWallet || !oldDefaultWallet) {
             await interaction.editReply({ content: "Server error. Please try again later", ephemeral: true });
             return;
@@ -475,13 +469,13 @@ export const MENU_COMMANDS = {
     },
     removeSelectedWallet: async (interaction: any, walletToRemove: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const allWallets = await Wallet.find({ user_id: interaction.user.id });
+        const allWallets: any[] = await Wallet.find({ user_id: interaction.user.id });
         if (!allWallets.length) {
             await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started.", ephemeral: true });
             return;
         }
 
-        const removeWallet = allWallets.find((wallet: any) => wallet.wallet_address === walletToRemove);
+        const removeWallet: any = allWallets.find((wallet: any) => wallet.wallet_address === walletToRemove);
         if (!removeWallet) {
             await interaction.editReply({ content: "Wallet not found. Please contact support if the issue persists.", ephemeral: true });
             return;
@@ -518,29 +512,29 @@ export const MODAL_COMMANDS = {
     // this one will be called after pasting the contract address in the CA modal
     buyCoin: async (interaction: any, contractAddress: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const isValidAddress = SolanaWeb3.checkIfValidAddress(contractAddress);
+        const isValidAddress: boolean = SolanaWeb3.checkIfValidAddress(contractAddress);
         if (!isValidAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
         }
-        const buyUI: UI = await createPreBuyUI(interaction.user.id, contractAddress);
-        await interaction.editReply(buyUI);
+        const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress);
+        await interaction.editReply(uiResponse.ui);
     },
     buyXSol: async (interaction: any, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await buyCoinX(interaction.user.id, interaction.message.content, amount);
-        await interaction.editReply(ui);
+        const uiResponse: UIResponse = await buyCoinX(interaction.user.id, interaction.message.content, amount);
+        await interaction.editReply(uiResponse.ui);
     },
     sellXPercent: async (interaction: any, percent: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UIWithRef = await sellCoinX(interaction.user.id, interaction.message.content, percent);
-        await interaction.editReply(ui.ui);
-        if (ui.signature && ui.referrer) {
-            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
-            if (!success) {
-                // TODO: store in db as unpaid
-                // ich muss laptop nehmen und mit shiranai ref code benutzen
+        const uiResponse: UIResponse = await sellCoinX(interaction.user.id, interaction.message.content, percent);
+        await interaction.editReply(uiResponse.ui);
+        if (uiResponse.store_ref_fee) {
+            if (!uiResponse.transaction?.ref_fee) {
+                console.log("Ref fee field not found. Sell response: " + uiResponse);
+                return;
             }
+            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
         }
     },
     withdrawXSol: async (interaction: any, values: string[]) => {
@@ -882,7 +876,7 @@ export const MODAL_COMMANDS = {
             await interaction.editReply(response);
         } else {
             const startUI: UI = await createStartUI(interaction.user.id);
-            await interaction.editReply(startUI);
+            await interaction.editReply({ content: startUI.content, ephemeral: true });
         }
     }
 };

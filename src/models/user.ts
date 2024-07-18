@@ -14,22 +14,24 @@ const UserSchema = new Schema({
         default: 0.75, // fee in percent
     },
     total_volume: {
-        // total volume in usd traded by the user
         type: Number,
-        default: 0,
+        default: 0, // total volume in usd traded by the user
     },
     ref_code: {
         type: String,
         required: false,
     },
     total_refs: {
-        // total number of people referred by the user
         type: Number,
-        default: 0,
+        default: 0, // total number of people referred by the user
     },
-    unpaid_ref_fees: {
+    unclaimed_ref_fees: {
         type: Number,
-        default: 0,
+        default: 0, // in lamports
+    },
+    claimed_ref_fees: {
+        type: Number,
+        default: 0, // in lamports
     },
     referrer: {
         // the user who referred this user and some stats

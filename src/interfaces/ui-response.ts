@@ -1,12 +1,12 @@
 import { ActionRowBuilder } from "discord.js";
-import { Referrer } from "./referrer";
+import { TxResponse } from "./tx-response";
 
-export interface UIWithRef {
+export interface UIResponse {
     ui: {
         content: string;
         components?: ActionRowBuilder[];
         ephemeral: boolean;
     };
-    signature?: string;
-    referrer?: Referrer;
+    transaction?: TxResponse,
+    store_ref_fee?: boolean;
 }
