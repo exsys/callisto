@@ -57,7 +57,7 @@ export const SettingsSchema = new Schema({
         type: Number,
         required: true,
     },
-});
+}, { _id: false });
 
 export const DEFAULT_SETTINGS = {
     min_position_value: 0.1,

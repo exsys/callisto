@@ -1,5 +1,5 @@
 import { CoinStats } from "./coinstats";
-import { Referrer } from "./referrer";
+import { Referral } from "./referral";
 
 export interface TxResponse {
     user_id: string;
@@ -13,8 +13,7 @@ export interface TxResponse {
     sell_amount?: number; // in percent
     token_stats?: CoinStats;
     include_retry_button?: boolean;
-    referrer?: Referrer;
-    error?: any;
+    referral?: Referral;
     processing_time_function?: number;
     processing_time_tx?: number;
     total_fee?: number;
@@ -22,4 +21,5 @@ export interface TxResponse {
     ref_fee?: number;
     usd_volume?: number;
     timestamp?: number;
+    error?: any;
 }

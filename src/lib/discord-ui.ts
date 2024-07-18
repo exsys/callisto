@@ -478,6 +478,7 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
 export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean = false): UIResponse => {
     const token: CoinStats | undefined = txResponse.token_stats;
     let amount: string = "";
+    let response: string = "";
     if (txResponse.sell_amount) {
         amount = `${txResponse.sell_amount}% | `;
     }
@@ -485,13 +486,16 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
         amount = `${txResponse.token_amount} SOL | `;
     }
 
-    if (token) {
-        // means it was a sell. needed for the retry button
-        txResponse.response = `${amount}${token.name} | ${token.symbol} | ${token.address}\n\n${txResponse.response}`;
-    }
-    if (txResponse.contract_address) {
-        // needed for the retry button
-        txResponse.response = `${amount}${txResponse.contract_address}\n\n${txResponse.response}`;
+    if (txResponse.error) {
+        response = txResponse.response ? txResponse.response : "Server error. Please try again later.";
+    } else {
+        if (token) {
+            // if token exists it was a sell
+            response = `${amount}${token.name} | ${token.symbol} | ${token.address}\n\n${txResponse.response}`;
+        }
+        if (txResponse.contract_address) {
+            response = `${amount}${txResponse.contract_address}\n\n${txResponse.response}`;
+        }
     }
 
     const startButton = new ButtonBuilder()
@@ -511,13 +515,11 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
 
     const buttons = [startButton, positionsButton];
     if (txResponse.include_retry_button) buttons.push(retryButton);
-
     const row = new ActionRowBuilder().addComponents(buttons);
-
     return {
         transaction: txResponse,
         ui: {
-            content: txResponse.response!,
+            content: response,
             components: [row],
             ephemeral: true,
         },
@@ -746,7 +748,7 @@ export const createSelectCoinMenu = async (userId: string): Promise<UI> => {
 
         return { content, components: [row], ephemeral: true };
     } catch (error) {
-        console.log(error);
+        // TODO: store error
         return { content: "Server error. Please try again later.", ephemeral: true };
     }
 };

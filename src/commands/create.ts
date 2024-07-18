@@ -16,7 +16,7 @@ const command = {
             }
             await interaction.editReply({ content: `Your new wallet has been created.\nWallet address: ${solanaWallet}`, ephemeral: true });
         } catch (error) {
-            console.log(error);
+            // TODO: store error
             await interaction.editReply("Server error. Please try again later.");
         }
     }

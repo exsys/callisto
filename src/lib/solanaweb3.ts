@@ -67,7 +67,6 @@ import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CAWithAmount } from "../interfaces/cawithamount";
 import { User } from "../models/user";
 import { TxResponse } from "../interfaces/tx-response";
-import { Referrer } from "../interfaces/referrer";
 
 type CoinPriceQuote = {
     contract_address: string;
@@ -320,7 +319,6 @@ export class SolanaWeb3 {
         txResponse.wallet_address = wallet_address;
         if (!user) return userNotFoundError(txResponse);
 
-
         try {
             const conn = this.getConnection();
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet_address);
@@ -348,7 +346,7 @@ export class SolanaWeb3 {
             const userHasReducedFeesFromRef: boolean = wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
             if (userHasReducedFeesFromRef) {
                 // reset the reduced swap fees from using a ref code after 1 month
-                if (user.referrer!.timestamp! >= user.referrer!.timestamp! + FEE_REDUCTION_PERIOD) {
+                if (user.referral!.timestamp! >= user.referral!.timestamp! + FEE_REDUCTION_PERIOD) {
                     user.swap_fee = BASE_SWAP_FEE;
                     await user.save();
                     await Wallet.updateMany({ user_id: user_id }, { swap_fee: BASE_SWAP_FEE });
@@ -359,14 +357,18 @@ export class SolanaWeb3 {
             const totalFeesInLamports: number = Math.floor(amountInLamports * (wallet.swap_fee / 100));
             const slippage: number = wallet.settings.buy_slippage * this.BPS_PER_PERCENT;
             let refFeesInLamports: number = 0;
-            if (user.referrer) {
+            if (user.referral) {
                 // calculate how much of the fee will be sent to the referrer
-                const feeAmountInPercent: number = getFeeInPercentFromFeeLevel(user.referrer.fee_level);
-                refFeesInLamports = Math.floor(totalFeesInLamports * (feeAmountInPercent / 100));
-                txResponse.ref_fee = refFeesInLamports;
-                user.unclaimed_ref_fees += refFeesInLamports;
-                // TODO: move user.save() to after interaction.editReply
-                await user.save();
+                const referrer = await User.findOne({ user_id: user.referral.referrer_user_id });
+                if (referrer) {
+                    // TODO: error handling
+                    const feeAmountInPercent: number = getFeeInPercentFromFeeLevel(user.referral.fee_level);
+                    refFeesInLamports = Math.floor(totalFeesInLamports * (feeAmountInPercent / 100));
+                    txResponse.ref_fee = refFeesInLamports;
+                    referrer.unclaimed_ref_fees += refFeesInLamports;
+                    // TODO: move referrer.save() to after interaction.editReply
+                    await referrer.save();
+                }
             }
             const callistoFeesInLamports: number = totalFeesInLamports - refFeesInLamports;
             const amountInLamportsMinusFees: number = amountInLamports - totalFeesInLamports;
@@ -495,7 +497,7 @@ export class SolanaWeb3 {
             const userHasReducedFeesFromRef: boolean = wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
             if (userHasReducedFeesFromRef) {
                 // reset the reduced swap fees from using a ref code after 1 month
-                if (user.referrer!.timestamp! >= user.referrer!.timestamp! + FEE_REDUCTION_PERIOD) {
+                if (user.referral!.timestamp! >= user.referral!.timestamp! + FEE_REDUCTION_PERIOD) {
                     user.swap_fee = BASE_SWAP_FEE;
                     await user.save();
                     await Wallet.updateMany({ user_id: user_id }, { swap_fee: BASE_SWAP_FEE });
@@ -557,7 +559,7 @@ export class SolanaWeb3 {
             return successResponse({
                 ...txResponse,
                 success: true,
-                referrer: user.referrer,
+                referral: user.referral,
                 response: "Successfully swapped. Transaction ID: " + signature,
             });
         } catch (error) {
@@ -671,7 +673,7 @@ export class SolanaWeb3 {
 
             return priceInfo;
         } catch (error) {
-            console.log(error);
+            // TODO: store error
             return null;
         }
     }
@@ -704,7 +706,7 @@ export class SolanaWeb3 {
             );
             return associatedTokenAddress;
         } catch (error) {
-            console.log(error);
+            // TODO: store error
             return null;
         }
     }
@@ -815,7 +817,7 @@ export class SolanaWeb3 {
             const coinInfo: CoinInfo = pairInfo.pairs[0].baseToken;
             return coinInfo;
         } catch (error) {
-            console.log(error);
+            // TODO: store error
             return null;
         }
     }
@@ -859,5 +861,21 @@ export class SolanaWeb3 {
             return undefined;
         }
         return bs58.encode(signature);
+    }
+
+    static async getTransactionInfo(signature?: string): Promise<VersionedTransactionResponse | null> {
+        if (!signature) return null;
+        try {
+            // TODO: wait until it is finalized
+            const conn = this.getConnection();
+            const tx: VersionedTransactionResponse | null = await conn.getTransaction(signature, {
+                commitment: "confirmed",
+                maxSupportedTransactionVersion: 0,
+            });
+
+            return tx;
+        } catch (error) {
+            return null;
+        }
     }
 }

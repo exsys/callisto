@@ -33,7 +33,7 @@ const UserSchema = new Schema({
         type: Number,
         default: 0, // in lamports
     },
-    referrer: {
+    referral: {
         // the user who referred this user and some stats
         type: {
             code: String,
@@ -44,6 +44,7 @@ const UserSchema = new Schema({
             number_of_referral: Number,
         },
         required: false,
+        _id: false,
     }
 }, { timestamps: true });
 

@@ -1,5 +1,4 @@
 import { ActionRowBuilder } from "discord.js";
-import { Referrer } from "./referrer";
 
 export interface UI {
     content: string;

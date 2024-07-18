@@ -12,7 +12,7 @@ const command = {
             const ui: UI = await createSellAndManageUI({ userId: interaction.user.id });
             await interaction.editReply(ui);
         } catch (error) {
-            console.log(error);
+            // TODO: store error
             await interaction.editReply("Server error. Please try again later.");
         }
     }

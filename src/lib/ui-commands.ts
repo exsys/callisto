@@ -256,6 +256,7 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "1");
         await interaction.editReply(uiResponse.ui);
+        // TODO: this if block will be executed if user swap fee is 0. fix that
         if (uiResponse.store_ref_fee) {
             const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
@@ -482,7 +483,7 @@ export const MENU_COMMANDS = {
 
             await interaction.editReply({ content: "Successfully removed wallet.", ephemeral: true });
         } catch (error) {
-            console.log(error);
+            // TODO: store error
             await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
         }
     },
@@ -533,7 +534,7 @@ export const MODAL_COMMANDS = {
             const result: TxResponse = await SolanaWeb3.transferXSol(interaction.user.id, amountToWithdraw, destinationAddress);
             await interaction.editReply({ content: result.response, ephemeral: true });
         } catch (error) {
-            console.log(error);
+            // TODO: store error
             await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
         }
 
@@ -550,7 +551,7 @@ export const MODAL_COMMANDS = {
             const result: TxResponse = await SolanaWeb3.transferAllSol(interaction.user.id, destinationAddress);
             await interaction.editReply({ content: result.response, ephemeral: true });
         } catch (error) {
-            console.log(error);
+            // TODO: store error
             await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
         }
     },

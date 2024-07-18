@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { ConfirmedTransactionMeta, Keypair, LAMPORTS_PER_SOL, PublicKey, VersionedMessage, VersionedTransactionResponse } from "@solana/web3.js";
 import { User } from "../models/user";
 import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
@@ -11,7 +11,7 @@ import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
-import { LEVEL1_FEE_IN_PERCENT, LEVEL2_FEE_IN_PERCENT, LEVEL3_FEE_IN_PERCENT, REFCODE_MODAL_STRING } from "../config/constants";
+import { FEE_TOKEN_ACCOUNT, LEVEL1_FEE_IN_PERCENT, LEVEL2_FEE_IN_PERCENT, LEVEL3_FEE_IN_PERCENT, REFCODE_MODAL_STRING } from "../config/constants";
 import { TxResponse } from "../interfaces/tx-response";
 import { UIResponse } from "../interfaces/ui-response";
 
@@ -54,7 +54,7 @@ export async function createNewWallet(userId: string): Promise<string | null> {
 
         return solanaWallet.publicKey.toString();
     } catch (error) {
-        console.log(error);
+        // TODO: store error
         return null;
     }
 }
@@ -166,7 +166,7 @@ export function encryptPKey(pKey: string): { encryptedPrivateKey: string, iv: st
         encrypted += cipher.final('hex');
         return { encryptedPrivateKey: encrypted, iv: iv.toString('hex') };
     } catch (error) {
-        console.log(error);
+        // TODO: store error
         return null;
     }
 }
@@ -180,7 +180,7 @@ export function decryptPKey(encryptedPKey: string, iv: string): string | null {
         decrypted += decipher.final('utf8');
         return decrypted;
     } catch (error) {
-        console.log(error);
+        // TODO: store error
         return null;
     }
 }
@@ -355,13 +355,13 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
         const referrersDefaultWallet = await Wallet.findOne({ user_id: referrer.user_id, is_default_wallet: true }).lean();
         if (referrersDefaultWallet) refsWallet = referrersDefaultWallet.wallet_address;
 
-        if (user.referrer) {
+        if (user.referral) {
             return addStartButton("This user already used a referral code.");
         }
 
         referrer.total_refs++;
         user.swap_fee = user.swap_fee * 0.9;
-        user.referrer = {
+        user.referral = {
             code: refCode,
             referrer_user_id: referrer.user_id,
             referrer_wallet: refsWallet,
@@ -397,12 +397,38 @@ export function successResponse(txResponse: TxResponse): TxResponse {
     return { ...txResponse };
 }
 
-export async function storeUnpaidRefFee(userId: string, amount: number): Promise<boolean> {
+export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean> {
+    if (!txResponse) return false;
+    // TODO: proper error handling, with returning error message
+    if (!txResponse.referral) return false;
     try {
-        const user = await User.findOne({ user_id: userId });
-        if (!user) return false;
-        user.unclaimed_ref_fees += amount;
-        await user.save();
+        const tx: VersionedTransactionResponse | null = await SolanaWeb3.getTransactionInfo(txResponse.tx_signature);
+        if (!tx) return false;
+        const txInfo: ConfirmedTransactionMeta | null = tx.meta;
+        const txMsg: { message: VersionedMessage; signatures: string[]; } = tx.transaction;
+        if (!txInfo) return false;
+        if (!txResponse.wallet_address) {
+            // TODO: get wallet address from user_id
+        }
+
+        // how much the user paid in fees. this is checking how much the calli fee wallet received from this tx
+        const solPreBalance: number = txInfo.preBalances[txMsg.message.staticAccountKeys.findIndex((key: PublicKey) => key.toBase58() === FEE_TOKEN_ACCOUNT)];
+        const solPostBalance: number = txInfo.postBalances[txMsg.message.staticAccountKeys.findIndex((key: PublicKey) => key.toBase58() === FEE_TOKEN_ACCOUNT)];
+        const solReceivedInLamports: number = solPostBalance - solPreBalance;
+        // TODO: proper error handling
+        if (!solReceivedInLamports) return false;
+        const referrer: any = await User.findOne({ user_id: txResponse.referral.referrer_user_id });
+        if (!referrer) return false;
+
+        // TODO: if any user ever has 0 swap fee, a check for this has to be done here, or else the referrer receives fees anyways
+        //const user: any = await User.findOne({ user_id: txResponse.user_id });
+
+        const refFeeInPercent: number = getFeeInPercentFromFeeLevel(txResponse.referral.fee_level);
+        const refFeeInDecimal: number = refFeeInPercent / 100;
+        const refFee = Math.floor(solReceivedInLamports * refFeeInDecimal);
+        referrer.unclaimed_ref_fees += refFee;
+
+        await referrer.save();
         return true;
     } catch (error) {
         return false;
