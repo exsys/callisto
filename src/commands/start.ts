@@ -15,13 +15,12 @@ const command = {
                     await interaction.showModal(refCodeModal);
                     return;
                 } catch (error) {
-                    console.log(error);
+                    await interaction.reply("Server error. Please try again later.");
                     return;
                 }
             }
             await interaction.reply(startUI);
         } catch (error) {
-            console.log(error);
             await interaction.reply("Server error. Please try again later.");
         }
     }
