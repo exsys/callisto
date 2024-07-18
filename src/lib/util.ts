@@ -397,10 +397,12 @@ export function successResponse(txResponse: TxResponse): TxResponse {
     return { ...txResponse };
 }
 
-export async function storeUnpaidRefFee(amount: number): Promise<boolean> {
+export async function storeUnpaidRefFee(userId: string, amount: number): Promise<boolean> {
     try {
-        // TODO: store 
-
+        const user = await User.findOne({ user_id: userId });
+        if (!user) return false;
+        user.unclaimed_ref_fees += amount;
+        await user.save();
         return true;
     } catch (error) {
         return false;

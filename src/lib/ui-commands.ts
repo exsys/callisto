@@ -261,7 +261,8 @@ export const BUTTON_COMMANDS = {
                 console.log("Ref fee field not found. Sell response: " + uiResponse);
                 return;
             }
-            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
     sellButton2: async (interaction: any) => {
@@ -273,7 +274,8 @@ export const BUTTON_COMMANDS = {
                 console.log("Ref fee field not found. Sell response: " + uiResponse);
                 return;
             }
-            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
     sellButton3: async (interaction: any) => {
@@ -285,7 +287,8 @@ export const BUTTON_COMMANDS = {
                 console.log("Ref fee field not found. Sell response: " + uiResponse);
                 return;
             }
-            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
     sellButton4: async (interaction: any) => {
@@ -297,7 +300,8 @@ export const BUTTON_COMMANDS = {
                 console.log("Ref fee field not found. Sell response: " + uiResponse);
                 return;
             }
-            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
     sellButtonX: async (interaction: any) => {
@@ -433,7 +437,8 @@ export const BUTTON_COMMANDS = {
                     console.log("Ref fee field not found. Sell response: " + uiResponseSell);
                     return;
                 }
-                await storeUnpaidRefFee(uiResponseSell.transaction?.ref_fee);
+                const success = await storeUnpaidRefFee(interaction.user.id, uiResponseSell.transaction?.ref_fee);
+                if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponseSell));
             }
         } else {
             const uiResponseBuy: UIResponse = await buyCoinX(interaction.user.id, interaction.message.content, amount);
@@ -534,7 +539,8 @@ export const MODAL_COMMANDS = {
                 console.log("Ref fee field not found. Sell response: " + uiResponse);
                 return;
             }
-            await storeUnpaidRefFee(uiResponse.transaction?.ref_fee);
+            const success = await storeUnpaidRefFee(interaction.user.id, uiResponse.transaction?.ref_fee);
+            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
     withdrawXSol: async (interaction: any, values: string[]) => {
