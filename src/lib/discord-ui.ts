@@ -19,6 +19,7 @@ import { ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../interfaces/tx-response";
 import { User } from "../models/user";
 import { REFCODE_MODAL_STRING } from "../config/constants";
+import { UIWithRef } from "../interfaces/ui-with-ref";
 
 export const createStartUI = async (userId: string): Promise<UI> => {
     const user = await User.findOne({ user_id: userId }).lean();
@@ -505,6 +506,54 @@ export const createAfterSwapUI = (txResponse: TxResponse): UI => {
         content: txResponse.response!,
         components: [row],
         ephemeral: true,
+    };
+};
+
+export const createAfterSwapUIWithRef = (txResponse: TxResponse): UIWithRef => {
+    const token: CoinStats | undefined = txResponse.token_stats;
+    let amount: string = "";
+    if (txResponse.sell_amount) {
+        amount = `${txResponse.sell_amount}% | `;
+    }
+    if (txResponse.token_amount) {
+        amount = `${txResponse.token_amount} SOL | `;
+    }
+
+    if (token) {
+        // means it was a sell. needed for the retry button
+        txResponse.response = `${amount}${token.name} | ${token.symbol} | ${token.address}\n\n${txResponse.response}`;
+    }
+    if (txResponse.contract_address) {
+        // needed for the retry button
+        txResponse.response = `${amount}${txResponse.contract_address}\n\n${txResponse.response}`;
+    }
+
+    const startButton = new ButtonBuilder()
+        .setCustomId('start')
+        .setLabel('Start')
+        .setStyle(ButtonStyle.Secondary);
+
+    const positionsButton = new ButtonBuilder()
+        .setCustomId('sellAndManage')
+        .setLabel('Positions')
+        .setStyle(ButtonStyle.Secondary);
+
+    const retryButton = new ButtonBuilder()
+        .setCustomId('retryLastSwap')
+        .setLabel('Retry')
+        .setStyle(ButtonStyle.Secondary);
+
+    const buttons = [startButton, positionsButton];
+    if (txResponse.include_retry_button) buttons.push(retryButton);
+
+    const row = new ActionRowBuilder().addComponents(buttons);
+
+    return {
+        ui: {
+            content: txResponse.response!,
+            components: [row],
+            ephemeral: true,
+        },
         signature: txResponse.tx_signature,
         referrer: txResponse.referrer,
     };

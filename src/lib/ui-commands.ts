@@ -47,6 +47,7 @@ import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../interfaces/tx-response";
 import { REFCODE_MODAL_STRING } from "../config/constants";
+import { UIWithRef } from "../interfaces/ui-with-ref";
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: any) => {
@@ -264,8 +265,8 @@ export const BUTTON_COMMANDS = {
     },
     sellButton1: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await sellCoin(interaction.user.id, interaction.message.content, "1");
-        await interaction.editReply(ui);
+        const ui: UIWithRef = await sellCoin(interaction.user.id, interaction.message.content, "1");
+        await interaction.editReply(ui.ui);
         if (ui.signature && ui.referrer) {
             const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
             if (!success) {
@@ -275,18 +276,36 @@ export const BUTTON_COMMANDS = {
     },
     sellButton2: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await sellCoin(interaction.user.id, interaction.message.content, "2");
-        await interaction.editReply(ui);
+        const ui: UIWithRef = await sellCoin(interaction.user.id, interaction.message.content, "2");
+        await interaction.editReply(ui.ui);
+        if (ui.signature && ui.referrer) {
+            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
+            if (!success) {
+                // TODO: store in db as unpaid
+            }
+        }
     },
     sellButton3: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await sellCoin(interaction.user.id, interaction.message.content, "3");
-        await interaction.editReply(ui);
+        const ui: UIWithRef = await sellCoin(interaction.user.id, interaction.message.content, "3");
+        await interaction.editReply(ui.ui);
+        if (ui.signature && ui.referrer) {
+            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
+            if (!success) {
+                // TODO: store in db as unpaid
+            }
+        }
     },
     sellButton4: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await sellCoin(interaction.user.id, interaction.message.content, "4");
-        await interaction.editReply(ui);
+        const ui: UIWithRef = await sellCoin(interaction.user.id, interaction.message.content, "4");
+        await interaction.editReply(ui.ui);
+        if (ui.signature && ui.referrer) {
+            const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
+            if (!success) {
+                // TODO: store in db as unpaid
+            }
+        }
     },
     sellButtonX: async (interaction: any) => {
         const modal = createSellXPercentModal();
@@ -414,8 +433,14 @@ export const BUTTON_COMMANDS = {
 
         if (amount.includes("%")) {
             const amountWithoutPercentSymbol = amount.slice(0, -1);
-            const ui: UI = await sellCoinX(interaction.user.id, interaction.message.content, amountWithoutPercentSymbol);
+            const ui: UIWithRef = await sellCoinX(interaction.user.id, interaction.message.content, amountWithoutPercentSymbol);
             await interaction.editReply(ui);
+            if (ui.signature && ui.referrer) {
+                const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
+                if (!success) {
+                    // TODO: store in db as unpaid
+                }
+            }
         } else {
             const ui: UI = await buyCoinX(interaction.user.id, interaction.message.content, amount);
             await interaction.editReply(ui);
@@ -508,7 +533,8 @@ export const MODAL_COMMANDS = {
     },
     sellXPercent: async (interaction: any, percent: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await sellCoinX(interaction.user.id, interaction.message.content, percent);
+        const ui: UIWithRef = await sellCoinX(interaction.user.id, interaction.message.content, percent);
+        await interaction.editReply(ui.ui);
         if (ui.signature && ui.referrer) {
             const success = await SolanaWeb3.payRefFee(ui.signature, ui.referrer);
             if (!success) {
@@ -516,7 +542,6 @@ export const MODAL_COMMANDS = {
                 // ich muss laptop nehmen und mit shiranai ref code benutzen
             }
         }
-        await interaction.editReply(ui);
     },
     withdrawXSol: async (interaction: any, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
@@ -852,7 +877,12 @@ export const MODAL_COMMANDS = {
     },
     enterRefCode: async (interaction: any, refCode: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const message = await saveReferralAndUpdateFees(interaction.user.id, refCode);
-        await interaction.editReply({ content: message, ephemeral: true });
+        if (refCode) {
+            const response = await saveReferralAndUpdateFees(interaction.user.id, refCode);
+            await interaction.editReply({ content: response, ephemeral: true });
+        } else {
+            const startUI: UI = await createStartUI(interaction.user.id);
+            await interaction.editReply({ content: startUI.content, ephemeral: true });
+        }
     }
 };
