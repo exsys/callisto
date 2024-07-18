@@ -858,7 +858,7 @@ export const MODAL_COMMANDS = {
             await interaction.editReply(response);
         } else {
             const startUI: UI = await createStartUI(interaction.user.id);
-            await interaction.editReply({ content: startUI.content, ephemeral: true });
+            await interaction.editReply(startUI);
         }
     }
 };
