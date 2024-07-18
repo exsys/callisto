@@ -878,11 +878,11 @@ export const MODAL_COMMANDS = {
     enterRefCode: async (interaction: any, refCode: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (refCode) {
-            const response = await saveReferralAndUpdateFees(interaction.user.id, refCode);
-            await interaction.editReply({ content: response, ephemeral: true });
+            const response: UI = await saveReferralAndUpdateFees(interaction.user.id, refCode);
+            await interaction.editReply(response);
         } else {
             const startUI: UI = await createStartUI(interaction.user.id);
-            await interaction.editReply({ content: startUI.content, ephemeral: true });
+            await interaction.editReply(startUI);
         }
     }
 };

@@ -21,6 +21,19 @@ import { User } from "../models/user";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIWithRef } from "../interfaces/ui-with-ref";
 
+
+/* ADDITIONAL */
+export const addStartButton = (content: string): UI => {
+    const startButton = new ButtonBuilder()
+        .setCustomId('start')
+        .setLabel('Start')
+        .setStyle(ButtonStyle.Secondary);
+    const row = new ActionRowBuilder().addComponents(startButton);
+    return { content, components: [row], ephemeral: true };
+}
+
+/* UIs */
+
 export const createStartUI = async (userId: string): Promise<UI> => {
     const user = await User.findOne({ user_id: userId }).lean();
     if (!user) {
@@ -192,10 +205,6 @@ export const createHelpUI = (): UI => {
         content,
         ephemeral: true,
     }
-};
-
-export const createReferUI = (): any => {
-
 };
 
 export const createPreBuyUI = async (userId: string, contractAddress: string): Promise<UI> => {

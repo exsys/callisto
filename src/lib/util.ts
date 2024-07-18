@@ -7,7 +7,7 @@ import bs58 from 'bs58';
 import crypto from 'crypto';
 import { ERROR_CODES } from "../config/errors";
 import { UI } from "../interfaces/ui";
-import { createAfterSwapUI, createAfterSwapUIWithRef } from "./discord-ui";
+import { addStartButton, createAfterSwapUI, createAfterSwapUIWithRef } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import { QuoteResponse } from "../interfaces/quoteresponse";
 import { CaAmount } from "../interfaces/caamount";
@@ -344,24 +344,24 @@ export async function getCurrentTokenPriceInSolAll(cas: CaAmount[]): Promise<num
 
 export const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
 
-export async function saveReferralAndUpdateFees(userId: string, refCode: string): Promise<string> {
+export async function saveReferralAndUpdateFees(userId: string, refCode: string): Promise<UI> {
     try {
         const user = await User.findOne({ user_id: userId });
         if (!user) {
-            return ERROR_CODES["0013"].message;
+            return addStartButton(ERROR_CODES["0013"].message);
         }
         const referrer = await User.findOne({ ref_code: refCode });
         if (!referrer) {
             // TODO: store error and submitted ref code in db
-            return ERROR_CODES["0014"].message;
+            return addStartButton(ERROR_CODES["0014"].message);
         }
-
+        
         let refsWallet: string = "";
         const referrersDefaultWallet = await Wallet.findOne({ user_id: referrer.user_id, is_default_wallet: true }).lean();
         if (referrersDefaultWallet) refsWallet = referrersDefaultWallet.wallet_address;
 
         if (user.referrer) {
-            return "This user already used a referral code."
+            return addStartButton("This user already used a referral code.");
         }
 
         user.referrer = {
@@ -378,9 +378,9 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
         await Wallet.updateMany({ user_id: userId }, { swap_fee: user.swap_fee });
         await user.save();
         await referrer.save();
-        return "Successfully used referral code. Your transaction fees are reduced by 10% for the next 30 days.\n\nUse the /start command to start trading."
+        return addStartButton("Successfully used referral code. Your transaction fees are reduced by 10% for the next 30 days.\n\nUse the /start command to start trading.");
     } catch (error) {
-        return ERROR_CODES["0000"].message;
+        return addStartButton(ERROR_CODES["0000"].message);
     }
 }
 
