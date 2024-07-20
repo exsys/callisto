@@ -1,5 +1,11 @@
 import "dotenv/config";
-import { ConfirmedTransactionMeta, Keypair, LAMPORTS_PER_SOL, PublicKey, VersionedMessage, VersionedTransactionResponse } from "@solana/web3.js";
+import {
+    ConfirmedTransactionMeta,
+    Keypair,
+    PublicKey,
+    VersionedMessage,
+    VersionedTransactionResponse
+} from "@solana/web3.js";
 import { User } from "../models/user";
 import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
@@ -9,9 +15,13 @@ import { ERROR_CODES } from "../config/errors";
 import { UI } from "../interfaces/ui";
 import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
-import { QuoteResponse } from "../interfaces/quoteresponse";
-import { CaAmount } from "../interfaces/caamount";
-import { FEE_TOKEN_ACCOUNT, LEVEL1_FEE_IN_PERCENT, LEVEL2_FEE_IN_PERCENT, LEVEL3_FEE_IN_PERCENT, REFCODE_MODAL_STRING } from "../config/constants";
+import {
+    FEE_TOKEN_ACCOUNT,
+    LEVEL1_FEE_IN_PERCENT,
+    LEVEL2_FEE_IN_PERCENT,
+    LEVEL3_FEE_IN_PERCENT,
+    REFCODE_MODAL_STRING
+} from "../config/constants";
 import { TxResponse } from "../interfaces/tx-response";
 import { UIResponse } from "../interfaces/ui-response";
 
@@ -296,49 +306,6 @@ export async function saveDbTransaction({
     }
 }
 
-export async function getCurrentSolPrice(): Promise<number | null> {
-    try {
-        // TODO: change this to a more reliable source
-        const quoteResponse: QuoteResponse = await (
-            await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${LAMPORTS_PER_SOL}&slippageBps=100`)
-        ).json();
-        if (!quoteResponse) return null;
-
-        const solPrice: number = Number(quoteResponse.outAmount) / Math.pow(10, 6);
-        return solPrice;
-    } catch (error) {
-        return null;
-    }
-}
-
-export async function getCurrentTokenPriceInSol(ca: string, amount: string): Promise<number | null> {
-    try {
-        const quoteResponse: QuoteResponse = await (
-            await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${ca}&outputMint=So11111111111111111111111111111111111111112&amount=${amount}&slippageBps=100`)
-        ).json();
-        if (!quoteResponse) return null;
-        return Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL;
-    } catch (error) {
-        return null;
-    }
-}
-
-export async function getCurrentTokenPriceInSolAll(cas: CaAmount[]): Promise<number[] | null> {
-    try {
-        const requests = cas.map((ca: CaAmount) => {
-            return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${ca.contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${ca.amount}&slippageBps=100`);
-        });
-        const quoteResponsesRaw = await Promise.all(requests);
-        const quoteResponses: QuoteResponse[] = await Promise.all(quoteResponsesRaw.map((response) => response.json()));
-        if (!quoteResponses) return null;
-
-        const prices = quoteResponses.map((quoteResponse) => Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL);
-        return prices;
-    } catch (error) {
-        return null;
-    }
-}
-
 export const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
 
 export async function saveReferralAndUpdateFees(userId: string, refCode: string): Promise<UI> {
@@ -399,6 +366,7 @@ export function successResponse(txResponse: TxResponse): TxResponse {
     return { ...txResponse };
 }
 
+// this will only be called for sell transactions. so only checking for FEE_TOKEN_ACCOUNT for the balances is correct.
 export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean> {
     if (!txResponse) return false;
     // TODO: proper error handling, with returning error message
@@ -409,9 +377,6 @@ export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean
         const txInfo: ConfirmedTransactionMeta | null = tx.meta;
         const txMsg: { message: VersionedMessage; signatures: string[]; } = tx.transaction;
         if (!txInfo) return false;
-        if (!txResponse.wallet_address) {
-            // TODO: get wallet address from user_id
-        }
 
         // how much the user paid in fees. this is checking how much the calli fee wallet received from this tx
         const solPreBalance: number = txInfo.preBalances[txMsg.message.staticAccountKeys.findIndex((key: PublicKey) => key.toBase58() === FEE_TOKEN_ACCOUNT)];
@@ -419,11 +384,13 @@ export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean
         const solReceivedInLamports: number = solPostBalance - solPreBalance;
         // TODO: proper error handling
         if (!solReceivedInLamports) return false;
-        const referrer: any = await User.findOne({ user_id: txResponse.referral.referrer_user_id });
+        const referrer: any = await User.findOne({ user_id: txResponse.referral?.referrer_user_id });
         if (!referrer) return false;
 
-        // TODO: if any user ever has 0 swap fee, a check for this has to be done here, or else the referrer receives fees anyways
-        //const user: any = await User.findOne({ user_id: txResponse.user_id });
+        /* if any user ever has 0 swap fee, a check for this has to be done, or else the referrer receives fees anyways
+        const user: any = await User.findOne({ user_id: txResponse.user_id });
+        if (!user) return false;
+        if (user.swap_fee === 0) return false; */
 
         const refFeeInPercent: number = getFeeInPercentFromFeeLevel(txResponse.referral.fee_level);
         const refFeeInDecimal: number = refFeeInPercent / 100;
@@ -434,5 +401,57 @@ export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean
         return true;
     } catch (error) {
         return false;
+    }
+}
+
+export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
+    let user: any;
+    try {
+        user = await User.findOne({ user_id: userId });
+        if (!user) return { ui: { content: ERROR_CODES["0011"].message, ephemeral: true } };
+    } catch (error) {
+        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+    }
+
+    const payoutAmount: number = user.unclaimed_ref_fees; // in lamports
+    const unclaimed_ref_fees: number = user.unclaimed_ref_fees;
+    const claimed_ref_fees: number = user.claimed_ref_fees;
+    const lastClaimTimestamp: number = user.last_fee_claim_timestamp || 0;
+    user.claimed_ref_fees += user.unclaimed_ref_fees;
+    user.unclaimed_ref_fees = 0;
+    user.last_fee_claim_timestamp = Date.now();
+    let userUpdated: any;
+    try {
+        userUpdated = await user.save();
+    } catch (error) {
+        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+    }
+
+    try {
+        if (userUpdated) {
+            const txResponse: TxResponse = await SolanaWeb3.payRefFees(userId, payoutAmount);
+            await saveDbTransaction(txResponse);
+            if (!txResponse.response) {
+                return {
+                    ui: { content: `Claim request received. Your fees will arrive soon.${txResponse.tx_signature ? ` Transaction ID: ${txResponse.tx_signature}` : ""}`, ephemeral: true },
+                    transaction: txResponse,
+                };
+            }
+            return {
+                ui: {content: txResponse.response, ephemeral: true },
+                transaction: txResponse,
+            };
+        }
+        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+    } catch (error) {
+        await saveDbTransaction({ user_id: userId, tx_type: "transfer_ref_fee", error: error, success: false, token_amount: String(payoutAmount) });
+        // revert db changes on error
+        if (userUpdated) {
+            user.unclaimed_ref_fees = unclaimed_ref_fees;
+            user.claimed_ref_fees = claimed_ref_fees;
+            user.last_fee_claim_timestamp = lastClaimTimestamp;
+            await user.save();
+        }
+        return { ui: { content: ERROR_CODES["0016"].message, ephemeral: true } };
     }
 }

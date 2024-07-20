@@ -123,34 +123,28 @@ export const createStartUI = async (userId: string): Promise<UI> => {
 };
 
 export const createWalletUI = async (userId: string): Promise<UI> => {
-    const allWallets = await Wallet.find({ user_id: userId }).lean();
-    if (!allWallets) {
+    const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
+    if (!wallet) {
         return {
-            content: "No wallets found. Create one with the /create command to get started.",
+            content: ERROR_CODES["0003"].message,
             ephemeral: true,
-        };
+        }
     }
-    const defaultWallet = allWallets.find((wallet: any) => wallet.is_default_wallet);
-    if (!defaultWallet) {
-        return {
-            content: "No default wallet found. Create one with the /create command.",
-            ephemeral: true,
-        };
-    }
-    const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(defaultWallet.wallet_address);
+
+    const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
     if (walletBalance === null) {
         return {
-            content: "Server error. Please try again later.",
+            content: ERROR_CODES["0015"].message,
             ephemeral: true,
         };
     }
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
-    const content = `Total wallets: ${allWallets.length}\n\nDefault Wallet Address:\n${defaultWallet.wallet_address}\n\nBalance:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
+    const content = `Default Wallet Address:\n${wallet.wallet_address}\n\nBalance:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
 
     const solscanButton = new ButtonBuilder()
         .setLabel('View on Solscan')
         .setStyle(ButtonStyle.Link)
-        .setURL(`https://solscan.io/account/${defaultWallet.wallet_address}`);
+        .setURL(`https://solscan.io/account/${wallet.wallet_address}`);
 
     const depositButton = new ButtonBuilder()
         .setCustomId('deposit')
@@ -182,6 +176,11 @@ export const createWalletUI = async (userId: string): Promise<UI> => {
         .setLabel('Add new Wallet')
         .setStyle(ButtonStyle.Secondary);
 
+    const claimFeesButton = new ButtonBuilder()
+        .setCustomId("claimRefFees")
+        .setLabel("Claim Fees")
+        .setStyle(ButtonStyle.Secondary);
+
     const exportPrivKeyButton = new ButtonBuilder()
         .setCustomId('exportPrivKeyConfirmation')
         .setLabel('Export Private Key')
@@ -190,7 +189,7 @@ export const createWalletUI = async (userId: string): Promise<UI> => {
     const firstRow = new ActionRowBuilder()
         .addComponents(solscanButton, depositButton, withdrawAllSolButton, withdrawXSolButton, removeWalletButton);
     const secondRow = new ActionRowBuilder()
-        .addComponents(changeWallet, addNewWalletButton, exportPrivKeyButton);
+        .addComponents(changeWallet, addNewWalletButton, claimFeesButton, exportPrivKeyButton);
 
     return {
         content,

@@ -3,7 +3,7 @@ import { TxResponse } from "../interfaces/tx-response";
 export const ERROR_CODES = {
     "0000": {
         code: "0000",
-        message: "Server error. Please try again later. Error code: 0000",
+        message: "Server error. Please try again later.",
         context: "Generic error message. Unknown Issue or just a simple server error.",
         short: "Generic error message.",
     },
@@ -15,9 +15,9 @@ export const ERROR_CODES = {
     },
     "0002": {
         code: "0002",
-        message: "Server error. Please contact support for more information. Error code: 0002",
-        context: "Couldn't find corresponding private key in database.",
-        short: "Couldn't find private key",
+        message: "",
+        context: "",
+        short: "",
     },
     "0003": {
         code: "0003",
@@ -70,8 +70,8 @@ export const ERROR_CODES = {
     "0011": {
         code: "0011",
         message: "Server error. Please try again later. Error code: 0011",
-        context: "Could not find user in User collection.",
-        short: "Couldn't find user.",
+        context: "Could not find user in DB.",
+        short: "Couldn't find user in DB.",
     },
     "0012": {
         code: "0012",
@@ -83,7 +83,7 @@ export const ERROR_CODES = {
         code: "0013",
         message: "Server error. Please contact support for more information. Error code: 0013",
         context: "Couldn't find user in DB after using referral code.",
-        short: "Couldn't find user",
+        short: "Couldn't find user after using ref code",
     },
     "0014": {
         code: "0014",
@@ -96,6 +96,12 @@ export const ERROR_CODES = {
         message: "Server error. Please try again later. Error code: 0015",
         context: "Error while trying to get wallet balance. Check RPC",
         short: "Got null for wallet balance",
+    },
+    "0016": {
+        code: "0016",
+        message: "Server error. If the issue persists please contact support. Error code: 0016",
+        context: "Failed to claim unpaid ref fees.",
+        short: "Failed to claim unpaid ref fees.",
     }
 }
 
@@ -132,7 +138,7 @@ export function txExpiredError({
     token_amount,
     sell_amount,
     token_stats,
-    include_retry_button = true
+    include_retry_button = false
 }: TxResponse): TxResponse {
     return {
         user_id,
@@ -159,7 +165,7 @@ export function txMetaError({
     token_amount,
     sell_amount,
     token_stats,
-    include_retry_button = true,
+    include_retry_button = false,
     error
 }: TxResponse): TxResponse {
     return {
@@ -186,7 +192,7 @@ export function unknownError({
     token_amount,
     sell_amount,
     token_stats,
-    include_retry_button = true,
+    include_retry_button = false,
     processing_time_function,
     error
 }: TxResponse): TxResponse {
@@ -226,7 +232,7 @@ export function insufficientBalanceError({
     token_stats,
     token_amount,
     sell_amount,
-    include_retry_button = true
+    include_retry_button = false
 }: TxResponse): TxResponse {
     return {
         user_id,
@@ -265,7 +271,14 @@ export function destinationTokenAccountError({ user_id, tx_type, wallet_address 
     }
 }
 
-export function coinstatsNotFoundError({ user_id, tx_type, wallet_address, contract_address, sell_amount }: TxResponse): TxResponse {
+export function coinstatsNotFoundError({
+    user_id,
+    tx_type,
+    wallet_address,
+    contract_address,
+    sell_amount,
+    include_retry_button = false
+}: TxResponse): TxResponse {
     return {
         user_id,
         tx_type,
@@ -274,7 +287,7 @@ export function coinstatsNotFoundError({ user_id, tx_type, wallet_address, contr
         success: false,
         contract_address,
         sell_amount,
-        include_retry_button: true,
+        include_retry_button,
         error: `Error when getting coin stats of ${contract_address}`
     };
 }
@@ -291,7 +304,14 @@ export function invalidAmountError({ user_id, tx_type, wallet_address, contract_
     };
 }
 
-export function coinMetadataError({ user_id, tx_type, wallet_address, contract_address, token_amount }: TxResponse): TxResponse {
+export function coinMetadataError({
+    user_id,
+    tx_type,
+    wallet_address,
+    contract_address,
+    token_amount,
+    include_retry_button = false
+}: TxResponse): TxResponse {
     return {
         user_id,
         tx_type,
@@ -300,7 +320,7 @@ export function coinMetadataError({ user_id, tx_type, wallet_address, contract_a
         success: false,
         contract_address,
         token_amount,
-        include_retry_button: true,
+        include_retry_button,
         error: "Error when getting coin metadata"
     };
 }
@@ -370,7 +390,6 @@ export function userNotFoundError({
         contract_address,
         token_amount,
         sell_amount,
-        include_retry_button: true,
         error: ERROR_CODES["0011"].context,
     }
 }

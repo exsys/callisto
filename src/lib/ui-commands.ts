@@ -41,7 +41,8 @@ import {
     sellCoinX,
     createRefCodeForUser,
     saveReferralAndUpdateFees,
-    storeUnpaidRefFee
+    storeUnpaidRefFee,
+    claimUnpaidRefFees
 } from "./util";
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -50,6 +51,9 @@ import { TxResponse } from "../interfaces/tx-response";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIResponse } from "../interfaces/ui-response";
 import { ModalBuilder } from "discord.js";
+
+const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map();
+const DEBOUNCE_TIME: number = 10000;
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: any) => {
@@ -222,11 +226,29 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const wallet = await exportPrivateKeyOfUser(interaction.user.id);
         if (!wallet) {
-            await interaction.editReply({ content: ERROR_CODES["0002"].message, ephemeral: true });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message, ephemeral: true });
             return;
         } else {
             await interaction.editReply({ content: `Your private key:\n${decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.`, ephemeral: true });
         }
+    },
+    claimRefFees: async (interaction: any) => {
+        await interaction.deferReply({ ephemeral: true });
+
+        const userId: string = interaction.user.id;
+        if (REF_FEE_DEBOUNCE_MAP.has(userId)) {
+            await interaction.editReply("Claim request already sent. Please wait until the current request has been processed.");
+            return;
+        }
+        REF_FEE_DEBOUNCE_MAP.set(userId, true);
+
+        setTimeout(async () => {
+            REF_FEE_DEBOUNCE_MAP.delete(userId);
+            const uiResponse: UIResponse = await claimUnpaidRefFees(userId);
+            // TODO: change it so reply is sent after a few seconds, and actual request is sent after, after a longer waiting period
+            // or backend request to another server after 5 seconds, where the actual transfer will be processed, or something like that
+            await interaction.editReply(uiResponse.ui);
+        }, DEBOUNCE_TIME);
     },
     buyButton1: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
