@@ -703,7 +703,7 @@ export const createSetAsDefaultUI = (walletAddress: string): any => {
         .addComponents(setAsDefaultButton);
 
     return {
-        content: `Your new wallet has been added.\nWallet address: ${walletAddress}\n\nYou can export the private key by using the command /export.\n\nTap the "Set as default" button below to set the new wallet as your default wallet.`,
+        content: `Your new wallet has been added.\nWallet address: ${walletAddress}\n\nTap the "Set as default" button below to set the new wallet as your default wallet.`,
         components: [row],
         ephemeral: true,
     };
