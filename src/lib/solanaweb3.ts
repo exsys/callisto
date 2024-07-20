@@ -113,6 +113,7 @@ export class SolanaWeb3 {
 
         try {
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet_address);
+            if (balanceInLamports === 0) return insufficientBalanceError(txResponse);
             if (!balanceInLamports) return walletBalanceError(txResponse);
             const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(txResponse);
@@ -187,6 +188,7 @@ export class SolanaWeb3 {
             // check if the user has enough balance to transfer the amount
             const estimatedFeeInLamports = await tx.getEstimatedFee(this.getConnection());
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet_address);
+            if (balanceInLamports === 0) return insufficientBalanceError(txResponse);
             if (!balanceInLamports) return walletBalanceError(txResponse);
             if (!estimatedFeeInLamports) {
                 // get default fee if the estimated fee is not available
@@ -318,7 +320,8 @@ export class SolanaWeb3 {
         try {
             const conn = this.getConnection();
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet_address);
-            if (typeof balanceInLamports !== "number") return walletBalanceError(txResponse);
+            if (balanceInLamports === 0) return insufficientBalanceError(txResponse);
+            if (!balanceInLamports) return walletBalanceError(txResponse);
 
             if (amountToSwap.includes("buy_button_")) {
                 amountToSwap = wallet.settings[amountToSwap as string];
