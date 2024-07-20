@@ -540,6 +540,8 @@ export const createClaimRefFeeUI = async (userId: string): Promise<UI> => {
                 userRefCode = createNewRefCode();
                 userWithRefCodeExistsAlready = await User.findOne({ ref_code: userRefCode }).lean();
             }
+            user.ref_code = userRefCode;
+            await user.save();
         }
 
         let content: string = "";
