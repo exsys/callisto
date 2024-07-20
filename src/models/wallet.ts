@@ -39,10 +39,6 @@ const WalletSchema = new Schema({
         type: Number,
         default: 0,
     },
-    fees_paid_in_sol: {
-        type: Number,
-        default: 0,
-    },
     encrypted_private_key: {
         type: String,
         required: true,

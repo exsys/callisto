@@ -29,6 +29,10 @@ const UserSchema = new Schema({
         type: Number,
         default: 0, // in lamports
     },
+    last_fee_claim_timestamp: {
+        type: Number,
+        required: false,
+    },
     claimed_ref_fees: {
         type: Number,
         default: 0, // in lamports
