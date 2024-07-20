@@ -80,10 +80,10 @@ export async function createRefCodeForUser(userId: string): Promise<string | nul
             return msgContent;
         }
 
-        let userWithRefCodeExistsAlready = await User.findOne({ ref_code: refCode });
+        let userWithRefCodeExistsAlready = await User.findOne({ ref_code: refCode }).lean();
         while (userWithRefCodeExistsAlready) {
             refCode = createNewRefCode();
-            userWithRefCodeExistsAlready = await User.findOne({ ref_code: refCode });
+            userWithRefCodeExistsAlready = await User.findOne({ ref_code: refCode }).lean();
         }
 
         user.ref_code = refCode;
@@ -414,6 +414,10 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
     }
 
     const payoutAmount: number = user.unclaimed_ref_fees; // in lamports
+    if (payoutAmount < 2100000) {
+        // 2100000 = 0.0021 SOL. 0.002 SOL is needed for rent fee, in case the user doesn't have deposited any SOL yet
+        return { ui: { content: "You need to have at least 0.0021 SOL accumulated to claim your fees.", ephemeral: true } };
+    }
     const unclaimed_ref_fees: number = user.unclaimed_ref_fees;
     const claimed_ref_fees: number = user.claimed_ref_fees;
     const lastClaimTimestamp: number = user.last_fee_claim_timestamp || 0;
@@ -430,6 +434,12 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
     try {
         if (userUpdated) {
             const txResponse: TxResponse = await SolanaWeb3.payRefFees(userId, payoutAmount);
+            if (!txResponse.success) {
+                user.unclaimed_ref_fees = unclaimed_ref_fees;
+                user.claimed_ref_fees = claimed_ref_fees;
+                user.last_fee_claim_timestamp = lastClaimTimestamp;
+                await user.save();
+            }
             await saveDbTransaction(txResponse);
             if (!txResponse.response) {
                 return {
@@ -438,13 +448,13 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
                 };
             }
             return {
-                ui: {content: txResponse.response, ephemeral: true },
+                ui: { content: txResponse.response, ephemeral: true },
                 transaction: txResponse,
             };
         }
         return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
     } catch (error) {
-        await saveDbTransaction({ user_id: userId, tx_type: "transfer_ref_fee", error: error, success: false, token_amount: String(payoutAmount) });
+        await saveDbTransaction({ user_id: userId, tx_type: "transfer_ref_fee", error: error, success: false, token_amount: payoutAmount });
         // revert db changes on error
         if (userUpdated) {
             user.unclaimed_ref_fees = unclaimed_ref_fees;

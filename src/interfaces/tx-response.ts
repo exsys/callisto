@@ -9,7 +9,7 @@ export interface TxResponse {
     response?: string;
     contract_address?: string;
     tx_signature?: string; // transaction signature
-    token_amount?: string; // in decimal
+    token_amount?: number; // in lamports
     sell_amount?: number; // in percent
     token_stats?: CoinStats;
     include_retry_button?: boolean;

@@ -11,7 +11,7 @@ import {
 import { UI } from "../interfaces/ui";
 import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
-import { createNewWallet, formatNumber } from "./util";
+import { createNewRefCode, createNewWallet, formatNumber } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../interfaces/coinstats";
 import { CoinInfo } from "../interfaces/coininfo";
@@ -177,7 +177,7 @@ export const createWalletUI = async (userId: string): Promise<UI> => {
         .setStyle(ButtonStyle.Secondary);
 
     const claimFeesButton = new ButtonBuilder()
-        .setCustomId("claimRefFees")
+        .setCustomId("showRefFees")
         .setLabel("Claim Fees")
         .setStyle(ButtonStyle.Secondary);
 
@@ -482,7 +482,8 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
         amount = `${txResponse.sell_amount}% | `;
     }
     if (txResponse.token_amount) {
-        amount = `${txResponse.token_amount} SOL | `;
+        const tokenAmount: number = Number(txResponse.token_amount) / LAMPORTS_PER_SOL;
+        amount = `${tokenAmount} SOL | `;
     }
 
     if (txResponse.error) {
@@ -526,11 +527,55 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
     };
 };
 
+export const createClaimRefFeeUI = async (userId: string): Promise<UI> => {
+    try {
+        const user: any = await User.findOne({ user_id: userId }).lean();
+        if (!user) return { content: ERROR_CODES["0000"].message, ephemeral: true };
+
+        let userRefCode: string = user.ref_code;
+        if (!userRefCode) {
+            userRefCode = createNewRefCode();
+            let userWithRefCodeExistsAlready = await User.findOne({ ref_code: userRefCode }).lean();
+            while (userWithRefCodeExistsAlready) {
+                userRefCode = createNewRefCode();
+                userWithRefCodeExistsAlready = await User.findOne({ ref_code: userRefCode }).lean();
+            }
+        }
+
+        let content: string = "";
+        const userHasFeesToClaim: boolean = user.unclaimed_ref_fees > 0;
+        if (userHasFeesToClaim) {
+            content = `Your unclaimed referral fees: ${user.unclaimed_ref_fees / LAMPORTS_PER_SOL} SOL`;
+        } else {
+            content = `You have no unclaimed referral fees.\nTo receive referral fees invite your friends with your referral code:\n${userRefCode}`;
+        }
+
+        const claimFeesButton = new ButtonBuilder()
+            .setCustomId("claimRefFees")
+            .setLabel("Claim Fees")
+            .setStyle(ButtonStyle.Secondary);
+
+        const row: ActionRowBuilder = new ActionRowBuilder().addComponents(claimFeesButton);
+        return {
+            content: content,
+            components: userHasFeesToClaim ? [row] : undefined,
+            ephemeral: true,
+        };
+    } catch (error) {
+        return { content: ERROR_CODES["0000"].message, ephemeral: true };
+    }
+}
+
 export const createSettingsUI = async (userId: string): Promise<UI> => {
     const content = "Settings Help\n\nGENERAL SETTINGS\nMin Position Value: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\nAuto Buy: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\nSlippage Config: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.\n\nBUTTONS CONFIG\nCustomize your buy and sell buttons. Tap to edit.\n\nTRANSACTION CONFIG\nMEV Protection: Accelerates your transactions and protect against frontruns to make sure you get the best price possible.\nTurbo: Callisto will use MEV Protection, but if unprotected sending is faster it will use that instead.\nSecure: Transactions are guaranteed to be protected from MEV, but transactions may be slower.\nTransaction Priority: Increase your Transaction Priority to improve transaction speed. Tap to edit.";
 
-    const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-    if (!wallet) return { content: "No default wallet found. Create one with the /create command.", ephemeral: true };
+    let wallet: any;
+    try {
+        wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
+        if (!wallet) return { content: "No default wallet found. Create one with the /create command.", ephemeral: true };
+    } catch (error) {
+        return { content: ERROR_CODES["0000"].message, ephemeral: true };
+    }
     const autobuyValue = wallet.settings.auto_buy_value;
 
     // general settings

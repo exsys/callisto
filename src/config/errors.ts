@@ -399,9 +399,9 @@ export function walletBalanceError({ user_id, tx_type, wallet_address, contract_
         user_id,
         tx_type,
         wallet_address,
-        response: "Server error. Please try again later",
+        response: "Server error. Please try again later.",
         success: false,
         contract_address,
-        error: "Failed to get wallet balance",
+        error: "Failed to get wallet balance.",
     }
 }

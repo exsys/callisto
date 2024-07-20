@@ -24,7 +24,8 @@ import {
     createSellXPercentModal,
     createSendCoinModal,
     createHelpUI,
-    createRefCodeModal
+    createRefCodeModal,
+    createClaimRefFeeUI
 } from "./discord-ui";
 import { Wallet } from "../models/wallet";
 import {
@@ -53,7 +54,7 @@ import { UIResponse } from "../interfaces/ui-response";
 import { ModalBuilder } from "discord.js";
 
 const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map();
-const DEBOUNCE_TIME: number = 10000;
+const DEBOUNCE_TIME: number = 8000;
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: any) => {
@@ -232,6 +233,11 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply({ content: `Your private key:\n${decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.`, ephemeral: true });
         }
     },
+    showRefFees: async (interaction: any) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: UI = await createClaimRefFeeUI(interaction.user.id);
+        await interaction.editReply(ui);
+    },
     claimRefFees: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
 
@@ -242,11 +248,11 @@ export const BUTTON_COMMANDS = {
         }
         REF_FEE_DEBOUNCE_MAP.set(userId, true);
 
+        // TODO: change it so reply is sent after a few seconds, and actual request is sent after, after a longer waiting period
+        // or backend request to another server after 5 seconds, where the actual transfer will be processed, or something like that
         setTimeout(async () => {
             REF_FEE_DEBOUNCE_MAP.delete(userId);
             const uiResponse: UIResponse = await claimUnpaidRefFees(userId);
-            // TODO: change it so reply is sent after a few seconds, and actual request is sent after, after a longer waiting period
-            // or backend request to another server after 5 seconds, where the actual transfer will be processed, or something like that
             await interaction.editReply(uiResponse.ui);
         }, DEBOUNCE_TIME);
     },

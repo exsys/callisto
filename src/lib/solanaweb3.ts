@@ -30,7 +30,8 @@ import {
     FEE_ACCOUNT_OWNER,
     FEE_REDUCTION_PERIOD,
     FEE_REDUCTION_WITH_REF_CODE,
-    TOKEN_PROGRAM
+    TOKEN_PROGRAM,
+    CALLISTO_FEE_WALLET
 } from "../config/constants";
 import { ParsedTokenInfo } from "../interfaces/parsedtokeninfo";
 import { CoinInfo } from "../interfaces/coininfo";
@@ -86,6 +87,7 @@ export class SolanaWeb3 {
     static BPS_PER_PERCENT: number = 100;
     static CU_TOKEN_TRANSFER: number = 27695;
     static CU_SOL_TRANSFER: number = 300;
+    static RENT_FEE: number = 2000000;
     static GAS_FEE_FOR_SOL_TRANSFER: number = 5000;
     static INTERVAL_FOR_TXS_TO_SEND: number = 100;
 
@@ -298,7 +300,7 @@ export class SolanaWeb3 {
             user_id,
             tx_type,
             contract_address,
-            token_amount: amountToSwap,
+            token_amount: Number(amountToSwap) * LAMPORTS_PER_SOL,
         };
         let wallet: any;
         let user: any;
@@ -562,6 +564,7 @@ export class SolanaWeb3 {
             user_id,
             tx_type,
         };
+        let amountToPayInLamports: number = amount - this.GAS_FEE_FOR_SOL_TRANSFER;
 
         try {
             // TODO: move ref fee to another wallet
@@ -571,30 +574,41 @@ export class SolanaWeb3 {
             if (!wallet) return walletNotFoundError(txResponse);
             const wallet_address: string = wallet.wallet_address;
             txResponse.wallet_address = wallet_address;
-            const blockhash = await this.getConnection().getLatestBlockhash("finalized");
+            // callisto fee wallet balance
+            const balanceInLamportsFeeWallet = await this.getBalanceOfWalletInLamports(CALLISTO_FEE_WALLET);
+            if (balanceInLamportsFeeWallet === 0) return unknownError({ ...txResponse, error: "Callisto fee wallet balance is 0." });
+            if (!balanceInLamportsFeeWallet) return walletBalanceError(txResponse);
+            if (balanceInLamportsFeeWallet < amount) {
+                return unknownError({ ...txResponse, error: "Callisto fee wallet doesn't have enough SOL to pay ref fees." });
+            }
+            const balanceInLamportsUser = await this.getBalanceOfWalletInLamports(wallet.wallet_address);
+            if (balanceInLamportsUser === 0) {
+                amountToPayInLamports -= this.RENT_FEE;
+            }
+            txResponse.token_amount = amountToPayInLamports;
 
+            if (amountToPayInLamports < 0) {
+                txResponse.response = "You don't have enough fees collected yet to claim them. Min amount is 0.0021 SOL.";
+                txResponse.error = "You don't have enough fees collected yet to claim them.";
+                txResponse.success = false;
+                return successResponse(txResponse);
+            }
+
+            const blockhash = await this.getConnection().getLatestBlockhash("finalized");
             const tx: Transaction = new Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: signer.publicKey,
                     toPubkey: new PublicKey(wallet_address),
-                    lamports: amount - this.GAS_FEE_FOR_SOL_TRANSFER,
+                    lamports: amountToPayInLamports,
                 })
             );
             tx.feePayer = signer.publicKey;
             tx.recentBlockhash = blockhash.blockhash;
 
-            // callisto fee wallet balance
-            const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet_address);
-            if (!balanceInLamports) return walletBalanceError(txResponse);
-            if (balanceInLamports < amount) {
-                return unknownError({ ...txResponse, error: "Callisto fee wallet doesn't have enough SOL to pay ref fees." });
-            }
-
             tx.sign(signer);
             const serializedTx = Buffer.from(tx.serialize());
             const signature = this.getSignature(tx);
             txResponse.tx_signature = signature;
-            txResponse.token_amount = String(amount / LAMPORTS_PER_SOL);
             const result = await transactionSenderAndConfirmationWaiter({
                 connection: this.getConnection(),
                 serializedTransaction: serializedTx,

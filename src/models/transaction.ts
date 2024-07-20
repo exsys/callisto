@@ -27,7 +27,7 @@ const TransactionSchema = new Schema<DBTransaction>({
         required: false,
     },
     token_amount: {
-        type: Number,
+        type: Number, // in lamports
         required: false,
     },
     sell_amount: {
