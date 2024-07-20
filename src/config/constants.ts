@@ -13,3 +13,7 @@ export const LEVEL1_FEE_IN_PERCENT = 10;
 export const LEVEL2_FEE_IN_PERCENT = 20;
 export const LEVEL3_FEE_IN_PERCENT = 30;
 export const REFCODE_MODAL_STRING = "refcodemodal";
+
+const BOT_APP_ID: string = "1247262826838622311";
+const DISCORD_SERVER_INVITE_LINK: string = "https://discord.gg/gA7u36rGpX";
+const DISCORD_OAUTH_INVITE_LINK: string = "https://discord.com/oauth2/authorize?client_id=1247262826838622311&permissions=347136&integration_type=0&scope=applications.commands+bot";

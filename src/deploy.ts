@@ -13,13 +13,13 @@ for (const file of commandFiles) {
     commands.push(command.default.data.toJSON());
 }
 
-const rest = new REST({ version: '10' }).setToken(String(isDevelopment ? process.env.BOT_TOKEN_DEV : process.env.BOT_TOKEN_PROD));
+const rest = new REST({ version: '10' }).setToken(isDevelopment ? String(process.env.BOT_TOKEN_DEV) : String(process.env.BOT_TOKEN_PROD));
 
 (async () => {
     try {
         console.log(`Updating commands...`);
         const data: any = await rest.put(
-            Routes.applicationCommands(String(isDevelopment ? process.env.BOT_APP_ID : process.env.BOT_APP_PROD)),
+            Routes.applicationCommands(isDevelopment ? String(process.env.BOT_APP_ID_DEV) : String(process.env.BOT_APP_ID_PROD)),
             { body: commands },
         );
         console.log(`Successfully updated ${data.length} application (/) commands.`);
