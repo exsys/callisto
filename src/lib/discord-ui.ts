@@ -699,8 +699,7 @@ export const createSetAsDefaultUI = (walletAddress: string): any => {
         .setLabel('Set as default')
         .setStyle(ButtonStyle.Secondary);
 
-    const row = new ActionRowBuilder()
-        .addComponents(setAsDefaultButton);
+    const row = new ActionRowBuilder().addComponents(setAsDefaultButton);
 
     return {
         content: `Your new wallet has been added.\nWallet address: ${walletAddress}\n\nTap the "Set as default" button below to set the new wallet as your default wallet.`,
