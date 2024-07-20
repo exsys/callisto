@@ -529,7 +529,7 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
 
 export const createClaimRefFeeUI = async (userId: string): Promise<UI> => {
     try {
-        const user: any = await User.findOne({ user_id: userId }).lean();
+        const user: any = await User.findOne({ user_id: userId });
         if (!user) return { content: ERROR_CODES["0000"].message, ephemeral: true };
 
         let userRefCode: string = user.ref_code;
