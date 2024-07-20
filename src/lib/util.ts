@@ -329,9 +329,10 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
         }
 
         referrer.total_refs++;
-        user.swap_fee = user.swap_fee * 0.9;
+        user.swap_fee = user.swap_fee * 0.9; // 10% reduction for first month if using a ref code
         user.referral = {
             code: refCode,
+            promo_level: referrer.promo_level, // has to be set manually in the DB for each user
             referrer_user_id: referrer.user_id,
             referrer_wallet: refsWallet,
             number_of_referral: referrer.total_refs,

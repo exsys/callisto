@@ -59,7 +59,6 @@ import {
     postSwapTxError,
     userNotFoundError,
     walletBalanceError,
-    ERROR_CODES
 } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
@@ -68,6 +67,7 @@ import { CAWithAmount } from "../interfaces/cawithamount";
 import { User } from "../models/user";
 import { TxResponse } from "../interfaces/tx-response";
 import { CaAmount } from "../interfaces/caamount";
+import { PROMO_REF_MAPPING } from "../config/promo_ref_mapping";
 
 type CoinPriceQuote = {
     contract_address: string;
@@ -354,11 +354,17 @@ export class SolanaWeb3 {
                 // calculate how much of the fee will be sent to the referrer
                 const referrer = await User.findOne({ user_id: user.referral.referrer_user_id });
                 if (referrer) {
-                    // TODO: error handling
-                    const feeAmountInPercent: number = getFeeInPercentFromFeeLevel(user.referral.fee_level);
+                    let feeAmountInPercent: number = 0;
+                    const promoLevel: string = user.referral.promo_level;
+                    if (promoLevel) {
+                        feeAmountInPercent = PROMO_REF_MAPPING[promoLevel as keyof typeof PROMO_REF_MAPPING].getPercent(user.referral.number_of_referral);
+                    } else {
+                        feeAmountInPercent = getFeeInPercentFromFeeLevel(user.referral.fee_level);
+                    }
                     refFeesInLamports = Math.floor(totalFeesInLamports * (feeAmountInPercent / 100));
                     txResponse.ref_fee = refFeesInLamports;
                     referrer.unclaimed_ref_fees += refFeesInLamports;
+                    // TODO: error handling
                     // TODO: move referrer.save() to after interaction.editReply
                     await referrer.save();
                 }

@@ -21,6 +21,10 @@ const UserSchema = new Schema({
         type: String,
         required: false,
     },
+    promo_level: {
+        type: String, // special ref fee levels for collabs
+        required: false,
+    },
     total_refs: {
         type: Number,
         default: 0, // total number of people referred by the user
@@ -41,10 +45,11 @@ const UserSchema = new Schema({
         // the user who referred this user and some stats
         type: {
             code: String,
+            promo_level: String,
             timestamp: Number,
             referrer_user_id: String,
             referrer_wallet: String,
-            fee_level: Number,
+            fee_level: Number, // will be ignored if promo_level is defined
             number_of_referral: Number,
         },
         required: false,
