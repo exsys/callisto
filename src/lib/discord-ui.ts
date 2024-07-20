@@ -199,7 +199,7 @@ export const createWalletUI = async (userId: string): Promise<UI> => {
 };
 
 export const createHelpUI = (): UI => {
-    const content = "Welcome to Callisto, the fastest Solana trading bot on Discord.\n\nTo get started, use the /create command to create a wallet, or tap the Wallet button and then the Create Wallet button.\n\nOnce you have a wallet, you can use the buy button to buy a coin.\n\nTo sell a coin, use the sell & manage button.\n\nTo view your wallet, tap the Wallet button.\n\nTo view and change your settings, tap the Settings button. Here you can change different settings like priority fee and slippage.\n\nTo refer friends, tap the Refer Friends button.\n\nWith the Refresh button you can refresh your Account Balance.\n\nFor more information, visit our website at https://callistobot.com";
+    const content = "Welcome to Callisto, the fastest Solana trading bot on Discord.\n\nTo get started, use the /start command, this command will create a new Solana wallet for your automatically if you don't have one yet.\n\nOnce you have a wallet, you can use the Buy button to buy a coin.\n\nTo sell a coin, use the Sell & Manage button.\n\nTo view your wallet, tap the Wallet button.\n\nTo view and change your settings, tap the Settings button. Here you can change different settings like priority fee and slippage.\n\nTo refer friends, tap the Refer Friends button.\n\nWith the Refresh button you can refresh your Account Balance.\n\nFor more information, visit our website at https://callistobot.com";
     return {
         content,
         ephemeral: true,
