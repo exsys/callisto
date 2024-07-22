@@ -76,7 +76,7 @@ type CoinPriceQuote = {
 }
 
 export class SolanaWeb3 {
-    /*static jitoConn: Connection = new Connection("https://mainnet.block-engine.jito.wtf/api/v1/transactions", {
+    /*static jitoConn: Connection = new Connection("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/transactions", {
         commitment: "confirmed",
         httpAgent: new Agent({
             keepAlive: true,

@@ -14,6 +14,7 @@ export const LEVEL2_FEE_IN_PERCENT = 20;
 export const LEVEL3_FEE_IN_PERCENT = 30;
 export const REFCODE_MODAL_STRING = "refcodemodal";
 
+// not needed for the bot but written down here for easy access to these values
 const BOT_APP_ID: string = "1247262826838622311";
 const DISCORD_SERVER_INVITE_LINK: string = "https://discord.gg/gA7u36rGpX";
 const DISCORD_OAUTH_INVITE_LINK: string = "https://discord.com/oauth2/authorize?client_id=1247262826838622311&permissions=347136&integration_type=0&scope=applications.commands+bot";
