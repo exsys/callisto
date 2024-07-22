@@ -32,7 +32,8 @@ import {
     FEE_REDUCTION_PERIOD,
     FEE_REDUCTION_WITH_REF_CODE,
     TOKEN_PROGRAM,
-    CALLISTO_FEE_WALLET
+    CALLISTO_FEE_WALLET,
+    DEFAULT_RPC_URL
 } from "../config/constants";
 import { ParsedTokenInfo } from "../interfaces/parsedtokeninfo";
 import { CoinInfo } from "../interfaces/coininfo";
@@ -84,7 +85,7 @@ export class SolanaWeb3 {
             keepAliveMsecs: 60000,
         }),
     });*/
-    static connection: Connection = new Connection("https://quaint-practical-liquid.solana-mainnet.quiknode.pro/de215f4d6fabf6c4bb0cb0eab8aceb79e8567a27/");
+    static connection: Connection = new Connection(DEFAULT_RPC_URL);
     static BPS_PER_PERCENT: number = 100;
     static CU_TOKEN_TRANSFER: number = 27695;
     static CU_SOL_TRANSFER: number = 300;
@@ -324,7 +325,7 @@ export class SolanaWeb3 {
         if (!user) return userNotFoundError(txResponse);
 
         try {
-            const conn = this.getConnection();
+            const conn: Connection = this.getConnection();
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet_address);
             if (balanceInLamports === 0) return insufficientBalanceError(txResponse);
             if (!balanceInLamports) return walletBalanceError(txResponse);
@@ -647,11 +648,10 @@ export class SolanaWeb3 {
     }
 
     static async getBalanceOfWalletInDecimal(wallet_address: string): Promise<number | null> {
-        if (!this.connection) return null;
-
         try {
+            const conn: Connection = this.getConnection();
             const publicKey = new PublicKey(wallet_address);
-            const balance = await this.connection.getBalance(publicKey, { commitment: "confirmed" });
+            const balance = await conn.getBalance(publicKey, { commitment: "confirmed" });
             return balance / LAMPORTS_PER_SOL;
         } catch (error) {
             await saveError({ wallet_address, function_name: "getBalanceOfWalletInDecimal", error });
@@ -660,11 +660,10 @@ export class SolanaWeb3 {
     }
 
     static async getBalanceOfWalletInLamports(wallet_address: string): Promise<number | null> {
-        if (!this.connection) return null;
-
         try {
+            const conn: Connection = this.getConnection();
             const publicKey = new PublicKey(wallet_address);
-            const balance = await this.connection.getBalance(publicKey, { commitment: "confirmed" });
+            const balance = await conn.getBalance(publicKey, { commitment: "confirmed" });
             return balance;
         } catch (error) {
             await saveError({ wallet_address, function_name: "getBalanceOfWalletInLamports", error });
@@ -674,7 +673,7 @@ export class SolanaWeb3 {
 
     static async getAllCoinStatsFromWallet(wallet_address: string, minPositionValue: number): Promise<CoinStats[] | null> {
         try {
-            const conn = this.getConnection();
+            const conn: Connection = this.getConnection();
             const filters: GetProgramAccountsFilter[] = [
                 { dataSize: 165 }, // size of account (bytes)
                 { memcmp: { offset: 32, bytes: wallet_address } }
@@ -779,7 +778,7 @@ export class SolanaWeb3 {
 
     static async getCoinStats(contract_address: string, wallet_address: string): Promise<CoinStats | null> {
         try {
-            const conn = this.getConnection();
+            const conn: Connection = this.getConnection();
             const filters: GetProgramAccountsFilter[] = [
                 { dataSize: 165 }, // size of account (bytes)
                 { memcmp: { offset: 32, bytes: wallet_address } }
@@ -809,7 +808,7 @@ export class SolanaWeb3 {
 
     static async getAllCoinSymbols(wallet_address: string): Promise<string[] | null> {
         try {
-            const conn = this.getConnection();
+            const conn: Connection = this.getConnection();
             const filters: GetProgramAccountsFilter[] = [
                 { dataSize: 165 }, // size of account (bytes)
                 { memcmp: { offset: 32, bytes: wallet_address } }
@@ -980,7 +979,8 @@ export class SolanaWeb3 {
 
     static async getCoinMetadata(contract_address: string): Promise<CoinMetadata | null> {
         try {
-            const response: any = await this.connection.getParsedAccountInfo(new PublicKey(contract_address));
+            const conn: Connection = this.getConnection();
+            const response: any = await conn.getParsedAccountInfo(new PublicKey(contract_address));
             if (!response.value) return null;
             return response.value.data.parsed.info;
         } catch (error) {
@@ -989,7 +989,8 @@ export class SolanaWeb3 {
         }
     }
 
-    static getConnection() {
+    static getConnection(): Connection {
+        if (!this.connection) return new Connection(DEFAULT_RPC_URL);
         return this.connection;
     }
 
@@ -1006,7 +1007,7 @@ export class SolanaWeb3 {
         if (!signature) return null;
         try {
             // TODO: wait until it is finalized. just using finalized as commitment might miss it
-            const conn = this.getConnection();
+            const conn: Connection = this.getConnection();
             const tx: VersionedTransactionResponse | null = await conn.getTransaction(signature, {
                 commitment: "confirmed",
                 maxSupportedTransactionVersion: 0,
