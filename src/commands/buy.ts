@@ -1,13 +1,12 @@
 import { SlashCommandBuilder } from "discord.js";
 import { createPreBuyUI } from "../lib/discord-ui";
 import { SolanaWeb3 } from "../lib/solanaweb3";
-import { UI } from "../interfaces/ui";
 import { UIResponse } from "../interfaces/ui-response";
 
 const command = {
     data: new SlashCommandBuilder()
         .setName("buy")
-        .setDescription("Buy a voin with the given contract address.")
+        .setDescription("Buy a coin with the given contract address.")
         .addStringOption(option => option
             .setName('ca')
             .setRequired(true)
