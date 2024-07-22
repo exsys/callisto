@@ -20,6 +20,7 @@ import {
     getFeeInPercentFromFeeLevel,
     getKeypairFromEncryptedPKey,
     isNumber,
+    saveError,
     successResponse
 } from './util';
 import { CoinMetadata } from "../interfaces/coinmetadata";
@@ -638,82 +639,89 @@ export class SolanaWeb3 {
         }
     }
 
-    static async getBalanceOfWalletInDecimal(walletAddress: string): Promise<number | null> {
+    static async getBalanceOfWalletInDecimal(wallet_address: string): Promise<number | null> {
         if (!this.connection) return null;
 
         try {
-            const publicKey = new PublicKey(walletAddress);
+            const publicKey = new PublicKey(wallet_address);
             const balance = await this.connection.getBalance(publicKey, { commitment: "confirmed" });
             return balance / LAMPORTS_PER_SOL;
         } catch (error) {
+            await saveError({ wallet_address, function_name: "getBalanceOfWalletInDecimal", error });
             return null;
         }
     }
 
-    static async getBalanceOfWalletInLamports(walletAddress: string): Promise<number | null> {
+    static async getBalanceOfWalletInLamports(wallet_address: string): Promise<number | null> {
         if (!this.connection) return null;
 
         try {
-            const publicKey = new PublicKey(walletAddress);
+            const publicKey = new PublicKey(wallet_address);
             const balance = await this.connection.getBalance(publicKey, { commitment: "confirmed" });
             return balance;
         } catch (error) {
+            await saveError({ wallet_address, function_name: "getBalanceOfWalletInLamports", error });
             return null;
         }
     }
 
-    static async getAllCoinStatsFromWallet(walletAddress: string, minPositionValue: number): Promise<CoinStats[]> {
-        const conn = this.getConnection();
-        const filters: GetProgramAccountsFilter[] = [
-            { dataSize: 165 }, // size of account (bytes)
-            { memcmp: { offset: 32, bytes: walletAddress } }
-        ];
-        // type of coins is ParsedProgramAccountWrittenOut[]
-        const coins: any = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters, commitment: "confirmed" });
+    static async getAllCoinStatsFromWallet(wallet_address: string, minPositionValue: number): Promise<CoinStats[] | null> {
+        try {
+            const conn = this.getConnection();
+            const filters: GetProgramAccountsFilter[] = [
+                { dataSize: 165 }, // size of account (bytes)
+                { memcmp: { offset: 32, bytes: wallet_address } }
+            ];
+            // type of coins is ParsedProgramAccountWrittenOut[]
+            const coins: any = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters, commitment: "confirmed" });
 
-        // TODO: make it so priceInfo is only fetched for the coin that will be shown first
-        // need system for finding out which coin should be shown first
+            // TODO: make it so priceInfo is only fetched for the coin that will be shown first
+            // need system for finding out which coin should be shown first
 
-        // only get tokenInfos where the amount is higher than 0
-        const tokenInfos: ParsedTokenInfo[] = (coins.map((coin: any) => coin.account.data.parsed.info)).filter((coinStats: any) => coinStats.tokenAmount.uiAmount !== 0);
-        const contractAddresses: string[] = tokenInfos.map((tokenInfo: ParsedTokenInfo) => tokenInfo.mint);
-        const caObjects: CAWithAmount[] = contractAddresses.map((contract_address: string, index: number) => {
-            return { contract_address, amount: tokenInfos[index].tokenAmount.amount }
-        });
-        // get coin infos and coin prices
-        const results = await Promise.all([this.getCoinPriceStatsAll(contractAddresses), this.getCoinValuesOfHoldings(caObjects)]);
-        const coinInfos: CoinStats[] | null = results[0];
-        if (!coinInfos) return [];
-        const priceInfos: CoinPriceQuote[] | null = results[1];
-        const allCoins: CoinStats[] = [];
+            // only get tokenInfos where the amount is higher than 0
+            const tokenInfos: ParsedTokenInfo[] = (coins.map((coin: any) => coin.account.data.parsed.info)).filter((coinStats: any) => coinStats.tokenAmount.uiAmount !== 0);
+            const contractAddresses: string[] = tokenInfos.map((tokenInfo: ParsedTokenInfo) => tokenInfo.mint);
+            const caObjects: CAWithAmount[] = contractAddresses.map((contract_address: string, index: number) => {
+                return { contract_address, amount: tokenInfos[index].tokenAmount.amount }
+            });
+            // get coin infos and coin prices
+            const results = await Promise.all([this.getCoinPriceStatsAll(contractAddresses), this.getCoinValuesOfHoldings(caObjects)]);
+            const coinInfos: CoinStats[] | null = results[0];
+            if (!coinInfos) return null;
+            const priceInfos: CoinPriceQuote[] | null = results[1];
+            const allCoins: CoinStats[] = [];
 
-        // this will iterate through each coin in users wallet with an amount of more than 0
-        // it assigns the coin amount and assigns the up-to-date price (or use fallback price which might be a few minutes old in case of an error)
-        coinInfos.forEach(async (coinInfo: CoinStats, index: number) => {
-            const correspondingTokenInfo: ParsedTokenInfo | undefined = tokenInfos.find((tokenInfo: ParsedTokenInfo) => tokenInfo.mint === coinInfo.address);
-            if (!correspondingTokenInfo) return null;
-            coinInfo.tokenAmount = correspondingTokenInfo.tokenAmount;
-            const priceInfo: CoinPriceQuote | undefined = priceInfos?.find((priceQuote: CoinPriceQuote) => priceQuote.contract_address === coinInfo.address);
-            const coinValueInUsd: number = Number(coinInfo.price) * Number(correspondingTokenInfo.tokenAmount.uiAmount);
-            if (!priceInfo) {
-                // in case quote response returned an error
-                const currentSolPrice = await this.getCurrentSolPrice();
-                coinInfo.value = {
-                    inUSD: coinValueInUsd.toFixed(2),
-                    inSOL: currentSolPrice ? (coinValueInUsd / currentSolPrice).toFixed(4) : "0",
+            // this will iterate through each coin in users wallet with an amount of more than 0
+            // it assigns the coin amount and assigns the up-to-date price (or use fallback price which might be a few minutes old in case of an error)
+            coinInfos.forEach(async (coinInfo: CoinStats, index: number) => {
+                const correspondingTokenInfo: ParsedTokenInfo | undefined = tokenInfos.find((tokenInfo: ParsedTokenInfo) => tokenInfo.mint === coinInfo.address);
+                if (!correspondingTokenInfo) return null;
+                coinInfo.tokenAmount = correspondingTokenInfo.tokenAmount;
+                const priceInfo: CoinPriceQuote | undefined = priceInfos?.find((priceQuote: CoinPriceQuote) => priceQuote.contract_address === coinInfo.address);
+                const coinValueInUsd: number = Number(coinInfo.price) * Number(correspondingTokenInfo.tokenAmount.uiAmount);
+                if (!priceInfo) {
+                    // in case quote response returned an error
+                    const currentSolPrice = await this.getCurrentSolPrice();
+                    coinInfo.value = {
+                        inUSD: coinValueInUsd.toFixed(2),
+                        inSOL: currentSolPrice ? (coinValueInUsd / currentSolPrice).toFixed(4) : "0",
+                    }
+                } else {
+                    coinInfo.value = {
+                        inUSD: priceInfo.priceInUsd ? priceInfo.priceInUsd : coinValueInUsd.toFixed(2), // use fallback usd price in case quote for sol price returned an error
+                        inSOL: priceInfo.priceInSol,
+                    }
                 }
-            } else {
-                coinInfo.value = {
-                    inUSD: priceInfo.priceInUsd ? priceInfo.priceInUsd : coinValueInUsd.toFixed(2), // use fallback usd price in case quote for sol price returned an error
-                    inSOL: priceInfo.priceInSol,
-                }
-            }
 
-            // only show coins that have a higher price than the minPositionValue in wallet settings
-            if (Number(coinInfo.value!.inUSD) >= minPositionValue) allCoins.push(coinInfo);
-        });
+                // only show coins that have a higher price than the minPositionValue in wallet settings
+                if (Number(coinInfo.value!.inUSD) >= minPositionValue) allCoins.push(coinInfo);
+            });
 
-        return allCoins;
+            return allCoins;
+        } catch (error) {
+            await saveError({ wallet_address, function_name: "getAllCoinStatsFromWallet", error });
+            return null;
+        }
     }
 
     static async getCurrentSolPrice(): Promise<number | null> {
@@ -727,26 +735,28 @@ export class SolanaWeb3 {
             const solPrice: number = Number(quoteResponse.outAmount) / Math.pow(10, 6);
             return solPrice;
         } catch (error) {
+            await saveError({ function_name: "getCurrentSolPrice", error });
             return null;
         }
     }
 
-    static async getCurrentTokenPriceInSol(ca: string, amount: string): Promise<number | null> {
+    static async getCurrentTokenPriceInSol(contract_address: string, amount: string): Promise<number | null> {
         try {
             const quoteResponse: QuoteResponse = await (
-                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${ca}&outputMint=So11111111111111111111111111111111111111112&amount=${amount}&slippageBps=100`)
+                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${amount}&slippageBps=100`)
             ).json();
             if (!quoteResponse) return null;
             return Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL;
         } catch (error) {
+            await saveError({ contract_address, function_name: "getCurrentTokenPriceInSol", error });
             return null;
         }
     }
 
-    static async getCurrentTokenPriceInSolAll(cas: CaAmount[]): Promise<number[] | null> {
+    static async getCurrentTokenPriceInSolAll(casAndAmounts: CaAmount[]): Promise<number[] | null> {
         try {
-            const requests = cas.map((ca: CaAmount) => {
-                return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${ca.contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${ca.amount}&slippageBps=100`);
+            const requests = casAndAmounts.map((caAndAmount: CaAmount) => {
+                return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caAndAmount.contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${caAndAmount.amount}&slippageBps=100`);
             });
             const quoteResponsesRaw = await Promise.all(requests);
             const quoteResponses: QuoteResponse[] = await Promise.all(quoteResponsesRaw.map((response) => response.json()));
@@ -755,16 +765,17 @@ export class SolanaWeb3 {
             const prices = quoteResponses.map((quoteResponse) => Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL);
             return prices;
         } catch (error) {
+            await saveError({ function_name: "getCurrentTokenPriceInSolAll", error });
             return null;
         }
     }
 
-    static async getCoinStats(contract_address: string, walletAddress: string): Promise<CoinStats | null> {
+    static async getCoinStats(contract_address: string, wallet_address: string): Promise<CoinStats | null> {
         try {
             const conn = this.getConnection();
             const filters: GetProgramAccountsFilter[] = [
                 { dataSize: 165 }, // size of account (bytes)
-                { memcmp: { offset: 32, bytes: walletAddress } }
+                { memcmp: { offset: 32, bytes: wallet_address } }
             ];
             const coins: any = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters, commitment: "confirmed" });
             const selectedCoin = coins.find((coin: any) => coin.account.data.parsed.info.mint === contract_address);
@@ -784,50 +795,52 @@ export class SolanaWeb3 {
 
             return priceInfo;
         } catch (error) {
-            // TODO: store error
+            await saveError({ contract_address, wallet_address, function_name: "getCoinStats", error });
             return null;
         }
     }
 
-    static async getAllCoinSymbols(walletAddress: string): Promise<string[]> {
-        const conn = this.getConnection();
-        const filters: GetProgramAccountsFilter[] = [
-            { dataSize: 165 }, // size of account (bytes)
-            { memcmp: { offset: 32, bytes: walletAddress } }
-        ];
-        const coins: any = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters });
+    static async getAllCoinSymbols(wallet_address: string): Promise<string[] | null> {
+        try {
+            const conn = this.getConnection();
+            const filters: GetProgramAccountsFilter[] = [
+                { dataSize: 165 }, // size of account (bytes)
+                { memcmp: { offset: 32, bytes: wallet_address } }
+            ];
+            const coins: any = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters });
 
-        const allCoins: string[] = [];
-        for (let i = 0; i < coins.length; i++) {
-            const tokenInfo: ParsedTokenInfo = coins[i].account.data.parsed.info;
-            allCoins.push(coins[i].account.data.parsed.info.mint);
+            const allCoins: string[] = coins.map((coin: any) => coin.account.data.parsed.info.mint);
+            return allCoins;
+        } catch (error) {
+            await saveError({ wallet_address, function_name: "getAllCoinSymbols", error });
+            return null;
         }
-
-        return allCoins;
     }
 
-    static async getTokenAccountOfWallet(walletAddress: string, contract_address: string): Promise<any> {
+    static async getTokenAccountOfWallet(wallet_address: string, contract_address: string): Promise<PublicKey | null> {
         try {
             const associatedTokenAddress = await getAssociatedTokenAddress(
                 new PublicKey(contract_address),
-                new PublicKey(walletAddress),
+                new PublicKey(wallet_address),
                 false,
                 TOKEN_PROGRAM_ID,
                 ASSOCIATED_TOKEN_PROGRAM_ID,
             );
             return associatedTokenAddress;
         } catch (error) {
-            // TODO: store error
+            await saveError({ wallet_address, contract_address, function_name: "getTokenAccountOfWallet", error });
             return null;
         }
     }
 
-    static checkIfValidAddress(address: string): boolean {
+    // for wallet and contract addresses
+    static async checkIfValidAddress(address: string): Promise<boolean> {
         try {
             const ca = new PublicKey(address);
             const isValid = PublicKey.isOnCurve(ca.toBuffer()) && PublicKey.isOnCurve(ca.toString());
             return isValid;
         } catch (error) {
+            await saveError({ wallet_address: address, contract_address: address, function_name: "checkIfValidAddress", error });
             return false;
         }
     }
@@ -854,6 +867,7 @@ export class SolanaWeb3 {
 
             return stats;
         } catch (error) {
+            await saveError({ function_name: "getCoinPriceStatsAll", error });
             return null;
         }
     }
@@ -874,25 +888,27 @@ export class SolanaWeb3 {
 
             return coinStats;
         } catch (error) {
+            await saveError({ contract_address, function_name: "getCoinPriceStats", error });
             return null;
         }
     }
 
     static async getCoinValueOfHolding(caWithAmount: CAWithAmount): Promise<CoinPriceQuote | null> {
+        const contract_address: string = caWithAmount.contract_address;
         try {
             const quoteResponse = await (
-                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caWithAmount.contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${caWithAmount.amount}`)
+                await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${caWithAmount.amount}`)
             ).json();
             const priceInSol = Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL;
             const currentSolPrice: number | null = await this.getCurrentSolPrice();
 
             return {
-                contract_address: caWithAmount.contract_address,
+                contract_address: contract_address,
                 priceInSol: priceInSol.toFixed(4),
                 priceInUsd: currentSolPrice ? (priceInSol * currentSolPrice).toFixed(2) : "0",
             };
         } catch (error) {
-            // TODO: store error in db
+            await saveError({ contract_address, function_name: "getCoinValueOfHolding", error });
             return null;
         }
     }
@@ -915,7 +931,7 @@ export class SolanaWeb3 {
                 }
             });
         } catch (error) {
-            // TODO: store error in db
+            await saveError({ function_name: "getCoinValuesOfHoldings", error });
             return null;
         }
     }
@@ -928,37 +944,42 @@ export class SolanaWeb3 {
             const coinInfo: CoinInfo = pairInfo.pairs[0].baseToken;
             return coinInfo;
         } catch (error) {
-            // TODO: store error
+            await saveError({ contract_address, function_name: "getCoinInfo", error });
             return null;
         }
     }
 
-    static async getAllCoinInfos(user_id: string): Promise<CoinInfo[]> {
-        let wallet: any;
+    static async getAllCoinInfos(user_id: string): Promise<CoinInfo[] | null> {
         try {
-            wallet = await Wallet.findOne({ user_id: user_id, is_default_wallet: true }).lean();
-            if (!wallet) return [];
-        } catch (error) {
-            return [];
-        }
+            const wallet: any = await Wallet.findOne({ user_id: user_id, is_default_wallet: true }).lean();
+            if (!wallet) return null;
 
-        const coinStats: CoinStats[] = await this.getAllCoinStatsFromWallet(wallet.wallet_address, wallet.settings.min_position_value);
-        const coinInfos: CoinInfo[] = [];
-        for (let i = 0; i < coinStats.length; i++) {
-            const info: CoinInfo = {
-                ...coinStats[i],
+            const coinStats: CoinStats[] | null = await this.getAllCoinStatsFromWallet(wallet.wallet_address, wallet.settings.min_position_value);
+            if (!coinStats) return null;
+            const coinInfos: CoinInfo[] = [];
+            for (let i = 0; i < coinStats.length; i++) {
+                const info: CoinInfo = {
+                    ...coinStats[i],
+                };
+                coinInfos.push(info);
             }
 
-            coinInfos.push(info);
+            return coinInfos;
+        } catch (error) {
+            await saveError({ user_id, function_name: "getAllCoinInfos", error });
+            return null;
         }
-
-        return coinInfos;
     }
 
     static async getCoinMetadata(contract_address: string): Promise<CoinMetadata | null> {
-        const response: any = await this.connection.getParsedAccountInfo(new PublicKey(contract_address));
-        if (!response.value) return null;
-        return response.value.data.parsed.info;
+        try {
+            const response: any = await this.connection.getParsedAccountInfo(new PublicKey(contract_address));
+            if (!response.value) return null;
+            return response.value.data.parsed.info;
+        } catch (error) {
+            await saveError({ contract_address, function_name: "getCoinMetadata", error });
+            return null;
+        }
     }
 
     static getConnection() {
@@ -977,7 +998,7 @@ export class SolanaWeb3 {
     static async getTransactionInfo(signature?: string): Promise<VersionedTransactionResponse | null> {
         if (!signature) return null;
         try {
-            // TODO: wait until it is finalized
+            // TODO: wait until it is finalized. just using finalized as commitment might miss it
             const conn = this.getConnection();
             const tx: VersionedTransactionResponse | null = await conn.getTransaction(signature, {
                 commitment: "confirmed",
@@ -986,6 +1007,7 @@ export class SolanaWeb3 {
 
             return tx;
         } catch (error) {
+            await saveError({ tx_signature: signature, function_name: "getTransactionInfo", error });
             return null;
         }
     }

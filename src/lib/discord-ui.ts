@@ -303,15 +303,10 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
 ): Promise<UI> => {
     try {
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-        if (!wallet) {
-            return {
-                content: "No default wallet found. If this issue persists please contact support. Error code: 0003",
-                ephemeral: true,
-            }
-        }
+        if (!wallet) return { content: ERROR_CODES["0003"].message, ephemeral: true };
 
-        const coinsInWallet: CoinStats[] = await SolanaWeb3.getAllCoinStatsFromWallet(wallet.wallet_address, wallet.settings.min_position_value);
-        if (!coinsInWallet.length) {
+        const coinsInWallet: CoinStats[] | null = await SolanaWeb3.getAllCoinStatsFromWallet(wallet.wallet_address, wallet.settings.min_position_value);
+        if (!coinsInWallet) {
             if (successMsg) {
                 // this block will be executed if user swapped with the sell & manage ui and there are no coins left inside their wallet (except sol)
                 return { content: "Successfully swapped.", ephemeral: true };
@@ -776,7 +771,8 @@ export const createChangeWalletMenu = async (userId: string): Promise<UI> => {
 export const createSelectCoinMenu = async (userId: string): Promise<UI> => {
     const content = "Select a coin to view its info's.";
     try {
-        const coinInfos: CoinInfo[] = await SolanaWeb3.getAllCoinInfos(userId);
+        const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos(userId);
+        if (!coinInfos) return { content: "Server error. Please try again later.", ephemeral: true };
 
         const options = coinInfos.map((coinInfo: CoinInfo) => {
             return new StringSelectMenuOptionBuilder()
@@ -793,7 +789,6 @@ export const createSelectCoinMenu = async (userId: string): Promise<UI> => {
 
         return { content, components: [row], ephemeral: true };
     } catch (error) {
-        // TODO: store error
         return { content: "Server error. Please try again later.", ephemeral: true };
     }
 };

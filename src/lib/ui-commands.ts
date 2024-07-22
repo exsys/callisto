@@ -526,7 +526,7 @@ export const MODAL_COMMANDS = {
     // this one will be called after pasting the contract address in the CA modal
     buyCoin: async (interaction: any, contractAddress: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const isValidAddress: boolean = SolanaWeb3.checkIfValidAddress(contractAddress);
+        const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(contractAddress);
         if (!isValidAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
@@ -552,7 +552,7 @@ export const MODAL_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const amountToWithdraw = values[0];
         const destinationAddress = values[1];
-        const isValidAddress = SolanaWeb3.checkIfValidAddress(destinationAddress);
+        const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(destinationAddress);
         if (!isValidAddress) {
             await interaction.editReply({ content: "Invalid destination address. Please enter a valid address.", ephemeral: true });
             return;
@@ -569,7 +569,7 @@ export const MODAL_COMMANDS = {
     },
     withdrawAllSol: async (interaction: any, destinationAddress: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const isValidAddress = SolanaWeb3.checkIfValidAddress(destinationAddress);
+        const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(destinationAddress);
         if (!isValidAddress) {
             await interaction.editReply({ content: "Invalid destination address. Please enter a valid address.", ephemeral: true });
             return;

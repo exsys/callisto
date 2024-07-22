@@ -24,6 +24,8 @@ import {
 } from "../config/constants";
 import { TxResponse } from "../interfaces/tx-response";
 import { UIResponse } from "../interfaces/ui-response";
+import { DBError } from "../interfaces/db-error";
+import { Error } from "../models/errors";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -300,6 +302,24 @@ export async function saveDbTransaction({
         });
         await dbTx.save();
 
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
+export async function saveError({ user_id, contract_address, wallet_address, function_name, error }: DBError): Promise<boolean> {
+    try {
+        const newError = new Error({
+            user_id,
+            contract_address,
+            wallet_address,
+            function_name,
+            timestamp: Date.now(),
+            error,
+        });
+
+        await newError.save();
         return true;
     } catch (error) {
         return false;
