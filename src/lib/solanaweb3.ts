@@ -116,10 +116,11 @@ export class SolanaWeb3 {
             const balanceInLamports = await this.getBalanceOfWalletInLamports(wallet_address);
             if (balanceInLamports === 0) return insufficientBalanceError(txResponse);
             if (!balanceInLamports) return walletBalanceError(txResponse);
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
+            const signer: Keypair | null = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(txResponse);
 
             const maxSolAmountToSend = balanceInLamports - this.GAS_FEE_FOR_SOL_TRANSFER;
+            txResponse.token_amount = maxSolAmountToSend;
             const tx: Transaction = new Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: signer.publicKey,
@@ -134,6 +135,7 @@ export class SolanaWeb3 {
             tx.sign(signer);
             const serializedTx = Buffer.from(tx.serialize());
             const signature = this.getSignature(tx);
+            txResponse.tx_signature = signature;
             const result = await transactionSenderAndConfirmationWaiter({
                 connection: this.getConnection(),
                 serializedTransaction: serializedTx,
@@ -173,14 +175,16 @@ export class SolanaWeb3 {
         try {
             if (!isNumber(amount)) return invalidNumberError(txResponse);
             const blockhash = await this.getConnection().getLatestBlockhash("finalized");
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
+            const signer: Keypair | null = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(txResponse);
+            const amountToSend: number = Number(amount) * LAMPORTS_PER_SOL;
+            txResponse.token_amount = amountToSend;
 
             const tx: Transaction = new Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: signer.publicKey,
                     toPubkey: new PublicKey(recipientAddress),
-                    lamports: Number(amount) * LAMPORTS_PER_SOL
+                    lamports: amountToSend,
                 })
             );
             tx.feePayer = signer.publicKey;
@@ -203,6 +207,7 @@ export class SolanaWeb3 {
             tx.sign(signer);
             const serializedTx = Buffer.from(tx.serialize());
             const signature = this.getSignature(tx);
+            txResponse.tx_signature = signature;
             const result = await transactionSenderAndConfirmationWaiter({
                 connection: this.getConnection(),
                 serializedTransaction: serializedTx,
@@ -243,7 +248,7 @@ export class SolanaWeb3 {
         try {
             if (!isNumber(amount)) return invalidNumberError(txResponse);
 
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
+            const signer: Keypair | null = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError({ user_id, tx_type });
             const walletTokenAccount = await this.getTokenAccountOfWallet(wallet_address, contract_address);
             if (!walletTokenAccount) return tokenAccountNotFoundError(txResponse);
@@ -335,7 +340,7 @@ export class SolanaWeb3 {
                 return insufficientBalanceError({ ...txResponse, include_retry_button: true });
             }
 
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
+            const signer: Keypair | null = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(txResponse);
             const userHasReducedFeesFromRef: boolean = wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
             if (userHasReducedFeesFromRef) {
@@ -489,7 +494,7 @@ export class SolanaWeb3 {
         if (Number(coinStats.tokenAmount!.amount) == 0) return insufficientBalanceError({ ...txResponse, include_retry_button: true });
 
         try {
-            const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
+            const signer: Keypair | null = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(txResponse);
             const userHasReducedFeesFromRef: boolean = wallet.swap_fee === BASE_SWAP_FEE * (1 - FEE_REDUCTION_WITH_REF_CODE);
             if (userHasReducedFeesFromRef) {
@@ -577,7 +582,9 @@ export class SolanaWeb3 {
         let amountToPayInLamports: number = amount - this.GAS_FEE_FOR_SOL_TRANSFER;
 
         try {
-            // TODO: move ref fee to another wallet
+            // TODO: ref fees should sit in another wallet, and not the main calli fee wallet
+            // maybe create a script which transfers ref fees every 24h to it?
+
             const signer: Keypair | null = Keypair.fromSecretKey(bs58.decode(String(process.env.CALLISTO_FEE_WALLET_PKEY)));
             if (!signer) return decryptError(txResponse);
             const wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();

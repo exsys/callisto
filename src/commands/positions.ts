@@ -7,14 +7,9 @@ const command = {
         .setName("positions")
         .setDescription("Displays your open positions."),
     async execute(interaction: any) {
-        try {
-            await interaction.deferReply({ ephemeral: true });
-            const ui: UI = await createSellAndManageUI({ userId: interaction.user.id });
-            await interaction.editReply(ui);
-        } catch (error) {
-            // TODO: store error
-            await interaction.editReply("Server error. Please try again later.");
-        }
+        await interaction.deferReply({ ephemeral: true });
+        const ui: UI = await createSellAndManageUI({ userId: interaction.user.id });
+        await interaction.editReply(ui);
     }
 }
 

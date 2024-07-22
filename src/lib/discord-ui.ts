@@ -464,7 +464,6 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
             ephemeral: true,
         };
     } catch (error) {
-        // TODO: store error in db
         return { content: "Server error. Please try again later.", ephemeral: true };
     }
 };

@@ -43,7 +43,8 @@ import {
     createRefCodeForUser,
     saveReferralAndUpdateFees,
     storeUnpaidRefFee,
-    claimUnpaidRefFees
+    claimUnpaidRefFees,
+    saveDbTransaction
 } from "./util";
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -65,7 +66,7 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply({ content: "Test failed. Wallet not found", ephemeral: true });
             return;
         }
-        const signer: Keypair | null = getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
+        const signer: Keypair | null = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) {
             await interaction.editReply({ content: "Test failed. Signer not found", ephemeral: true });
             return;
@@ -284,7 +285,6 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "1");
         await interaction.editReply(uiResponse.ui);
-        // TODO: this if block will be executed if user swap fee is 0. fix that
         if (uiResponse.store_ref_fee) {
             const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
@@ -511,7 +511,6 @@ export const MENU_COMMANDS = {
 
             await interaction.editReply({ content: "Successfully removed wallet.", ephemeral: true });
         } catch (error) {
-            // TODO: store error
             await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
         }
     },
@@ -558,14 +557,9 @@ export const MODAL_COMMANDS = {
             return;
         }
 
-        try {
-            const result: TxResponse = await SolanaWeb3.transferXSol(interaction.user.id, amountToWithdraw, destinationAddress);
-            await interaction.editReply({ content: result.response, ephemeral: true });
-        } catch (error) {
-            // TODO: store error
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
-        }
-
+        const result: TxResponse = await SolanaWeb3.transferXSol(interaction.user.id, amountToWithdraw, destinationAddress);
+        await saveDbTransaction(result);
+        await interaction.editReply({ content: result.response, ephemeral: true });
     },
     withdrawAllSol: async (interaction: any, destinationAddress: string) => {
         await interaction.deferReply({ ephemeral: true });
@@ -575,13 +569,9 @@ export const MODAL_COMMANDS = {
             return;
         }
 
-        try {
-            const result: TxResponse = await SolanaWeb3.transferAllSol(interaction.user.id, destinationAddress);
-            await interaction.editReply({ content: result.response, ephemeral: true });
-        } catch (error) {
-            // TODO: store error
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
-        }
+        const result: TxResponse = await SolanaWeb3.transferAllSol(interaction.user.id, destinationAddress);
+        await saveDbTransaction(result);
+        await interaction.editReply({ content: result.response, ephemeral: true });
     },
     changeMinPositionValue: async (interaction: any, amount: string) => {
         await interaction.deferReply({ ephemeral: true });

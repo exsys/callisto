@@ -32,9 +32,11 @@ const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKN
 
 export async function createNewWallet(userId: string): Promise<string | null> {
     // TODO: make it so only string is returned
+    // TODO: make it so if one db save fails, the other saves are reverted
+
     const solanaWallet = SolanaWeb3.createNewWallet();
     const solanaPrivateKey = bs58.encode(solanaWallet.secretKey);
-    const encryption = encryptPKey(solanaPrivateKey);
+    const encryption = await encryptPKey(solanaPrivateKey);
     if (!encryption) return null;
 
     try {
@@ -66,7 +68,6 @@ export async function createNewWallet(userId: string): Promise<string | null> {
 
         return solanaWallet.publicKey.toString();
     } catch (error) {
-        // TODO: store error
         return null;
     }
 }
@@ -162,13 +163,13 @@ export function formatNumber(num: string): string {
     return number.toString();
 }
 
-export function getKeypairFromEncryptedPKey(encryptedPKey: string, iv: string): Keypair | null {
-    const pkey = decryptPKey(encryptedPKey, iv);
+export async function getKeypairFromEncryptedPKey(encryptedPKey: string, iv: string): Promise<Keypair | null> {
+    const pkey = await decryptPKey(encryptedPKey, iv);
     if (!pkey) return null;
     return Keypair.fromSecretKey(bs58.decode(pkey));
 }
 
-export function encryptPKey(pKey: string): { encryptedPrivateKey: string, iv: string } | null {
+export async function encryptPKey(pKey: string): Promise<{ encryptedPrivateKey: string, iv: string } | null> {
     try {
         const secretKey = process.env.ENCRYPTION_SECRET_KEY;
         if (!secretKey) throw new Error("Encryption key not found.");
@@ -178,12 +179,12 @@ export function encryptPKey(pKey: string): { encryptedPrivateKey: string, iv: st
         encrypted += cipher.final('hex');
         return { encryptedPrivateKey: encrypted, iv: iv.toString('hex') };
     } catch (error) {
-        // TODO: store error
+        await saveError({ function_name: "encryptPKey", error });
         return null;
     }
 }
 
-export function decryptPKey(encryptedPKey: string, iv: string): string | null {
+export async function decryptPKey(encryptedPKey: string, iv: string): Promise<string | null> {
     try {
         const secretKey = process.env.ENCRYPTION_SECRET_KEY;
         if (!secretKey) return null;
@@ -192,7 +193,7 @@ export function decryptPKey(encryptedPKey: string, iv: string): string | null {
         decrypted += decipher.final('utf8');
         return decrypted;
     } catch (error) {
-        // TODO: store error
+        await saveError({ function_name: "decryptPKey", error });
         return null;
     }
 }
@@ -229,7 +230,7 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
     try {
         const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
         await saveDbTransaction(response);
-        const storeFee = response.total_fee !== -1 ? true : false; // users who's swap fee is 0
+        const storeFee = response.total_fee !== -1 ? true : false; // users who's swap fee is 0. this is so those swaps don't try to store unpaid ref fees in case such a user has used a ref code
         return createAfterSwapUI(response, storeFee);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
