@@ -11,7 +11,7 @@ import {
 import { UI } from "../interfaces/ui";
 import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
-import { createNewRefCode, createNewWallet, formatNumber } from "./util";
+import { createNewRefCode, createNewWallet, createOrUseRefCodeForUser, formatNumber } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../interfaces/coinstats";
 import { CoinInfo } from "../interfaces/coininfo";
@@ -176,11 +176,6 @@ export const createWalletUI = async (userId: string): Promise<UI> => {
         .setLabel('Add new Wallet')
         .setStyle(ButtonStyle.Secondary);
 
-    const claimFeesButton = new ButtonBuilder()
-        .setCustomId("showRefFees")
-        .setLabel("Claim Fees")
-        .setStyle(ButtonStyle.Secondary);
-
     const exportPrivKeyButton = new ButtonBuilder()
         .setCustomId('exportPrivKeyConfirmation')
         .setLabel('Export Private Key')
@@ -189,7 +184,7 @@ export const createWalletUI = async (userId: string): Promise<UI> => {
     const firstRow = new ActionRowBuilder()
         .addComponents(solscanButton, depositButton, withdrawAllSolButton, withdrawXSolButton, removeWalletButton);
     const secondRow = new ActionRowBuilder()
-        .addComponents(changeWallet, addNewWalletButton, claimFeesButton, exportPrivKeyButton);
+        .addComponents(changeWallet, addNewWalletButton, exportPrivKeyButton);
 
     return {
         content,
@@ -205,6 +200,28 @@ export const createHelpUI = (): UI => {
         ephemeral: true,
     }
 };
+
+export const createReferUI = async (userId: string): Promise<UI> => {
+    const refCodeMsg: string | null = await createOrUseRefCodeForUser(userId);
+    if (!refCodeMsg) {
+        return {
+            content: ERROR_CODES["0000"].message,
+            ephemeral: true,
+        }
+    }
+
+    const claimFeesButton = new ButtonBuilder()
+        .setCustomId("showRefFees")
+        .setLabel("Claim Fees")
+        .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder().addComponents(claimFeesButton);
+    return {
+        content: refCodeMsg,
+        components: [row],
+        ephemeral: true,
+    };
+}
 
 export const createPreBuyUI = async (userId: string, contractAddress: string): Promise<UIResponse> => {
     let content: string = "";

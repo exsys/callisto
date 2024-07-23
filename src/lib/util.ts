@@ -72,8 +72,7 @@ export async function createNewWallet(userId: string): Promise<string | null> {
     }
 }
 
-export async function createRefCodeForUser(userId: string): Promise<string | null> {
-    let refCode = createNewRefCode();
+export async function createOrUseRefCodeForUser(userId: string): Promise<string | null> {
     let msgContent = "Your referral code is: ";
     try {
         const user = await User.findOne({ user_id: userId });
@@ -82,7 +81,9 @@ export async function createRefCodeForUser(userId: string): Promise<string | nul
             msgContent += user.ref_code;
             return msgContent;
         }
-
+        
+        // this block will only be executed if user doesn't have a ref code already
+        let refCode = createNewRefCode();
         let userWithRefCodeExistsAlready = await User.findOne({ ref_code: refCode }).lean();
         while (userWithRefCodeExistsAlready) {
             refCode = createNewRefCode();

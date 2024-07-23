@@ -25,7 +25,8 @@ import {
     createSendCoinModal,
     createHelpUI,
     createRefCodeModal,
-    createClaimRefFeeUI
+    createClaimRefFeeUI,
+    createReferUI
 } from "./discord-ui";
 import { Wallet } from "../models/wallet";
 import {
@@ -40,11 +41,10 @@ import {
     isNumber,
     sellCoin,
     sellCoinX,
-    createRefCodeForUser,
     saveReferralAndUpdateFees,
     storeUnpaidRefFee,
     claimUnpaidRefFees,
-    saveDbTransaction
+    saveDbTransaction,
 } from "./util";
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -133,12 +133,8 @@ export const BUTTON_COMMANDS = {
     },
     refer: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const refCodeMsg: string | null = await createRefCodeForUser(interaction.user.id);
-        if (refCodeMsg) {
-            await interaction.editReply({ content: refCodeMsg, ephemeral: true });
-            return;
-        }
-        await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+        const ui: UI = await createReferUI(interaction.user.id);
+        await interaction.editReply(ui);
     },
     deposit: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
