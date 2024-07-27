@@ -130,19 +130,19 @@ export class SolanaWeb3 {
                 })
             );
 
-            const blockhash = await this.getConnection().getLatestBlockhash();
+            const { blockhash, lastValidBlockHeight } = await this.getConnection().getLatestBlockhash();
             tx.feePayer = signer.publicKey;
-            tx.recentBlockhash = blockhash.blockhash;
+            tx.recentBlockhash = blockhash;
             tx.sign(signer);
             const serializedTx = Buffer.from(tx.serialize());
             const signature = this.getSignature(tx);
             txResponse.tx_signature = signature;
-            const result = await transactionSenderAndConfirmationWaiter({
+            const result: VersionedTransactionResponse | null = await transactionSenderAndConfirmationWaiter({
                 connection: this.getConnection(),
                 serializedTransaction: serializedTx,
                 blockhashWithExpiryBlockHeight: {
-                    blockhash: blockhash.blockhash,
-                    lastValidBlockHeight: blockhash.lastValidBlockHeight,
+                    blockhash: blockhash,
+                    lastValidBlockHeight: lastValidBlockHeight,
                 },
             });
 
@@ -175,7 +175,7 @@ export class SolanaWeb3 {
 
         try {
             if (!isNumber(amount)) return invalidNumberError(txResponse);
-            const blockhash = await this.getConnection().getLatestBlockhash("finalized");
+            const { blockhash, lastValidBlockHeight } = await this.getConnection().getLatestBlockhash("finalized");
             const signer: Keypair | null = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(txResponse);
             const amountToSend: number = Number(amount) * LAMPORTS_PER_SOL;
@@ -189,7 +189,7 @@ export class SolanaWeb3 {
                 })
             );
             tx.feePayer = signer.publicKey;
-            tx.recentBlockhash = blockhash.blockhash;
+            tx.recentBlockhash = blockhash;
 
             // check if the user has enough balance to transfer the amount
             const estimatedFeeInLamports = await tx.getEstimatedFee(this.getConnection());
@@ -213,8 +213,8 @@ export class SolanaWeb3 {
                 connection: this.getConnection(),
                 serializedTransaction: serializedTx,
                 blockhashWithExpiryBlockHeight: {
-                    blockhash: blockhash.blockhash,
-                    lastValidBlockHeight: blockhash.lastValidBlockHeight,
+                    blockhash: blockhash,
+                    lastValidBlockHeight: lastValidBlockHeight,
                 },
             });
 
@@ -265,7 +265,7 @@ export class SolanaWeb3 {
             const coinStats: CoinStats | null = await this.getCoinStats(contract_address, wallet_address);
             if (!coinStats) return coinstatsNotFoundError(txResponse);
 
-            const blockhash = await this.getConnection().getLatestBlockhash();
+            const { blockhash, lastValidBlockHeight } = await this.getConnection().getLatestBlockhash();
             const amountToSend = Number(coinStats.tokenAmount!.amount) * (Number(amount) / 100);
             const tx: Transaction = new Transaction().add(
                 createTransferInstruction(
@@ -277,7 +277,7 @@ export class SolanaWeb3 {
             );
 
             tx.feePayer = signer.publicKey;
-            tx.recentBlockhash = blockhash.blockhash;
+            tx.recentBlockhash = blockhash;
             tx.sign(signer);
             const serializedTx = Buffer.from(tx.serialize());
             const signature = this.getSignature(tx);
@@ -286,8 +286,8 @@ export class SolanaWeb3 {
                 connection: this.getConnection(),
                 serializedTransaction: serializedTx,
                 blockhashWithExpiryBlockHeight: {
-                    blockhash: blockhash.blockhash,
-                    lastValidBlockHeight: blockhash.lastValidBlockHeight,
+                    blockhash: blockhash,
+                    lastValidBlockHeight: lastValidBlockHeight,
                 },
             });
 
