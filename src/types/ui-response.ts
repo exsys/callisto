@@ -1,12 +1,8 @@
-import { ActionRowBuilder } from "discord.js";
 import { TxResponse } from "./tx-response";
+import { UI } from "./ui";
 
 export interface UIResponse {
-    ui: {
-        content: string;
-        components?: ActionRowBuilder[];
-        ephemeral: boolean;
-    };
+    ui: UI;
     transaction?: TxResponse,
     store_ref_fee?: boolean;
 }

@@ -238,7 +238,12 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
             return { ui: { content, ephemeral: true } };
         }
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
-        return createAfterSwapUI(response);
+        if (!response.error) {
+            const ui: UI = await createSellAndManageUI({ userId });
+            return { ui, transaction: response };
+        } else {
+            return createAfterSwapUI(response);
+        }
     }
 
     // TODO: if dexscreener fails try another method
