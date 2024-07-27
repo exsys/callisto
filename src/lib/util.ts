@@ -119,21 +119,21 @@ export function extractCAFromMessage(message: string, line: number): string | nu
     return parts[parts.length - 1];
 }
 
-export function extractAndValidateCA(message: string): string | null {
-    const firstLine = message.split("\n")[0];
-    const parts = firstLine.split(" | ");
-    if (!parts.length) return null;
+export async function extractAndValidateCA(message: string): Promise<string> {
+    const firstLine: string = message.split("\n")[0];
+    const parts: string[] = firstLine.split(" | ");
+    if (!parts.length) return "";
 
-    const ca = parts[parts.length - 1];
-    const isValidAddress = SolanaWeb3.checkIfValidAddress(ca);
+    const ca: string = parts[parts.length - 1];
+    const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(ca);
     if (!isValidAddress) {
         // check if the address is in the 4th line (the case when user buys coin through the sell & manage UI)
-        const fourthLine = message.split("\n")[3];
-        const parts = fourthLine.split(" | ");
-        if (!parts.length) return null;
-        const ca2 = parts[parts.length - 1];
-        const isValidAddress2 = SolanaWeb3.checkIfValidAddress(ca2);
-        if (!isValidAddress2) return null;
+        const fourthLine: string = message.split("\n")[3];
+        const parts: string[] = fourthLine.split(" | ");
+        if (!parts.length) return "";
+        const ca2: string = parts[parts.length - 1];
+        const isValidAddress2: boolean = await SolanaWeb3.checkIfValidAddress(ca2);
+        if (!isValidAddress2) return "";
         return ca2;
     }
 
@@ -200,7 +200,7 @@ export async function decryptPKey(encryptedPKey: string, iv: string): Promise<st
 }
 
 export async function buyCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress = extractAndValidateCA(msgContent);
+    const contractAddress: string = await extractAndValidateCA(msgContent);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
     try {
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
@@ -213,7 +213,7 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
 }
 
 export async function buyCoinX(userId: string, msgContent: string, amount: string): Promise<UIResponse> {
-    const contractAddress = extractAndValidateCA(msgContent);
+    const contractAddress: string = await extractAndValidateCA(msgContent);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
     try {
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, amount);
@@ -226,12 +226,12 @@ export async function buyCoinX(userId: string, msgContent: string, amount: strin
 }
 
 export async function sellCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress = extractAndValidateCA(msgContent);
+    const contractAddress: string = await extractAndValidateCA(msgContent);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
     try {
         const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
         await saveDbTransaction(response);
-        const storeFee = response.total_fee !== -1 ? true : false; // users who's swap fee is 0. this is so those swaps don't try to store unpaid ref fees in case such a user has used a ref code
+        const storeFee = response.referral && (response.total_fee !== -1 ? true : false); // users who's swap fee is 0. this is so those swaps don't try to store unpaid ref fees in case such a user has used a ref code
         return createAfterSwapUI(response, storeFee);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
@@ -240,12 +240,12 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
 }
 
 export async function sellCoinX(userId: string, msgContent: string, amountInPercent: string): Promise<UIResponse> {
-    const contractAddress = extractAndValidateCA(msgContent);
+    const contractAddress: string = await extractAndValidateCA(msgContent);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
     try {
         const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, amountInPercent);
         await saveDbTransaction(response);
-        const storeFee = response.total_fee !== -1 ? true : false; // users who's swap fee is 0
+        const storeFee = response.referral && (response.total_fee !== -1 ? true : false); // users who's swap fee is 0
         return createAfterSwapUI(response, storeFee);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
@@ -257,7 +257,6 @@ export async function exportPrivateKeyOfUser(userId: string): Promise<any | null
     try {
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
         if (!wallet) return null;
-
         wallet.key_exported = true;
         await wallet.save();
         return wallet;
@@ -391,24 +390,30 @@ export function successResponse(txResponse: TxResponse): TxResponse {
 
 // this will only be called for sell transactions. so only checking for FEE_TOKEN_ACCOUNT for the balances is correct.
 export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean> {
+    console.log(1)
     if (!txResponse) return false;
     // TODO: proper error handling, with returning error message
     if (!txResponse.referral) return false;
     try {
+        console.log(2)
         const tx: VersionedTransactionResponse | null = await SolanaWeb3.getTransactionInfo(txResponse.tx_signature);
         if (!tx) return false;
+        console.log(3)
         const txInfo: ConfirmedTransactionMeta | null = tx.meta;
         const txMsg: { message: VersionedMessage; signatures: string[]; } = tx.transaction;
         if (!txInfo) return false;
 
+        console.log(4)
         // how much the user paid in fees. this is checking how much the calli fee wallet received from this tx
         const solPreBalance: number = txInfo.preBalances[txMsg.message.staticAccountKeys.findIndex((key: PublicKey) => key.toBase58() === FEE_TOKEN_ACCOUNT)];
         const solPostBalance: number = txInfo.postBalances[txMsg.message.staticAccountKeys.findIndex((key: PublicKey) => key.toBase58() === FEE_TOKEN_ACCOUNT)];
         const solReceivedInLamports: number = solPostBalance - solPreBalance;
         // TODO: proper error handling
         if (!solReceivedInLamports) return false;
+        console.log(5)
         const referrer: any = await User.findOne({ user_id: txResponse.referral?.referrer_user_id });
         if (!referrer) return false;
+        console.log(6)
 
         /* if any user ever has 0 swap fee, a check for this has to be done, or else the referrer receives fees anyways
         const user: any = await User.findOne({ user_id: txResponse.user_id });
@@ -421,8 +426,10 @@ export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean
         referrer.unclaimed_ref_fees += refFee;
 
         await referrer.save();
+        console.log(7)
         return true;
     } catch (error) {
+        console.log(-1)
         return false;
     }
 }

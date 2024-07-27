@@ -109,7 +109,7 @@ export const BUTTON_COMMANDS = {
     },
     refreshCoinInfo: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
             await interaction.editReply({ content: ERROR_CODES["0006"].message, ephemeral: true });
             return;
@@ -119,7 +119,7 @@ export const BUTTON_COMMANDS = {
     },
     refreshManageInfo: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
             await interaction.editReply({ content: ERROR_CODES["0006"].message, ephemeral: true });
             return;
@@ -281,8 +281,8 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "1");
         await interaction.editReply(uiResponse.ui);
-        if (uiResponse.store_ref_fee) {
-            const success = await storeUnpaidRefFee(uiResponse.transaction!);
+        if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
+            const success: boolean = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
@@ -290,8 +290,8 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "2");
         await interaction.editReply(uiResponse.ui);
-        if (uiResponse.store_ref_fee) {
-            const success = await storeUnpaidRefFee(uiResponse.transaction!);
+        if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
+            const success: boolean = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
@@ -299,8 +299,8 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "3");
         await interaction.editReply(uiResponse.ui);
-        if (uiResponse.store_ref_fee) {
-            const success = await storeUnpaidRefFee(uiResponse.transaction!);
+        if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
+            const success: boolean = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
@@ -308,8 +308,8 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "4");
         await interaction.editReply(uiResponse.ui);
-        if (uiResponse.store_ref_fee) {
-            const success = await storeUnpaidRefFee(uiResponse.transaction!);
+        if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
+            const success: boolean = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
@@ -392,7 +392,7 @@ export const BUTTON_COMMANDS = {
     },
     previousCoin: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
@@ -402,7 +402,7 @@ export const BUTTON_COMMANDS = {
     },
     nextCoin: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
@@ -426,7 +426,7 @@ export const BUTTON_COMMANDS = {
     },
     retryLastSwap: async (interaction: any) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string | null = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
@@ -518,8 +518,8 @@ export const MENU_COMMANDS = {
 };
 
 export const MODAL_COMMANDS = {
-    // this one will be called after pasting the contract address in the CA modal
     buyCoin: async (interaction: any, contractAddress: string) => {
+        // this one will be called after pasting the contract address in the CA modal
         await interaction.deferReply({ ephemeral: true });
         const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(contractAddress);
         if (!isValidAddress) {
@@ -538,7 +538,7 @@ export const MODAL_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoinX(interaction.user.id, interaction.message.content, percent);
         await interaction.editReply(uiResponse.ui);
-        if (uiResponse.store_ref_fee) {
+        if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
             const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
@@ -857,7 +857,7 @@ export const MODAL_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const amountToSend = values[0];
         const destinationAddress = values[1];
-        const contractAddress = extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;

@@ -238,7 +238,6 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
             return { ui: { content, ephemeral: true } };
         }
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
-        // TODO: create either special UI for autobuy or use the same as for manual buy before the swap. instead of createAfterSwapUI
         return createAfterSwapUI(response);
     }
 
@@ -501,7 +500,7 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
         response = txResponse.response ? txResponse.response : "Server error. Please try again later.";
     } else {
         if (token) {
-            // if token exists it was a sell
+            // if token exists it was a sell. since CoinStats are only set in the sellViaApi function
             response = `${amount}${token.name} | ${token.symbol} | ${token.address}\n\n${txResponse.response}`;
         }
         if (txResponse.contract_address) {

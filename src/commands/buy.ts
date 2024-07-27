@@ -14,8 +14,8 @@ const command = {
     async execute(interaction: any) {
         try {
             await interaction.deferReply({ ephemeral: true });
-            const contractAddress = interaction.options.getString("ca");
-            const isValidAddress = SolanaWeb3.checkIfValidAddress(contractAddress);
+            const contractAddress: string = interaction.options.getString("ca");
+            const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(contractAddress);
             if (!isValidAddress) {
                 await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
                 return;

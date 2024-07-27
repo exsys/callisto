@@ -71,6 +71,7 @@ import { TxResponse } from "../types/tx-response";
 import { CaAmount } from "../types/caamount";
 import { PROMO_REF_MAPPING } from "../config/promo_ref_mapping";
 import { CoinPriceQuote } from "../types/coinPriceQuote";
+import { ParsedProgramAccountWrittenOut } from "../types/parsedprogramaccount";
 
 export class SolanaWeb3 {
     /*static jitoConn: Connection = new Connection("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/transactions", {
@@ -485,7 +486,7 @@ export class SolanaWeb3 {
         txResponse.sell_amount = amountToSellInPercent;
 
         const coinStats: CoinStats | null = await this.getCoinStats(contract_address, wallet_address);
-        if (!coinStats) return coinstatsNotFoundError({ ...txResponse, include_retry_button: true });
+        if (!coinStats) return coinstatsNotFoundError(txResponse);
         txResponse.token_stats = coinStats;
         if (Number(coinStats.tokenAmount!.amount) == 0) return insufficientBalanceError({ ...txResponse, include_retry_button: true });
 
@@ -778,7 +779,7 @@ export class SolanaWeb3 {
                 { dataSize: 165 }, // size of account (bytes)
                 { memcmp: { offset: 32, bytes: wallet_address } }
             ];
-            const coins: any = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters, commitment: "confirmed" });
+            const coins: ParsedProgramAccountWrittenOut[] = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters, commitment: "confirmed" }) as ParsedProgramAccountWrittenOut[];
             const selectedCoin = coins.find((coin: any) => coin.account.data.parsed.info.mint === contract_address);
             if (!selectedCoin) return null;
 
