@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { UI } from "../interfaces/ui";
+import { UI } from "../types/ui";
 import { createHelpUI } from "../lib/discord-ui";
 
 const command = {

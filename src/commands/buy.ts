@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { createPreBuyUI } from "../lib/discord-ui";
 import { SolanaWeb3 } from "../lib/solanaweb3";
-import { UIResponse } from "../interfaces/ui-response";
+import { UIResponse } from "../types/ui-response";
 
 const command = {
     data: new SlashCommandBuilder()

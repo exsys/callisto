@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { createSellAndManageUI } from "../lib/discord-ui";
-import { UI } from "../interfaces/ui";
+import { UI } from "../types/ui";
 
 const command = {
     data: new SlashCommandBuilder()

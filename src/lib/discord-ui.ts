@@ -8,18 +8,18 @@ import {
     TextInputBuilder,
     TextInputStyle
 } from "discord.js";
-import { UI } from "../interfaces/ui";
+import { UI } from "../types/ui";
 import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
 import { createNewRefCode, createNewWallet, createOrUseRefCodeForUser, formatNumber } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { CoinStats } from "../interfaces/coinstats";
-import { CoinInfo } from "../interfaces/coininfo";
+import { CoinStats } from "../types/coinstats";
+import { CoinInfo } from "../types/coininfo";
 import { ERROR_CODES } from "../config/errors";
-import { TxResponse } from "../interfaces/tx-response";
+import { TxResponse } from "../types/tx-response";
 import { User } from "../models/user";
 import { REFCODE_MODAL_STRING } from "../config/constants";
-import { UIResponse } from "../interfaces/ui-response";
+import { UIResponse } from "../types/ui-response";
 
 
 /* ADDITIONAL */

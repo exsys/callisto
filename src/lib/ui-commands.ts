@@ -1,4 +1,4 @@
-import { UI } from "../interfaces/ui";
+import { UI } from "../types/ui";
 import {
     createAutoBuyValueModal,
     createBuyModal,
@@ -49,9 +49,9 @@ import {
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
-import { TxResponse } from "../interfaces/tx-response";
+import { TxResponse } from "../types/tx-response";
 import { REFCODE_MODAL_STRING } from "../config/constants";
-import { UIResponse } from "../interfaces/ui-response";
+import { UIResponse } from "../types/ui-response";
 import { ModalBuilder } from "discord.js";
 
 const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map();

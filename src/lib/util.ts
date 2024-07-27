@@ -12,7 +12,7 @@ import { SolanaWeb3 } from "./solanaweb3";
 import bs58 from 'bs58';
 import crypto from 'crypto';
 import { ERROR_CODES } from "../config/errors";
-import { UI } from "../interfaces/ui";
+import { UI } from "../types/ui";
 import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
@@ -22,9 +22,9 @@ import {
     LEVEL3_FEE_IN_PERCENT,
     REFCODE_MODAL_STRING
 } from "../config/constants";
-import { TxResponse } from "../interfaces/tx-response";
-import { UIResponse } from "../interfaces/ui-response";
-import { DBError } from "../interfaces/db-error";
+import { TxResponse } from "../types/tx-response";
+import { UIResponse } from "../types/ui-response";
+import { DBError } from "../types/db-error";
 import { Error } from "../models/errors";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';

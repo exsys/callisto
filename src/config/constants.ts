@@ -15,7 +15,7 @@ export const LEVEL3_FEE_IN_PERCENT: number = 30;
 export const REFCODE_MODAL_STRING: string = "refcodemodal";
 export const DEFAULT_RPC_URL: string = "https://quaint-practical-liquid.solana-mainnet.quiknode.pro/de215f4d6fabf6c4bb0cb0eab8aceb79e8567a27/";
 
-// not needed for the bot but written down here for easy access to these values
+// variables below are not needed for the bot but written down here for easy access to these values
 const BOT_APP_ID: string = "1247262826838622311";
 const DISCORD_SERVER_INVITE_LINK: string = "https://discord.gg/gA7u36rGpX";
 const DISCORD_OAUTH_INVITE_LINK: string = "https://discord.com/oauth2/authorize?client_id=1247262826838622311&permissions=347136&integration_type=0&scope=applications.commands+bot";

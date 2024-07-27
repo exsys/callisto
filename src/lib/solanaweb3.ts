@@ -23,8 +23,8 @@ import {
     saveError,
     successResponse
 } from './util';
-import { CoinMetadata } from "../interfaces/coinmetadata";
-import { SwapTx } from "../interfaces/swaptx";
+import { CoinMetadata } from "../types/coinmetadata";
+import { SwapTx } from "../types/swaptx";
 import {
     BASE_SWAP_FEE,
     FEE_TOKEN_ACCOUNT,
@@ -35,9 +35,9 @@ import {
     CALLISTO_FEE_WALLET,
     DEFAULT_RPC_URL
 } from "../config/constants";
-import { ParsedTokenInfo } from "../interfaces/parsedtokeninfo";
-import { CoinInfo } from "../interfaces/coininfo";
-import { CoinStats } from "../interfaces/coinstats";
+import { ParsedTokenInfo } from "../types/parsedtokeninfo";
+import { CoinInfo } from "../types/coininfo";
+import { CoinStats } from "../types/coinstats";
 import {
     getAssociatedTokenAddress,
     ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -64,18 +64,13 @@ import {
 } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
-import { QuoteResponse } from "../interfaces/quoteresponse";
-import { CAWithAmount } from "../interfaces/cawithamount";
+import { QuoteResponse } from "../types/quoteresponse";
+import { CAWithAmount } from "../types/cawithamount";
 import { User } from "../models/user";
-import { TxResponse } from "../interfaces/tx-response";
-import { CaAmount } from "../interfaces/caamount";
+import { TxResponse } from "../types/tx-response";
+import { CaAmount } from "../types/caamount";
 import { PROMO_REF_MAPPING } from "../config/promo_ref_mapping";
-
-type CoinPriceQuote = {
-    contract_address: string;
-    priceInSol: string;
-    priceInUsd: string;
-}
+import { CoinPriceQuote } from "../types/coinPriceQuote";
 
 export class SolanaWeb3 {
     /*static jitoConn: Connection = new Connection("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/transactions", {
