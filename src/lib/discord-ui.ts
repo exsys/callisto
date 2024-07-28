@@ -549,6 +549,8 @@ export const createClaimRefFeeUI = async (userId: string): Promise<UI> => {
 
         let userRefCode: string = user.ref_code;
         if (!userRefCode) {
+            // NOTE: as the app currently is, this block should never be reached,
+            // but in case we move the claim fee button somewhere else this will be necessary so this block won't be removed
             userRefCode = createNewRefCode();
             let userWithRefCodeExistsAlready = await User.findOne({ ref_code: userRefCode }).lean();
             while (userWithRefCodeExistsAlready) {

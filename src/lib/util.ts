@@ -390,30 +390,24 @@ export function successResponse(txResponse: TxResponse): TxResponse {
 
 // this will only be called for sell transactions. so only checking for FEE_TOKEN_ACCOUNT for the balances is correct.
 export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean> {
-    console.log(1)
     if (!txResponse) return false;
     // TODO: proper error handling, with returning error message
     if (!txResponse.referral) return false;
     try {
-        console.log(2)
         const tx: VersionedTransactionResponse | null = await SolanaWeb3.getTransactionInfo(txResponse.tx_signature);
         if (!tx) return false;
-        console.log(3)
         const txInfo: ConfirmedTransactionMeta | null = tx.meta;
         const txMsg: { message: VersionedMessage; signatures: string[]; } = tx.transaction;
         if (!txInfo) return false;
 
-        console.log(4)
         // how much the user paid in fees. this is checking how much the calli fee wallet received from this tx
         const solPreBalance: number = txInfo.preBalances[txMsg.message.staticAccountKeys.findIndex((key: PublicKey) => key.toBase58() === FEE_TOKEN_ACCOUNT)];
         const solPostBalance: number = txInfo.postBalances[txMsg.message.staticAccountKeys.findIndex((key: PublicKey) => key.toBase58() === FEE_TOKEN_ACCOUNT)];
         const solReceivedInLamports: number = solPostBalance - solPreBalance;
         // TODO: proper error handling
         if (!solReceivedInLamports) return false;
-        console.log(5)
         const referrer: any = await User.findOne({ user_id: txResponse.referral?.referrer_user_id });
         if (!referrer) return false;
-        console.log(6)
 
         /* if any user ever has 0 swap fee, a check for this has to be done, or else the referrer receives fees anyways
         const user: any = await User.findOne({ user_id: txResponse.user_id });
@@ -426,10 +420,8 @@ export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean
         referrer.unclaimed_ref_fees += refFee;
 
         await referrer.save();
-        console.log(7)
         return true;
     } catch (error) {
-        console.log(-1)
         return false;
     }
 }

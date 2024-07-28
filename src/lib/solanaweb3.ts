@@ -358,7 +358,7 @@ export class SolanaWeb3 {
                 const referrer = await User.findOne({ user_id: user.referral.referrer_user_id });
                 if (referrer) {
                     let feeAmountInPercent: number = 0;
-                    const promoLevel: string = user.referral.promo_level;
+                    const promoLevel: string = user.referral.promo_level; // special collab for increased ref fees
                     if (promoLevel) {
                         feeAmountInPercent = PROMO_REF_MAPPING[promoLevel as keyof typeof PROMO_REF_MAPPING].getPercent(user.referral.number_of_referral);
                     } else {
@@ -367,9 +367,13 @@ export class SolanaWeb3 {
                     refFeesInLamports = Math.floor(totalFeesInLamports * (feeAmountInPercent / 100));
                     txResponse.ref_fee = refFeesInLamports;
                     referrer.unclaimed_ref_fees += refFeesInLamports;
-                    // TODO: error handling
+                    // TODO: proper error handling. maybe rabbitmq so it will be stored later?
                     // TODO: move referrer.save() to after interaction.editReply
-                    await referrer.save();
+                    try {
+                        await referrer.save();
+                    } catch (error) {
+                        console.log(`Failed to store ${refFeesInLamports} Lamports for user: ${referrer.user_id}`);
+                    }
                 }
             }
             const callistoFeesInLamports: number = totalFeesInLamports - refFeesInLamports;
