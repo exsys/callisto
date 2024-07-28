@@ -1,8 +1,8 @@
+import { InteractionEditReplyOptions } from "discord.js";
 import { TxResponse } from "./tx-response";
-import { UI } from "./ui";
 
 export interface UIResponse {
-    ui: UI;
+    ui: InteractionEditReplyOptions;
     transaction?: TxResponse,
     store_ref_fee?: boolean;
 }

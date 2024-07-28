@@ -6,9 +6,9 @@ import {
     StringSelectMenuOptionBuilder,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle
+    TextInputStyle,
+    InteractionEditReplyOptions,
 } from "discord.js";
-import { UI } from "../types/ui";
 import { Wallet } from "../models/wallet";
 import { SolanaWeb3 } from "./solanaweb3";
 import { createNewRefCode, createNewWallet, createOrUseRefCodeForUser, formatNumber } from "./util";
@@ -23,44 +23,36 @@ import { UIResponse } from "../types/ui-response";
 
 
 /* ADDITIONAL */
-export const addStartButton = (content: string): UI => {
+export const addStartButton = (content: string): InteractionEditReplyOptions => {
     const startButton = new ButtonBuilder()
         .setCustomId('start')
         .setLabel('Start')
         .setStyle(ButtonStyle.Secondary);
-    const row = new ActionRowBuilder().addComponents(startButton);
-    return { content, components: [row], ephemeral: true };
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(startButton);
+    return { content, components: [row] };
 }
 
 /* UIs */
 
-export const createStartUI = async (userId: string): Promise<UI> => {
+export const createStartUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
     try {
         const user: any = await User.findOne({ user_id: userId }).lean();
         if (!user) {
-            const walletAddress = await createNewWallet(userId);
+            const walletAddress: string | null = await createNewWallet(userId);
             if (!walletAddress) {
-                return {
-                    content: "Error while trying to create a wallet. If the issue persists please contact support.",
-                    ephemeral: true
-                };
+                return { content: "Error while trying to create a wallet. If the issue persists please contact support." };
             }
 
-            if (walletAddress === REFCODE_MODAL_STRING) {
-                return {
-                    content: REFCODE_MODAL_STRING,
-                    ephemeral: true
-                };
-            }
+            if (walletAddress === REFCODE_MODAL_STRING) return { content: REFCODE_MODAL_STRING };
         }
 
-        const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
-        if (!wallet) return { content: "Server error. Please try again later. ", ephemeral: true };
+        const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
+        if (!wallet) return { content: "Server error. Please try again later. " };
 
-        let content = "Solana's fastest Discord bot to trade any coin.";
+        let content: string = "Solana's fastest Discord bot to trade any coin.";
         const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
         // TODO: if walletBalance is null return start UI anyways but NaN for SOL balance
-        if (walletBalance === null) return { content: "Server error. Please try again later.", ephemeral: true };
+        if (walletBalance === null) return { content: "Server error. Please try again later." };
         const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
 
         if (formattedBalance == "0" || formattedBalance == "0.0") {
@@ -110,34 +102,22 @@ export const createStartUI = async (userId: string): Promise<UI> => {
             .setLabel('Refer Friends')
             .setStyle(ButtonStyle.Secondary);
 
-        const firstRow = new ActionRowBuilder()
+        const firstRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(buyButton, sellButton, walletButton, settingsButton, refreshButton);
+        const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(helpButton, referButton);
 
-        const secondRow = new ActionRowBuilder()
-            .addComponents(helpButton, referButton);
-
-        return { content, components: [firstRow, secondRow], ephemeral: true };
+        return { content, components: [firstRow, secondRow] };
     } catch (error) {
-        return { content: "Server error. Please try again later", ephemeral: true };
+        return { content: "Server error. Please try again later" };
     }
 };
 
-export const createWalletUI = async (userId: string): Promise<UI> => {
+export const createWalletUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
     const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-    if (!wallet) {
-        return {
-            content: ERROR_CODES["0003"].message,
-            ephemeral: true,
-        }
-    }
+    if (!wallet) return { content: ERROR_CODES["0003"].message };
 
     const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
-    if (walletBalance === null) {
-        return {
-            content: ERROR_CODES["0015"].message,
-            ephemeral: true,
-        };
-    }
+    if (walletBalance === null) return { content: ERROR_CODES["0015"].message };
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
     const content = `Default Wallet Address:\n${wallet.wallet_address}\n\nBalance:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
 
@@ -181,32 +161,24 @@ export const createWalletUI = async (userId: string): Promise<UI> => {
         .setLabel('Export Private Key')
         .setStyle(ButtonStyle.Secondary);
 
-    const firstRow = new ActionRowBuilder()
+    const firstRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(solscanButton, depositButton, withdrawAllSolButton, withdrawXSolButton, removeWalletButton);
-    const secondRow = new ActionRowBuilder()
+    const secondRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(changeWallet, addNewWalletButton, exportPrivKeyButton);
 
-    return {
-        content,
-        components: [firstRow, secondRow],
-        ephemeral: true,
-    };
+    return { content, components: [firstRow, secondRow] };
 };
 
-export const createHelpUI = (): UI => {
+export const createHelpUI = (): string => {
     const content = "Welcome to Callisto, the fastest Solana trading bot on Discord.\n\nTo get started, use the /start command, this command will create a new Solana wallet for your automatically if you don't have one yet.\n\nOnce you have a wallet, you can use the Buy button to buy a coin.\n\nTo sell a coin, use the Sell & Manage button.\n\nTo view your wallet, tap the Wallet button.\n\nTo view and change your settings, tap the Settings button. Here you can change different settings like priority fee and slippage.\n\nTo refer friends, tap the Refer Friends button.\n\nWith the Refresh button you can refresh your Account Balance.\n\nFor more information, visit our website at https://callistobot.com";
-    return {
-        content,
-        ephemeral: true,
-    }
+    return content;
 };
 
-export const createReferUI = async (userId: string): Promise<UI> => {
+export const createReferUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
     const refCodeMsg: string | null = await createOrUseRefCodeForUser(userId);
     if (!refCodeMsg) {
         return {
-            content: ERROR_CODES["0000"].message,
-            ephemeral: true,
+            content: ERROR_CODES["0000"].message
         }
     }
 
@@ -215,31 +187,27 @@ export const createReferUI = async (userId: string): Promise<UI> => {
         .setLabel("Claim Fees")
         .setStyle(ButtonStyle.Secondary);
 
-    const row = new ActionRowBuilder().addComponents(claimFeesButton);
-    return {
-        content: refCodeMsg,
-        components: [row],
-        ephemeral: true,
-    };
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(claimFeesButton);
+    return { content: refCodeMsg, components: [row] };
 }
 
 export const createPreBuyUI = async (userId: string, contractAddress: string): Promise<UIResponse> => {
     let content: string = "";
-    const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-    if (!wallet) return { ui: { content: "No default wallet found. Create one with the /create command.", ephemeral: true } };
-    const walletBalance = await SolanaWeb3.getBalanceOfWalletInLamports(wallet.wallet_address);
-    if (!walletBalance) return { ui: { content: ERROR_CODES["0015"].message, ephemeral: true } };
+    const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
+    if (!wallet) return { ui: { content: "No default wallet found. Create one with the /create command." } };
+    const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInLamports(wallet.wallet_address);
+    if (!walletBalance) return { ui: { content: ERROR_CODES["0015"].message } };
     if (wallet.settings.auto_buy_value > 0) {
         const txPrio: number = wallet.settings.tx_priority_value;
 
         if (walletBalance < wallet.settings.auto_buy_value * LAMPORTS_PER_SOL + txPrio + 105000) {
             // 105000 is the minimum amount of lamports needed for a swap
             content += `Not enough SOL for autobuy. Please deposit more SOL to your wallet.`;
-            return { ui: { content, ephemeral: true } };
+            return { ui: { content } };
         }
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
         if (!response.error) {
-            const ui: UI = await createSellAndManageUI({ userId });
+            const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId });
             return { ui, transaction: response };
         } else {
             return createAfterSwapUI(response);
@@ -250,7 +218,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
     // TODO: find a way to get a more up-to-date price of the coin, because dex price can lag like 1 min behind
     // best way for this would be to know how much SOL and how much of the token are in the LP and then simply calculate the price
     const coinInfo: CoinStats | null = await SolanaWeb3.getCoinPriceStats(contractAddress);
-    if (!coinInfo) return { ui: { content: "Coin not found. Please enter a valid contract address.", ephemeral: true } };
+    if (!coinInfo) return { ui: { content: "Coin not found. Please enter a valid contract address." } };
 
     // TODO: calculate price impact
     // TODO: calculate price changes in last minutes/hours
@@ -301,38 +269,37 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
         .setLabel('Refresh')
         .setStyle(ButtonStyle.Secondary);
 
-    const firstRow = new ActionRowBuilder()
+    const firstRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(solscanCoinButton, dexscreenerButton);
 
-    const secondRow = new ActionRowBuilder()
+    const secondRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(buyButton1Button, buyButton2Button, buyButton3Button, buyButton4Button, buyButtonX);
 
-    const thirdRow = new ActionRowBuilder()
+    const thirdRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(refreshButton);
 
     return {
         ui: {
             content,
-            components: [firstRow, secondRow, thirdRow],
-            ephemeral: true,
+            components: [firstRow, secondRow, thirdRow]
         }
     };
 };
 
 export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prevCoin, nextCoin }:
     { userId: string, page?: number, ca?: string, successMsg?: boolean, prevCoin?: boolean, nextCoin?: boolean }
-): Promise<UI> => {
+): Promise<InteractionEditReplyOptions> => {
     try {
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-        if (!wallet) return { content: ERROR_CODES["0003"].message, ephemeral: true };
+        if (!wallet) return { content: ERROR_CODES["0003"].message };
 
         const coinsInWallet: CoinStats[] | null = await SolanaWeb3.getAllCoinStatsFromWallet(wallet.wallet_address, wallet.settings.min_position_value);
         if (!coinsInWallet) {
             if (successMsg) {
                 // this block will be executed if user swapped with the sell & manage ui and there are no coins left inside their wallet (except sol)
-                return { content: "Successfully swapped.", ephemeral: true };
+                return { content: "Successfully swapped." };
             } else {
-                return { content: "No coins found. Buy a coin to see it here.", ephemeral: true };
+                return { content: "No coins found. Buy a coin to see it here." };
             }
         }
         // selectedCoin is the coin which will be shown first
@@ -347,36 +314,31 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
         } else {
             // this block will be executed if ca has been passed
             if (prevCoin) {
-                const index = coinsInWallet.findIndex((coin: any) => coin.address === ca);
+                const index = coinsInWallet.findIndex((coin: CoinStats) => coin.address === ca);
                 if (index === 0) {
                     selectedCoin = coinsInWallet[coinsInWallet.length - 1];
                 } else {
                     selectedCoin = coinsInWallet[index - 1];
                 }
             } else if (nextCoin) {
-                const index = coinsInWallet.findIndex((coin: any) => coin.address === ca);
+                const index = coinsInWallet.findIndex((coin: CoinStats) => coin.address === ca);
                 if (index === coinsInWallet.length - 1) {
                     selectedCoin = coinsInWallet[0];
                 } else {
                     selectedCoin = coinsInWallet[index + 1];
                 }
             } else {
-                selectedCoin = coinsInWallet.find((coin: any) => coin.address === ca);
+                selectedCoin = coinsInWallet.find((coin: CoinStats) => coin.address === ca);
                 if (!selectedCoin) {
                     selectedCoin = coinsInWallet[0];
                 }
             }
         }
-        if (!selectedCoin) {
-            return {
-                content: ERROR_CODES["0007"].message,
-                ephemeral: true,
-            };
-        }
+        if (!selectedCoin) return { content: ERROR_CODES["0007"].message };
         const coinSymbols: string[] = coinsInWallet.map((coin: CoinStats) => coin.symbol);
         const coinSymbolsDivided: string = coinSymbols.join(" | ");
         const solBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
-        if (solBalance === null) return { content: "Server error. Please try again later.", ephemeral: true };
+        if (solBalance === null) return { content: "Server error. Please try again later." };
 
         // TODO: uiAmount might be null in some cases. handle that case
         const usdValue: string = selectedCoin.value ? selectedCoin.value.inUSD : "0";
@@ -470,22 +432,21 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
             .setLabel('Refresh')
             .setStyle(ButtonStyle.Secondary);
 
-        const firstRow = new ActionRowBuilder()
+        const firstRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(buyButton1Button, buyButton2Button, buyButton3Button, buyButton4Button, buyButtonX);
 
-        const secondRow = new ActionRowBuilder()
+        const secondRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(sellCoin1Button, sellCoin2Button, sellCoin3Button, sellCoin4Button, sellXPercentButton);
 
-        const thirdRow = new ActionRowBuilder()
+        const thirdRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(solscanCoinButton, dexscreenerButton, currentCoinButton, sendCoinButton, refreshButton);
 
         return {
             content,
-            components: [firstRow, secondRow, thirdRow],
-            ephemeral: true,
+            components: [firstRow, secondRow, thirdRow]
         };
     } catch (error) {
-        return { content: "Server error. Please try again later.", ephemeral: true };
+        return { content: "Server error. Please try again later." };
     }
 };
 
@@ -530,22 +491,21 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
 
     const buttons = [startButton, positionsButton];
     if (txResponse.include_retry_button) buttons.push(retryButton);
-    const row = new ActionRowBuilder().addComponents(buttons);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
     return {
         transaction: txResponse,
         ui: {
             content: response,
-            components: [row],
-            ephemeral: true,
+            components: [row]
         },
         store_ref_fee: storeRefFee,
     };
 };
 
-export const createClaimRefFeeUI = async (userId: string): Promise<UI> => {
+export const createClaimRefFeeUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
     try {
         const user: any = await User.findOne({ user_id: userId });
-        if (!user) return { content: ERROR_CODES["0000"].message, ephemeral: true };
+        if (!user) return { content: ERROR_CODES["0000"].message };
 
         let userRefCode: string = user.ref_code;
         if (!userRefCode) {
@@ -574,26 +534,26 @@ export const createClaimRefFeeUI = async (userId: string): Promise<UI> => {
             .setLabel("Claim Fees")
             .setStyle(ButtonStyle.Secondary);
 
-        const row: ActionRowBuilder = new ActionRowBuilder().addComponents(claimFeesButton);
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(claimFeesButton);
         return {
             content: content,
-            components: userHasFeesToClaim ? [row] : undefined,
-            ephemeral: true,
+            //components: userHasFeesToClaim ? [row] : undefined
+            components: [row],
         };
     } catch (error) {
-        return { content: ERROR_CODES["0000"].message, ephemeral: true };
+        return { content: ERROR_CODES["0000"].message };
     }
 }
 
-export const createSettingsUI = async (userId: string): Promise<UI> => {
+export const createSettingsUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
     const content = "Settings Help\n\nGENERAL SETTINGS\nMin Position Value: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\nAuto Buy: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\nSlippage Config: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.\n\nBUTTONS CONFIG\nCustomize your buy and sell buttons. Tap to edit.\n\nTRANSACTION CONFIG\nMEV Protection: Accelerates your transactions and protect against frontruns to make sure you get the best price possible.\nTurbo: Callisto will use MEV Protection, but if unprotected sending is faster it will use that instead.\nSecure: Transactions are guaranteed to be protected from MEV, but transactions may be slower.\nTransaction Priority: Increase your Transaction Priority to improve transaction speed. Tap to edit.";
 
     let wallet: any;
     try {
         wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-        if (!wallet) return { content: "No default wallet found. Create one with the /create command.", ephemeral: true };
+        if (!wallet) return { content: "No default wallet found. Create one with the /create command." };
     } catch (error) {
-        return { content: ERROR_CODES["0000"].message, ephemeral: true };
+        return { content: ERROR_CODES["0000"].message };
     }
     const autobuyValue = wallet.settings.auto_buy_value;
 
@@ -691,59 +651,54 @@ export const createSettingsUI = async (userId: string): Promise<UI> => {
         .setLabel(`Transaction Priority: ${wallet.settings.tx_priority_value / LAMPORTS_PER_SOL} SOL`)
         .setStyle(ButtonStyle.Secondary);
 
-    const firstRow = new ActionRowBuilder()
+    const firstRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(generalSettingsButton, minPositionValueButton, autoBuyValueButton, buySlippageButton, sellSlippageButton);
 
-    const secondRow = new ActionRowBuilder()
+    const secondRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(buyButtonsConfigButton, buyButtons1stButton, buyButtons2ndButton, buyButtons3rdButton, buyButtons4thButton);
 
-    const thirdRow = new ActionRowBuilder()
+    const thirdRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(sellButtonsConfigButton, sellButtons1stButton, sellButtons2ndButton, sellButtons3rdButton, sellButtons4thButton);
 
-    const fourthRow = new ActionRowBuilder()
+    const fourthRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(transactionConfigButton, mevProtectionButton, gasLimitButton);
 
     return {
         content,
-        components: [firstRow, secondRow, thirdRow, fourthRow],
-        ephemeral: true,
+        components: [firstRow, secondRow, thirdRow, fourthRow]
     };
 };
 
-export const createSetAsDefaultUI = (walletAddress: string): any => {
+export const createSetAsDefaultUI = (walletAddress: string): InteractionEditReplyOptions => {
     const setAsDefaultButton = new ButtonBuilder()
         .setCustomId('setAsDefault')
         .setLabel('Set as default')
         .setStyle(ButtonStyle.Secondary);
 
-    const row = new ActionRowBuilder().addComponents(setAsDefaultButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(setAsDefaultButton);
 
     return {
         content: `Your new wallet has been added.\nWallet address: ${walletAddress}\n\nTap the "Set as default" button below to set the new wallet as your default wallet.`,
         components: [row],
-        ephemeral: true,
     };
 };
 
-export const createExportPrivKeyUI = (): UI => {
+export const createExportPrivKeyUI = (): InteractionEditReplyOptions => {
     const exportButton = new ButtonBuilder()
         .setCustomId('exportPrivKey')
         .setLabel('Export')
         .setStyle(ButtonStyle.Secondary);
 
-    const row = new ActionRowBuilder()
-        .addComponents(exportButton);
-
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(exportButton);
     return {
         content: "Exporting your private key will allow you to access your wallet from other applications. Make sure you are in a secure environment before exporting your private key.\n\nDo not share your private key with anyone. Callisto cannot guarantee the safety of your funds if you expose your private key.\n\nTap the Export button below to export your private key.",
         components: [row],
-        ephemeral: true,
     };
 };
 
-export const createRemoveWalletUI = async (userId: string): Promise<UI> => {
-    const allWallets = await Wallet.find({ user_id: userId }).lean();
-    if (!allWallets) return { content: "No wallets found. Create one with the /create command to get started.", ephemeral: true };
+export const createRemoveWalletUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
+    const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
+    if (!allWallets) return { content: "No wallets found. Create one with the /create command to get started." };
 
     const options = allWallets.map((wallet: any) => {
         return new StringSelectMenuOptionBuilder()
@@ -756,22 +711,21 @@ export const createRemoveWalletUI = async (userId: string): Promise<UI> => {
         .setPlaceholder('Select a Wallet')
         .addOptions(options);
 
-    const row = new ActionRowBuilder().addComponents(selectMenu);
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
     return {
         content: "Select a wallet to remove.\n\nWARNING: This action is irreversible!\n\nCallisto will remove the selected wallet from your account. Make sure you have exported your private key or withdrawn all funds before removing the wallet, else your funds will be lost forever!",
         components: [row],
-        ephemeral: true,
     };
 };
 
 /** MENUS */
 
-export const createChangeWalletMenu = async (userId: string): Promise<UI> => {
-    const content = "Select a wallet to set it as your default wallet.";
-    const allWallets = await Wallet.find({ user_id: userId }).lean();
+export const createChangeWalletMenu = async (userId: string): Promise<InteractionEditReplyOptions> => {
+    const content: string = "Select a wallet to set it as your default wallet.";
+    const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
     if (!allWallets) {
-        return { content: "No wallets found. Create one with the /create command to get started.", ephemeral: true };
+        return { content: "No wallets found. Create one with the /create command to get started." };
     }
 
     const options = allWallets.map((wallet: any) => {
@@ -785,18 +739,18 @@ export const createChangeWalletMenu = async (userId: string): Promise<UI> => {
         .setPlaceholder('Select a Wallet')
         .addOptions(options);
 
-    const row = new ActionRowBuilder().addComponents(selectMenu);
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
-    return { content, components: [row], ephemeral: true };
+    return { content, components: [row] };
 };
 
-export const createSelectCoinMenu = async (userId: string): Promise<UI> => {
-    const content = "Select a coin to view its info's.";
+export const createSelectCoinMenu = async (userId: string): Promise<InteractionEditReplyOptions> => {
+    const content: string = "Select a coin to view its info's.";
     try {
         const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos(userId);
-        if (!coinInfos) return { content: "Server error. Please try again later.", ephemeral: true };
+        if (!coinInfos) return { content: "Server error. Please try again later." };
 
-        // TODO: seems like max length is 25
+        // TODO: seems like max length is 25, handle that case
         const options = coinInfos.map((coinInfo: CoinInfo) => {
             return new StringSelectMenuOptionBuilder()
                 .setLabel(coinInfo.symbol)
@@ -804,7 +758,7 @@ export const createSelectCoinMenu = async (userId: string): Promise<UI> => {
         });
 
         if (!options.length) {
-            return { content: "No coins found.", ephemeral: true };
+            return { content: "No coins found." };
         }
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -812,17 +766,17 @@ export const createSelectCoinMenu = async (userId: string): Promise<UI> => {
             .setPlaceholder('Select a Coin')
             .addOptions(options);
 
-        const row = new ActionRowBuilder().addComponents(selectMenu);
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
-        return { content, components: [row], ephemeral: true };
+        return { content, components: [row] };
     } catch (error) {
-        return { content: "Server error. Please try again later.", ephemeral: true };
+        return { content: "Server error. Please try again later." };
     }
 };
 
 /** MODALS */
 
-export const createBuyModal = (): any => {
+export const createBuyModal = (): ModalBuilder => {
     const enterCAModal = new ModalBuilder()
         .setCustomId('buyCoin')
         .setTitle('Enter Contract Address');
@@ -836,7 +790,7 @@ export const createBuyModal = (): any => {
         .setMaxLength(44)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(CAInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(CAInput);
 
     enterCAModal.addComponents(row);
     return enterCAModal;
@@ -856,7 +810,7 @@ export const createChangeBuyButtonModal = (buttonNumber: string): ModalBuilder =
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(amountInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
 
     changeBuyButton1Modal.addComponents(row);
     return changeBuyButton1Modal;
@@ -876,7 +830,7 @@ export const createChangeSellButtonModal = (buttonNumber: string): ModalBuilder 
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(amountInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
 
     changeSellButton1Modal.addComponents(row);
     return changeSellButton1Modal;
@@ -905,8 +859,8 @@ export const createWithdrawXSolModal = (): ModalBuilder => {
         .setMaxLength(44)
         .setStyle(TextInputStyle.Short);
 
-    const firstRow: any = new ActionRowBuilder().addComponents(amountInput);
-    const secondRow: any = new ActionRowBuilder().addComponents(withdrawAddressInput);
+    const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
+    const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(withdrawAddressInput);
 
     withdrawXSolModal.addComponents(firstRow, secondRow);
     return withdrawXSolModal;
@@ -926,7 +880,7 @@ export const createWithdrawAllSolModal = (): ModalBuilder => {
         .setMaxLength(44)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(withdrawAddressInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(withdrawAddressInput);
 
     withdrawXSolModal.addComponents(row);
     return withdrawXSolModal;
@@ -946,7 +900,7 @@ export const createMinPositionValueModal = (): ModalBuilder => {
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(amountInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
 
     minPositionValueModal.addComponents(row);
     return minPositionValueModal;
@@ -966,7 +920,7 @@ export const createAutoBuyValueModal = (): ModalBuilder => {
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(amountInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
 
     autoBuyValueModal.addComponents(row);
     return autoBuyValueModal;
@@ -986,7 +940,7 @@ export const createBuySlippageModal = (): ModalBuilder => {
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(amountInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
 
     buySlippageModal.addComponents(row);
     return buySlippageModal;
@@ -1006,7 +960,7 @@ export const createSellSlippageModal = (): ModalBuilder => {
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(amountInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
 
     sellSlippageModal.addComponents(row);
     return sellSlippageModal;
@@ -1026,7 +980,7 @@ export const createTransactionPriorityModal = (): ModalBuilder => {
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(amountInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
 
     transactionPriorityModal.addComponents(row);
     return transactionPriorityModal;
@@ -1046,7 +1000,7 @@ export const createBuyXSolModal = (): ModalBuilder => {
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(amountInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
 
     buyXSolModal.addComponents(row);
     return buyXSolModal;
@@ -1066,7 +1020,7 @@ export const createSellXPercentModal = (): ModalBuilder => {
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(amountInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
 
     sellXPercentModal.addComponents(row);
     return sellXPercentModal;
@@ -1095,8 +1049,8 @@ export const createSendCoinModal = (): ModalBuilder => {
         .setMaxLength(44)
         .setStyle(TextInputStyle.Short);
 
-    const row1: any = new ActionRowBuilder().addComponents(amountInput);
-    const row2: any = new ActionRowBuilder().addComponents(addressInput);
+    const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
+    const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(addressInput);
 
     sendCoinModal.addComponents(row1, row2);
     return sendCoinModal;
@@ -1116,7 +1070,7 @@ export const createRefCodeModal = (): ModalBuilder => {
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
-    const row: any = new ActionRowBuilder().addComponents(refCodeInput);
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(refCodeInput);
     refCodeModal.addComponents(row);
     return refCodeModal;
 }

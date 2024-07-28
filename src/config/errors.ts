@@ -184,6 +184,33 @@ export function txMetaError({
     };
 }
 
+export function notSignedError({
+    user_id,
+    tx_type,
+    wallet_address,
+    contract_address,
+    tx_signature,
+    token_amount,
+    sell_amount,
+    token_stats,
+    include_retry_button = false
+}: TxResponse): TxResponse {
+    return {
+        user_id,
+        tx_type,
+        wallet_address,
+        response: "Failed to sign transaction. If the issue persists please contact support.",
+        success: false,
+        contract_address,
+        tx_signature,
+        token_amount,
+        sell_amount,
+        token_stats,
+        include_retry_button,
+        error: "Failed to sign transaction.",
+    };
+}
+
 export function unknownError({
     user_id,
     tx_type,

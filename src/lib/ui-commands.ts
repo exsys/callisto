@@ -1,4 +1,3 @@
-import { UI } from "../types/ui";
 import {
     createAutoBuyValueModal,
     createBuyModal,
@@ -52,23 +51,23 @@ import { ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../types/tx-response";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIResponse } from "../types/ui-response";
-import { ModalBuilder } from "discord.js";
+import { ButtonInteraction, ChatInputCommandInteraction, CommandInteraction, InteractionEditReplyOptions, ModalBuilder, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
 
 const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map();
 const DEBOUNCE_TIME: number = 8000;
 
 export const BUTTON_COMMANDS = {
-    test: async (interaction: any) => {
+    test: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const userId: string = interaction.user.id;
         const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Test failed. Wallet not found", ephemeral: true });
+            await interaction.editReply({ content: "Test failed. Wallet not found" });
             return;
         }
         const signer: Keypair | null = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) {
-            await interaction.editReply({ content: "Test failed. Signer not found", ephemeral: true });
+            await interaction.editReply({ content: "Test failed. Signer not found" });
             return;
         }
 
@@ -76,102 +75,102 @@ export const BUTTON_COMMANDS = {
         const tokenAcc = await SolanaWeb3.getTokenAccountOfWallet("26dmF2GnE5iUk3HyUx2iUfTDHhHm9zinTLNKjV6bbHWu", "So11111111111111111111111111111111111111112");
         console.log(tokenAcc);
 
-        await interaction.editReply({ content: "Test successful", ephemeral: true });
+        await interaction.editReply({ content: "Test successful" });
     },
-    start: async (interaction: any) => {
+    start: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const startUI: UI = await createStartUI(interaction.user.id);
+        const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
         await interaction.editReply(startUI);
     },
-    buy: async (interaction: any) => {
+    buy: async (interaction: ButtonInteraction) => {
         const modal = createBuyModal();
         await interaction.showModal(modal);
     },
-    sellAndManage: async (interaction: any) => {
+    sellAndManage: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const sellUI: UI = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
+        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
         await interaction.editReply(sellUI);
     },
-    wallet: async (interaction: any) => {
+    wallet: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const walletUi: UI = await createWalletUI(interaction.user.id);
+        const walletUi: InteractionEditReplyOptions = await createWalletUI(interaction.user.id);
         await interaction.editReply(walletUi);
     },
-    settings: async (interaction: any) => {
+    settings: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const settingsUI: UI = await createSettingsUI(interaction.user.id);
+        const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
         await interaction.editReply(settingsUI);
     },
-    refresh: async (interaction: any) => {
+    refresh: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const startUI: UI = await createStartUI(interaction.user.id);
+        const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
         await interaction.editReply(startUI);
     },
-    refreshCoinInfo: async (interaction: any) => {
+    refreshCoinInfo: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
-            await interaction.editReply({ content: ERROR_CODES["0006"].message, ephemeral: true });
+            await interaction.editReply({ content: ERROR_CODES["0006"].message });
             return;
         }
         const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress);
         await interaction.editReply(uiResponse.ui);
     },
-    refreshManageInfo: async (interaction: any) => {
+    refreshManageInfo: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
-            await interaction.editReply({ content: ERROR_CODES["0006"].message, ephemeral: true });
+            await interaction.editReply({ content: ERROR_CODES["0006"].message });
             return;
         }
-        const sellAndManageUI: UI = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
+        const sellAndManageUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
         await interaction.editReply(sellAndManageUI);
     },
-    help: async (interaction: any) => {
-        const helpUI: UI = createHelpUI();
+    help: async (interaction: ButtonInteraction) => {
+        const helpUI: string = createHelpUI();
         await interaction.reply(helpUI);
     },
-    refer: async (interaction: any) => {
+    refer: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await createReferUI(interaction.user.id);
+        const ui: InteractionEditReplyOptions = await createReferUI(interaction.user.id);
         await interaction.editReply(ui);
     },
-    deposit: async (interaction: any) => {
+    deposit: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         try {
             const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
             if (!wallet) {
-                await interaction.editReply({ content: ERROR_CODES["0003"].message, ephemeral: true });
+                await interaction.editReply({ content: ERROR_CODES["0003"].message });
                 return;
             }
-            await interaction.editReply({ content: wallet.wallet_address, ephemeral: true });
+            await interaction.editReply({ content: wallet.wallet_address });
         } catch (error) {
-            await interaction.editReply({ content: ERROR_CODES["0000"].message, ephemeral: true });
+            await interaction.editReply({ content: ERROR_CODES["0000"].message });
         }
 
     },
-    withdrawAllSol: async (interaction: any) => {
+    withdrawAllSol: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createWithdrawAllSolModal();
         await interaction.showModal(modal);
     },
-    withdrawXSol: async (interaction: any) => {
+    withdrawXSol: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createWithdrawXSolModal();
         await interaction.showModal(modal);
     },
-    removeWallet: async (interaction: any) => {
+    removeWallet: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const removeWalletUI: UI = await createRemoveWalletUI(interaction.user.id);
+        const removeWalletUI: InteractionEditReplyOptions = await createRemoveWalletUI(interaction.user.id);
         await interaction.editReply(removeWalletUI);
     },
-    changeWallet: async (interaction: any) => {
+    changeWallet: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const changeWalletUI: UI = await createChangeWalletMenu(interaction.user.id);
+        const changeWalletUI: InteractionEditReplyOptions = await createChangeWalletMenu(interaction.user.id);
         await interaction.editReply(changeWalletUI);
     },
-    createWallet: async (interaction: any) => {
+    createWallet: async (interaction: ButtonInteraction) => {
         const walletAddress: string | null = await createNewWallet(interaction.user.id);
         if (!walletAddress) {
-            await interaction.editReply({ content: ERROR_CODES["0005"].message, ephemeral: true });
+            await interaction.editReply({ content: ERROR_CODES["0005"].message });
             return;
         }
 
@@ -180,62 +179,62 @@ export const BUTTON_COMMANDS = {
             await interaction.showModal(refCodeModal);
         }
 
-        const startUI: UI = await createStartUI(interaction.user.id);
+        const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
         await interaction.editReply(startUI);
     },
-    addNewWallet: async (interaction: any) => {
+    addNewWallet: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const walletAddress: string | null = await createNewWallet(interaction.user.id);
         if (!walletAddress) {
-            await interaction.editReply({ content: ERROR_CODES["0005"].message, ephemeral: true });
+            await interaction.editReply({ content: ERROR_CODES["0005"].message });
             return;
         }
-        const setAsDefaultUI: UI = createSetAsDefaultUI(walletAddress as string);
+        const setAsDefaultUI: InteractionEditReplyOptions = createSetAsDefaultUI(walletAddress as string);
         await interaction.editReply(setAsDefaultUI);
     },
-    setAsDefault: async (interaction: any) => {
+    setAsDefault: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         try {
             const allWallets: any[] = await Wallet.find({ user_id: interaction.user.id }).lean();
             if (!allWallets.length) {
-                await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started.", ephemeral: true });
+                await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started." });
                 return;
             }
             const oldDefaultWallet: any = allWallets.find((wallet: any) => wallet.is_default_wallet);
             const newDefaultWallet: any = allWallets.sort((a: any, b: any) => a.createdAt - b.createdAt)[0]; // find the latest wallet by date
             if (!newDefaultWallet || !oldDefaultWallet) {
-                await interaction.editReply({ content: "Server error. Please try again later", ephemeral: true });
+                await interaction.editReply({ content: "Server error. Please try again later" });
                 return;
             }
 
             await Wallet.updateOne({ user_id: interaction.user.id, wallet_address: oldDefaultWallet.wallet_address }, { is_default_wallet: false });
             await Wallet.updateOne({ user_id: interaction.user.id, wallet_address: newDefaultWallet.wallet_address }, { is_default_wallet: true });
-            await interaction.editReply({ content: "Successfully set as your default wallet!", ephemeral: true });
+            await interaction.editReply({ content: "Successfully set as your default wallet!" });
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    exportPrivKeyConfirmation: async (interaction: any) => {
+    exportPrivKeyConfirmation: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const exportUI: UI = createExportPrivKeyUI();
+        const exportUI: InteractionEditReplyOptions = createExportPrivKeyUI();
         await interaction.editReply(exportUI);
     },
-    exportPrivKey: async (interaction: any) => {
+    exportPrivKey: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const wallet = await exportPrivateKeyOfUser(interaction.user.id);
         if (!wallet) {
-            await interaction.editReply({ content: ERROR_CODES["0003"].message, ephemeral: true });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         } else {
-            await interaction.editReply({ content: `Your private key:\n${decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.`, ephemeral: true });
+            await interaction.editReply({ content: `Your private key:\n${decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.` });
         }
     },
-    showRefFees: async (interaction: any) => {
+    showRefFees: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await createClaimRefFeeUI(interaction.user.id);
+        const ui: InteractionEditReplyOptions = await createClaimRefFeeUI(interaction.user.id);
         await interaction.editReply(ui);
     },
-    claimRefFees: async (interaction: any) => {
+    claimRefFees: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
 
         const userId: string = interaction.user.id;
@@ -253,31 +252,31 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply(uiResponse.ui);
         }, DEBOUNCE_TIME);
     },
-    buyButton1: async (interaction: any) => {
+    buyButton1: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "1");
         await interaction.editReply(uiResponse.ui);
     },
-    buyButton2: async (interaction: any) => {
+    buyButton2: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "2");
         await interaction.editReply(uiResponse.ui);
     },
-    buyButton3: async (interaction: any) => {
+    buyButton3: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "3");
         await interaction.editReply(uiResponse.ui);
     },
-    buyButton4: async (interaction: any) => {
+    buyButton4: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "4");
         await interaction.editReply(uiResponse.ui);
     },
-    buyButtonX: async (interaction: any) => {
+    buyButtonX: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createBuyXSolModal();
         await interaction.showModal(modal);
     },
-    sellButton1: async (interaction: any) => {
+    sellButton1: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "1");
         await interaction.editReply(uiResponse.ui);
@@ -286,7 +285,7 @@ export const BUTTON_COMMANDS = {
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
-    sellButton2: async (interaction: any) => {
+    sellButton2: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "2");
         await interaction.editReply(uiResponse.ui);
@@ -295,7 +294,7 @@ export const BUTTON_COMMANDS = {
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
-    sellButton3: async (interaction: any) => {
+    sellButton3: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "3");
         await interaction.editReply(uiResponse.ui);
@@ -304,7 +303,7 @@ export const BUTTON_COMMANDS = {
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
-    sellButton4: async (interaction: any) => {
+    sellButton4: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "4");
         await interaction.editReply(uiResponse.ui);
@@ -313,127 +312,127 @@ export const BUTTON_COMMANDS = {
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
-    sellButtonX: async (interaction: any) => {
+    sellButtonX: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createSellXPercentModal();
         await interaction.showModal(modal);
     },
-    generalSettings: async (interaction: any) => {
-        await interaction.reply({ content: "GENERAL SETTINGS\n\nMin Position Value: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\n\nAuto Buy: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\n\nSlippage Config: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.", ephemeral: true });
+    generalSettings: async (interaction: ButtonInteraction) => {
+        await interaction.reply({ content: "GENERAL SETTINGS\n\nMin Position Value: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\n\nAuto Buy: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\n\nSlippage Config: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit." });
     },
-    buyButtonsConfig: async (interaction: any) => {
-        await interaction.reply({ content: "BUY BUTTONS CONFIG\n\nCustomize your buy buttons when buying a coin.", ephemeral: true });
+    buyButtonsConfig: async (interaction: ButtonInteraction) => {
+        await interaction.reply({ content: "BUY BUTTONS CONFIG\n\nCustomize your buy buttons when buying a coin." });
     },
-    sellButtonsConfig: async (interaction: any) => {
-        await interaction.reply({ content: "SELL BUTTONS CONFIG\n\nCustomize your sell buttons when selling a coin.", ephemeral: true });
+    sellButtonsConfig: async (interaction: ButtonInteraction) => {
+        await interaction.reply({ content: "SELL BUTTONS CONFIG\n\nCustomize your sell buttons when selling a coin." });
     },
-    transactionConfig: async (interaction: any) => {
-        await interaction.reply({ content: "TRANSACTION CONFIG\n\nMEV Protection: Accelerates your transactions and protect against frontruns to make sure you get the best price possible or turn it off for faster transactions.\nOff: Callisto will not use MEV protection. Transactions will be faster but might get frontrun.\nOn: Transactions are guaranteed to be protected from MEV, but transactions may be slower or fail.\n\nTransaction Priority: Increase your Transaction Priority to improve transaction speed. Tap to edit.", ephemeral: true });
+    transactionConfig: async (interaction: ButtonInteraction) => {
+        await interaction.reply({ content: "TRANSACTION CONFIG\n\nMEV Protection: Accelerates your transactions and protect against frontruns to make sure you get the best price possible or turn it off for faster transactions.\nOff: Callisto will not use MEV protection. Transactions will be faster but might get frontrun.\nOn: Transactions are guaranteed to be protected from MEV, but transactions may be slower or fail.\n\nTransaction Priority: Increase your Transaction Priority to improve transaction speed. Tap to edit." });
     },
-    minPositionValue: async (interaction: any) => {
+    minPositionValue: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createMinPositionValueModal();
         await interaction.showModal(modal);
     },
-    autoBuyValue: async (interaction: any) => {
+    autoBuyValue: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createAutoBuyValueModal();
         await interaction.showModal(modal);
     },
-    mevProtection: async (interaction: any) => {
+    mevProtection: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        await interaction.editReply({ content: "Not implemented yet.", ephemeral: true });
+        await interaction.editReply({ content: "Not implemented yet." });
     },
-    txPriority: async (interaction: any) => {
+    txPriority: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createTransactionPriorityModal();
         await interaction.showModal(modal);
     },
-    buySlippage: async (interaction: any) => {
+    buySlippage: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createBuySlippageModal();
         await interaction.showModal(modal);
     },
-    sellSlippage: async (interaction: any) => {
+    sellSlippage: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createSellSlippageModal();
         await interaction.showModal(modal);
     },
-    buyButtons1st: async (interaction: any) => {
+    buyButtons1st: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createChangeBuyButtonModal("1");
         await interaction.showModal(modal);
     },
-    buyButtons2nd: async (interaction: any) => {
+    buyButtons2nd: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createChangeBuyButtonModal("2");
         await interaction.showModal(modal);
     },
-    buyButtons3rd: async (interaction: any) => {
+    buyButtons3rd: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createChangeBuyButtonModal("3");
         await interaction.showModal(modal);
     },
-    buyButtons4th: async (interaction: any) => {
+    buyButtons4th: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createChangeBuyButtonModal("4");
         await interaction.showModal(modal);
     },
-    sellButtons1st: async (interaction: any) => {
+    sellButtons1st: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createChangeSellButtonModal("1");
         await interaction.showModal(modal);
     },
-    sellButtons2nd: async (interaction: any) => {
+    sellButtons2nd: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createChangeSellButtonModal("2");
         await interaction.showModal(modal);
     },
-    sellButtons3rd: async (interaction: any) => {
+    sellButtons3rd: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createChangeSellButtonModal("3");
         await interaction.showModal(modal);
     },
-    sellButtons4th: async (interaction: any) => {
+    sellButtons4th: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createChangeSellButtonModal("4");
         await interaction.showModal(modal);
     },
-    firstCoin: async (interaction: any) => {
+    firstCoin: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const sellUI: UI = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
+        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
         await interaction.editReply(sellUI);
     },
-    previousCoin: async (interaction: any) => {
+    previousCoin: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
-            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
             return;
         }
-        const sellUI: UI = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress, prevCoin: true });
+        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress, prevCoin: true });
         await interaction.editReply(sellUI);
     },
-    nextCoin: async (interaction: any) => {
+    nextCoin: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
-            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
             return;
         }
-        const sellUI: UI = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress, nextCoin: true });
+        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress, nextCoin: true });
         await interaction.editReply(sellUI);
     },
-    lastCoin: async (interaction: any) => {
+    lastCoin: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const sellUI: UI = await createSellAndManageUI({ userId: interaction.user.id, page: -1 });
+        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: -1 });
         await interaction.editReply(sellUI);
     },
-    currentCoin: async (interaction: any) => {
+    currentCoin: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const selectCoinMenu: UI = await createSelectCoinMenu(interaction.user.id);
+        const selectCoinMenu: InteractionEditReplyOptions = await createSelectCoinMenu(interaction.user.id);
         await interaction.editReply(selectCoinMenu);
     },
-    sendCoin: async (interaction: any) => {
+    sendCoin: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createSendCoinModal();
         await interaction.showModal(modal);
     },
-    retryLastSwap: async (interaction: any) => {
+    retryLastSwap: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message.content);
         if (!contractAddress) {
-            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
             return;
         }
         const amount: string = extractAmountFromMessage(interaction.message.content);
         if (!amount) {
-            await interaction.editReply({ content: "Server Error. Please try again.", ephemeral: true });
+            await interaction.editReply({ content: "Server Error. Please try again." });
             return;
         }
 
@@ -453,17 +452,17 @@ export const BUTTON_COMMANDS = {
 };
 
 export const MENU_COMMANDS = {
-    selectWallet: async (interaction: any, newDefault: any) => {
+    selectWallet: async (interaction: StringSelectMenuInteraction, newDefault: string) => {
         await interaction.deferReply({ ephemeral: true });
         const allWallets: any[] = await Wallet.find({ user_id: interaction.user.id }).lean();
         if (!allWallets.length) {
-            await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started.", ephemeral: true });
+            await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started." });
             return;
         }
         const oldDefaultWallet: any = allWallets.find((wallet: any) => wallet.is_default_wallet);
         const newDefaultWallet: any = allWallets.find((wallet: any) => wallet.wallet_address === newDefault);
         if (!newDefaultWallet || !oldDefaultWallet) {
-            await interaction.editReply({ content: "Server error. Please try again later", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later" });
             return;
         }
 
@@ -471,23 +470,23 @@ export const MENU_COMMANDS = {
             await Wallet.updateOne({ wallet_address: oldDefaultWallet.wallet_address }, { is_default_wallet: false });
             await Wallet.updateOne({ wallet_address: newDefaultWallet.wallet_address }, { is_default_wallet: true });
 
-            const walletUi: UI = await createWalletUI(interaction.user.id);
+            const walletUi: InteractionEditReplyOptions = await createWalletUI(interaction.user.id);
             await interaction.editReply(walletUi);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    removeSelectedWallet: async (interaction: any, walletToRemove: string) => {
+    removeSelectedWallet: async (interaction: StringSelectMenuInteraction, walletToRemove: string) => {
         await interaction.deferReply({ ephemeral: true });
         const allWallets: any[] = await Wallet.find({ user_id: interaction.user.id });
         if (!allWallets.length) {
-            await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started.", ephemeral: true });
+            await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started." });
             return;
         }
 
         const removeWallet: any = allWallets.find((wallet: any) => wallet.wallet_address === walletToRemove);
         if (!removeWallet) {
-            await interaction.editReply({ content: "Wallet not found. Please contact support if the issue persists.", ephemeral: true });
+            await interaction.editReply({ content: "Wallet not found. Please contact support if the issue persists." });
             return;
         }
 
@@ -505,97 +504,97 @@ export const MENU_COMMANDS = {
                 await newDefaultWallet.save();
             }
 
-            await interaction.editReply({ content: "Successfully removed wallet.", ephemeral: true });
+            await interaction.editReply({ content: "Successfully removed wallet." });
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    selectCoin: async (interaction: any, contractAddress: string) => {
+    selectCoin: async (interaction: StringSelectMenuInteraction, contractAddress: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const sellUI: UI = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
+        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
         await interaction.editReply(sellUI);
     },
 };
 
 export const MODAL_COMMANDS = {
-    buyCoin: async (interaction: any, contractAddress: string) => {
+    buyCoin: async (interaction: ModalSubmitInteraction, contractAddress: string) => {
         // this one will be called after pasting the contract address in the CA modal
         await interaction.deferReply({ ephemeral: true });
         const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(contractAddress);
         if (!isValidAddress) {
-            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
             return;
         }
         const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress);
         await interaction.editReply(uiResponse.ui);
     },
-    buyXSol: async (interaction: any, amount: string) => {
+    buyXSol: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await buyCoinX(interaction.user.id, interaction.message.content, amount);
+        const uiResponse: UIResponse = await buyCoinX(interaction.user.id, interaction.message!.content, amount);
         await interaction.editReply(uiResponse.ui);
     },
-    sellXPercent: async (interaction: any, percent: string) => {
+    sellXPercent: async (interaction: ModalSubmitInteraction, percent: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await sellCoinX(interaction.user.id, interaction.message.content, percent);
+        const uiResponse: UIResponse = await sellCoinX(interaction.user.id, interaction.message!.content, percent);
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
             const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
-    withdrawXSol: async (interaction: any, values: string[]) => {
+    withdrawXSol: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const amountToWithdraw = values[0];
         const destinationAddress = values[1];
         const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(destinationAddress);
         if (!isValidAddress) {
-            await interaction.editReply({ content: "Invalid destination address. Please enter a valid address.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid destination address. Please enter a valid address." });
             return;
         }
 
         const result: TxResponse = await SolanaWeb3.transferXSol(interaction.user.id, amountToWithdraw, destinationAddress);
         await saveDbTransaction(result);
-        await interaction.editReply({ content: result.response, ephemeral: true });
+        await interaction.editReply({ content: result.response });
     },
-    withdrawAllSol: async (interaction: any, destinationAddress: string) => {
+    withdrawAllSol: async (interaction: ModalSubmitInteraction, destinationAddress: string) => {
         await interaction.deferReply({ ephemeral: true });
         const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(destinationAddress);
         if (!isValidAddress) {
-            await interaction.editReply({ content: "Invalid destination address. Please enter a valid address.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid destination address. Please enter a valid address." });
             return;
         }
 
         const result: TxResponse = await SolanaWeb3.transferAllSol(interaction.user.id, destinationAddress);
         await saveDbTransaction(result);
-        await interaction.editReply({ content: result.response, ephemeral: true });
+        await interaction.editReply({ content: result.response });
     },
-    changeMinPositionValue: async (interaction: any, amount: string) => {
+    changeMinPositionValue: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.reply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.reply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
         wallet.settings.min_position_value = Number(amount);
         await wallet.save();
 
-        const settingsUI: UI = await createSettingsUI(interaction.user.id);
+        const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
         await interaction.editReply(settingsUI);
     },
-    changeAutoBuyValue: async (interaction: any, amount: string) => {
+    changeAutoBuyValue: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -603,21 +602,21 @@ export const MODAL_COMMANDS = {
             wallet.settings.auto_buy_value = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuySlippage: async (interaction: any, amount: string) => {
+    changeBuySlippage: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -625,22 +624,22 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_slippage = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
 
     },
-    changeSellSlippage: async (interaction: any, amount: string) => {
+    changeSellSlippage: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -648,22 +647,22 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_slippage = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeTransactionPriority: async (interaction: any, amount: string) => {
+    changeTransactionPriority: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
 
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -671,21 +670,21 @@ export const MODAL_COMMANDS = {
             wallet.settings.tx_priority_value = Number(amount) * LAMPORTS_PER_SOL; // convert to lamports
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuyButton1: async (interaction: any, amount: string) => {
+    changeBuyButton1: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -693,21 +692,21 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_button_1 = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuyButton2: async (interaction: any, amount: string) => {
+    changeBuyButton2: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -715,21 +714,21 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_button_2 = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuyButton3: async (interaction: any, amount: string) => {
+    changeBuyButton3: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -737,21 +736,21 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_button_3 = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuyButton4: async (interaction: any, amount: string) => {
+    changeBuyButton4: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -759,21 +758,21 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_button_4 = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeSellButton1: async (interaction: any, amount: string) => {
+    changeSellButton1: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -781,21 +780,21 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_button_1 = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeSellButton2: async (interaction: any, amount: string) => {
+    changeSellButton2: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -803,21 +802,21 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_button_2 = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeSellButton3: async (interaction: any, amount: string) => {
+    changeSellButton3: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -825,21 +824,21 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_button_3 = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeSellButton4: async (interaction: any, amount: string) => {
+    changeSellButton4: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isNumber(amount)) {
-            await interaction.editReply({ content: "Invalid amount. Please enter a valid number.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003", ephemeral: true });
+            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
             return;
         }
 
@@ -847,32 +846,32 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_button_4 = Number(amount);
             await wallet.save();
 
-            const settingsUI: UI = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later.", ephemeral: true });
+            await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    sendCoin: async (interaction: any, values: string[]) => {
+    sendCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const amountToSend = values[0];
         const destinationAddress = values[1];
-        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message!.content);
         if (!contractAddress) {
-            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
+            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
             return;
         }
 
         const result: TxResponse = await SolanaWeb3.sendCoin(interaction.user.id, contractAddress, amountToSend, destinationAddress);
-        await interaction.editReply({ content: result.response, ephemeral: true });
+        await interaction.editReply({ content: result.response });
     },
-    enterRefCode: async (interaction: any, refCode: string) => {
+    enterRefCode: async (interaction: ModalSubmitInteraction, refCode: string) => {
         await interaction.deferReply({ ephemeral: true });
         if (refCode) {
-            const response: UI = await saveReferralAndUpdateFees(interaction.user.id, refCode);
+            const response: InteractionEditReplyOptions = await saveReferralAndUpdateFees(interaction.user.id, refCode);
             await interaction.editReply(response);
         } else {
-            const startUI: UI = await createStartUI(interaction.user.id);
+            const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
             await interaction.editReply(startUI);
         }
     }

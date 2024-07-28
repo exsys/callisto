@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { createPreBuyUI } from "../lib/discord-ui";
 import { SolanaWeb3 } from "../lib/solanaweb3";
 import { UIResponse } from "../types/ui-response";
@@ -11,17 +11,17 @@ const command = {
             .setName('ca')
             .setRequired(true)
             .setDescription('The contract address of the Solana Token')),
-    async execute(interaction: any) {
+    async execute(interaction: ChatInputCommandInteraction) {
         try {
             await interaction.deferReply({ ephemeral: true });
-            const contractAddress: string = interaction.options.getString("ca");
+            const contractAddress: string | null = interaction.options.getString("ca");
             const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(contractAddress);
             if (!isValidAddress) {
-                await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
+                await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
                 return;
             }
 
-            const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress);
+            const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress as string);
             await interaction.editReply(uiResponse.ui);
         } catch (error) {
             await interaction.editReply("Server error. Please try again later.");

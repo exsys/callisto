@@ -13,7 +13,7 @@ const event = {
 
             if (command.onlyAdmin) {
                 let userIsAdmin = false;
-                interaction.member.roles.cache.forEach((role: any, i: number) => {
+                interaction.member.roles.cache.forEach((role: any, index: number) => {
                     if (role.name === "Moderator" || role.name === "Admin" || role.name === "Team") {
                         userIsAdmin = true;
                     }

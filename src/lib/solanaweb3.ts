@@ -61,6 +61,7 @@ import {
     postSwapTxError,
     userNotFoundError,
     walletBalanceError,
+    notSignedError,
 } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
@@ -586,8 +587,8 @@ export class SolanaWeb3 {
             // TODO: ref fees should sit in another wallet, and not the main calli fee wallet
             // maybe create a script which transfers ref fees every 24h to it?
 
-            const signer: Keypair | null = Keypair.fromSecretKey(bs58.decode(String(process.env.CALLISTO_FEE_WALLET_PKEY)));
-            if (!signer) return decryptError(txResponse);
+            const callistoWallet: Keypair | null = Keypair.fromSecretKey(bs58.decode(String(process.env.CALLISTO_FEE_WALLET_PKEY)));
+            if (!callistoWallet) return decryptError(txResponse);
             const wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
             if (!wallet) return walletNotFoundError(txResponse);
             const wallet_address: string = wallet.wallet_address;
@@ -612,27 +613,28 @@ export class SolanaWeb3 {
                 return successResponse(txResponse);
             }
 
-            const blockhash = await this.getConnection().getLatestBlockhash("finalized");
+            const { blockhash, lastValidBlockHeight } = await this.getConnection().getLatestBlockhash("finalized");
             const tx: Transaction = new Transaction().add(
                 SystemProgram.transfer({
-                    fromPubkey: signer.publicKey,
+                    fromPubkey: callistoWallet.publicKey,
                     toPubkey: new PublicKey(wallet_address),
                     lamports: amountToPayInLamports,
                 })
             );
-            tx.feePayer = signer.publicKey;
-            tx.recentBlockhash = blockhash.blockhash;
+            tx.feePayer = callistoWallet.publicKey;
+            tx.recentBlockhash = blockhash;
 
-            tx.sign(signer);
-            const serializedTx = Buffer.from(tx.serialize());
-            const signature = this.getSignature(tx);
+            tx.sign(callistoWallet);
+            const serializedTx: Buffer = Buffer.from(tx.serialize());
+            const signature: string | undefined = this.getSignature(tx);
+            if (!signature) return unknownError(txResponse);
             txResponse.tx_signature = signature;
-            const result = await transactionSenderAndConfirmationWaiter({
+            const result: VersionedTransactionResponse | null = await transactionSenderAndConfirmationWaiter({
                 connection: this.getConnection(),
                 serializedTransaction: serializedTx,
                 blockhashWithExpiryBlockHeight: {
-                    blockhash: blockhash.blockhash,
-                    lastValidBlockHeight: blockhash.lastValidBlockHeight,
+                    blockhash: blockhash,
+                    lastValidBlockHeight: lastValidBlockHeight,
                 },
             });
 
@@ -650,8 +652,8 @@ export class SolanaWeb3 {
     static async getBalanceOfWalletInDecimal(wallet_address: string): Promise<number | null> {
         try {
             const conn: Connection = this.getConnection();
-            const publicKey = new PublicKey(wallet_address);
-            const balance = await conn.getBalance(publicKey, { commitment: "confirmed" });
+            const publicKey: PublicKey = new PublicKey(wallet_address);
+            const balance: number = await conn.getBalance(publicKey, { commitment: "confirmed" });
             return balance / LAMPORTS_PER_SOL;
         } catch (error) {
             await saveError({ wallet_address, function_name: "getBalanceOfWalletInDecimal", error });
@@ -662,8 +664,8 @@ export class SolanaWeb3 {
     static async getBalanceOfWalletInLamports(wallet_address: string): Promise<number | null> {
         try {
             const conn: Connection = this.getConnection();
-            const publicKey = new PublicKey(wallet_address);
-            const balance = await conn.getBalance(publicKey, { commitment: "confirmed" });
+            const publicKey: PublicKey = new PublicKey(wallet_address);
+            const balance: number = await conn.getBalance(publicKey, { commitment: "confirmed" });
             return balance;
         } catch (error) {
             await saveError({ wallet_address, function_name: "getBalanceOfWalletInLamports", error });
@@ -679,13 +681,13 @@ export class SolanaWeb3 {
                 { memcmp: { offset: 32, bytes: wallet_address } }
             ];
             // type of coins is ParsedProgramAccountWrittenOut[]
-            const coins: any = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters, commitment: "confirmed" });
+            const coins: ParsedProgramAccountWrittenOut[] = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters, commitment: "confirmed" }) as ParsedProgramAccountWrittenOut[];
 
             // TODO: make it so priceInfo is only fetched for the coin that will be shown first
             // need system for finding out which coin should be shown first
 
             // only get tokenInfos where the amount is higher than 0
-            const tokenInfos: ParsedTokenInfo[] = (coins.map((coin: any) => coin.account.data.parsed.info)).filter((coinStats: any) => coinStats.tokenAmount.uiAmount !== 0);
+            const tokenInfos: ParsedTokenInfo[] = (coins.map((coin: ParsedProgramAccountWrittenOut) => coin.account.data.parsed.info)).filter((coinStats: any) => coinStats.tokenAmount.uiAmount !== 0);
             const contractAddresses: string[] = tokenInfos.map((tokenInfo: ParsedTokenInfo) => tokenInfo.mint);
             const caObjects: CAWithAmount[] = contractAddresses.map((contract_address: string, index: number) => {
                 return { contract_address, amount: tokenInfos[index].tokenAmount.amount }
@@ -700,14 +702,18 @@ export class SolanaWeb3 {
             // this will iterate through each coin in users wallet with an amount of more than 0
             // it assigns the coin amount and assigns the up-to-date price (or use fallback price which might be a few minutes old in case of an error)
             coinInfos.forEach(async (coinInfo: CoinStats, index: number) => {
-                const correspondingTokenInfo: ParsedTokenInfo | undefined = tokenInfos.find((tokenInfo: ParsedTokenInfo) => tokenInfo.mint === coinInfo.address);
+                const correspondingTokenInfo: ParsedTokenInfo | undefined = tokenInfos.find((tokenInfo: ParsedTokenInfo) => {
+                    return tokenInfo.mint === coinInfo.address;
+                });
                 if (!correspondingTokenInfo) return null;
                 coinInfo.tokenAmount = correspondingTokenInfo.tokenAmount;
-                const priceInfo: CoinPriceQuote | undefined = priceInfos?.find((priceQuote: CoinPriceQuote) => priceQuote.contract_address === coinInfo.address);
+                const priceInfo: CoinPriceQuote | undefined = priceInfos?.find((priceQuote: CoinPriceQuote) => {
+                    return priceQuote.contract_address === coinInfo.address;
+                });
                 const coinValueInUsd: number = Number(coinInfo.price) * Number(correspondingTokenInfo.tokenAmount.uiAmount);
                 if (!priceInfo) {
                     // in case quote response returned an error
-                    const currentSolPrice = await this.getCurrentSolPrice();
+                    const currentSolPrice: number = await this.getCurrentSolPrice();
                     coinInfo.value = {
                         inUSD: coinValueInUsd.toFixed(2),
                         inSOL: currentSolPrice ? (coinValueInUsd / currentSolPrice).toFixed(4) : "0",
@@ -730,19 +736,19 @@ export class SolanaWeb3 {
         }
     }
 
-    static async getCurrentSolPrice(): Promise<number | null> {
+    static async getCurrentSolPrice(): Promise<number> {
         try {
             // TODO: change this to a more reliable source
             const quoteResponse: QuoteResponse = await (
                 await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=${LAMPORTS_PER_SOL}&slippageBps=100`)
             ).json();
-            if (!quoteResponse) return null;
+            if (!quoteResponse) return 0;
 
             const solPrice: number = Number(quoteResponse.outAmount) / Math.pow(10, 6);
             return solPrice;
         } catch (error) {
             await saveError({ function_name: "getCurrentSolPrice", error });
-            return null;
+            return 0;
         }
     }
 
@@ -759,20 +765,20 @@ export class SolanaWeb3 {
         }
     }
 
-    static async getCurrentTokenPriceInSolAll(casAndAmounts: CaAmount[]): Promise<number[] | null> {
+    static async getCurrentTokenPriceInSolAll(casAndAmounts: CaAmount[]): Promise<number[]> {
         try {
-            const requests = casAndAmounts.map((caAndAmount: CaAmount) => {
+            const requests: Promise<Response>[] = casAndAmounts.map((caAndAmount: CaAmount) => {
                 return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caAndAmount.contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${caAndAmount.amount}&slippageBps=100`);
             });
-            const quoteResponsesRaw = await Promise.all(requests);
+            const quoteResponsesRaw: Response[] = await Promise.all(requests);
             const quoteResponses: QuoteResponse[] = await Promise.all(quoteResponsesRaw.map((response) => response.json()));
-            if (!quoteResponses) return null;
+            if (!quoteResponses) return [];
 
-            const prices = quoteResponses.map((quoteResponse) => Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL);
+            const prices: number[] = quoteResponses.map((quoteResponse) => Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL);
             return prices;
         } catch (error) {
             await saveError({ function_name: "getCurrentTokenPriceInSolAll", error });
-            return null;
+            return [];
         }
     }
 
@@ -784,15 +790,17 @@ export class SolanaWeb3 {
                 { memcmp: { offset: 32, bytes: wallet_address } }
             ];
             const coins: ParsedProgramAccountWrittenOut[] = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters, commitment: "confirmed" }) as ParsedProgramAccountWrittenOut[];
-            const selectedCoin = coins.find((coin: any) => coin.account.data.parsed.info.mint === contract_address);
+            const selectedCoin: ParsedProgramAccountWrittenOut | undefined = coins.find((coin: ParsedProgramAccountWrittenOut) => {
+                return coin.account.data.parsed.info.mint === contract_address
+            });
             if (!selectedCoin) return null;
 
             const priceInfo: CoinStats | null = await this.getCoinPriceStats(contract_address);
             if (!priceInfo) return null;
-            const tokenInfo = selectedCoin.account.data.parsed.info;
+            const tokenInfo: ParsedTokenInfo = selectedCoin.account.data.parsed.info;
             priceInfo.tokenAmount = tokenInfo.tokenAmount;
             if (!priceInfo.tokenAmount) return null;
-            const currentSolPrice: number | null = await this.getCurrentSolPrice();
+            const currentSolPrice: number = await this.getCurrentSolPrice();
             const coinValueInUsd: number = Number(priceInfo.price) * Number(priceInfo.tokenAmount.uiAmount);
             priceInfo.value = {
                 inUSD: coinValueInUsd.toFixed(2),
@@ -806,26 +814,26 @@ export class SolanaWeb3 {
         }
     }
 
-    static async getAllCoinSymbols(wallet_address: string): Promise<string[] | null> {
+    static async getAllCoinSymbols(wallet_address: string): Promise<string[]> {
         try {
             const conn: Connection = this.getConnection();
             const filters: GetProgramAccountsFilter[] = [
                 { dataSize: 165 }, // size of account (bytes)
                 { memcmp: { offset: 32, bytes: wallet_address } }
             ];
-            const coins: any = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters });
+            const coins: ParsedProgramAccountWrittenOut[] = await conn.getParsedProgramAccounts(TOKEN_PROGRAM, { filters }) as ParsedProgramAccountWrittenOut[];
 
-            const allCoins: string[] = coins.map((coin: any) => coin.account.data.parsed.info.mint);
+            const allCoins: string[] = coins.map((coin: ParsedProgramAccountWrittenOut) => coin.account.data.parsed.info.mint);
             return allCoins;
         } catch (error) {
             await saveError({ wallet_address, function_name: "getAllCoinSymbols", error });
-            return null;
+            return [];
         }
     }
 
     static async getTokenAccountOfWallet(wallet_address: string, contract_address: string): Promise<PublicKey | null> {
         try {
-            const associatedTokenAddress = await getAssociatedTokenAddress(
+            const associatedTokenAddress: PublicKey = await getAssociatedTokenAddress(
                 new PublicKey(contract_address),
                 new PublicKey(wallet_address),
                 false,
@@ -840,27 +848,28 @@ export class SolanaWeb3 {
     }
 
     // for wallet and contract addresses
-    static async checkIfValidAddress(address: string): Promise<boolean> {
+    static async checkIfValidAddress(address: string | null): Promise<boolean> {
         try {
-            const ca = new PublicKey(address);
-            const isValid = PublicKey.isOnCurve(ca.toBuffer()) && PublicKey.isOnCurve(ca.toString());
+            if (!address) return false;
+            const ca: PublicKey = new PublicKey(address);
+            const isValid: boolean = PublicKey.isOnCurve(ca.toBuffer()) && PublicKey.isOnCurve(ca.toString());
             return isValid;
         } catch (error) {
-            await saveError({ wallet_address: address, contract_address: address, function_name: "checkIfValidAddress", error });
+            await saveError({ wallet_address: address as string, contract_address: address as string, function_name: "checkIfValidAddress", error });
             return false;
         }
     }
 
-    static async getCoinPriceStatsAll(contract_addresses: string[]): Promise<CoinStats[] | null> {
+    static async getCoinPriceStatsAll(contract_addresses: string[]): Promise<CoinStats[]> {
         try {
-            const coinInfos = contract_addresses.map((contract_address: string) => {
+            const coinInfos: Promise<Response>[] = contract_addresses.map((contract_address: string) => {
                 return fetch(`https://api.dexscreener.io/latest/dex/tokens/${contract_address}`);
             });
 
-            const responses = await Promise.all(coinInfos);
-            const statsData = responses.map((response: any) => response.json());
-            const coinStats = await Promise.all(statsData);
-            const stats = coinStats.map((coin: any) => {
+            const responses: Response[] = await Promise.all(coinInfos);
+            const statsData: Promise<any>[] = responses.map((response: Response) => response.json());
+            const coinStats: any[] = await Promise.all(statsData);
+            const stats: CoinStats[] = coinStats.map((coin: any) => {
                 return {
                     ...coin.pairs[0].baseToken,
                     transactions: coin.pairs[0].txns,
@@ -874,13 +883,13 @@ export class SolanaWeb3 {
             return stats;
         } catch (error) {
             await saveError({ function_name: "getCoinPriceStatsAll", error });
-            return null;
+            return [];
         }
     }
 
     static async getCoinPriceStats(contract_address: string): Promise<CoinStats | null> {
         try {
-            const pairInfo = await (
+            const pairInfo: any = await (
                 await fetch(`https://api.dexscreener.io/latest/dex/tokens/${contract_address}`)
             ).json();
             const coinStats: CoinStats = {
@@ -902,11 +911,11 @@ export class SolanaWeb3 {
     static async getCoinValueOfHolding(caWithAmount: CAWithAmount): Promise<CoinPriceQuote | null> {
         const contract_address: string = caWithAmount.contract_address;
         try {
-            const quoteResponse = await (
+            const quoteResponse: QuoteResponse = await (
                 await fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${caWithAmount.amount}`)
             ).json();
-            const priceInSol = Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL;
-            const currentSolPrice: number | null = await this.getCurrentSolPrice();
+            const priceInSol: number = Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL;
+            const currentSolPrice: number = await this.getCurrentSolPrice();
 
             return {
                 contract_address: contract_address,
@@ -921,15 +930,15 @@ export class SolanaWeb3 {
 
     static async getCoinValuesOfHoldings(casWithAmount: CAWithAmount[]): Promise<CoinPriceQuote[] | null> {
         try {
-            const currentSolPrice: number | null = await this.getCurrentSolPrice();
-            const quotes = casWithAmount.map((caObj: CAWithAmount) => {
+            const currentSolPrice: number = await this.getCurrentSolPrice();
+            const quotes: Promise<Response>[] = casWithAmount.map((caObj: CAWithAmount) => {
                 return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caObj.contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${caObj.amount}`);
             });
-            const responses = await Promise.all(quotes);
-            const quoteResponsesJson = responses.map((response: any) => response.json());
-            const quoteResponses = await Promise.all(quoteResponsesJson);
+            const responses: Response[] = await Promise.all(quotes);
+            const quoteResponsesJson: any[] = responses.map((response: any) => response.json());
+            const quoteResponses: QuoteResponse[] = await Promise.all(quoteResponsesJson);
             return quoteResponses.map((quote: QuoteResponse) => {
-                const priceInSol = Number(quote.outAmount) / LAMPORTS_PER_SOL;
+                const priceInSol: number = Number(quote.outAmount) / LAMPORTS_PER_SOL;
                 return {
                     contract_address: quote.inputMint,
                     priceInSol: priceInSol.toFixed(4),
@@ -944,7 +953,7 @@ export class SolanaWeb3 {
 
     static async getCoinInfo(contract_address: string): Promise<CoinInfo | null> {
         try {
-            const pairInfo = await (
+            const pairInfo: any = await (
                 await fetch(`https://api.dexscreener.io/latest/dex/tokens/${contract_address},So11111111111111111111111111111111111111112`)
             ).json();
             const coinInfo: CoinInfo = pairInfo.pairs[0].baseToken;
@@ -995,7 +1004,7 @@ export class SolanaWeb3 {
     }
 
     static getSignature(transaction: Transaction | VersionedTransaction): string | undefined {
-        const signature = "signature" in transaction ? transaction.signature : transaction.signatures[0];
+        const signature: Buffer | Uint8Array | null = "signature" in transaction ? transaction.signature : transaction.signatures[0];
         if (!signature) {
             console.log("Missing transaction signature, the transaction was not signed by the fee payer");
             return undefined;

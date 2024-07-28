@@ -1,14 +1,13 @@
-import { SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, InteractionEditReplyOptions, SlashCommandBuilder } from "discord.js";
 import { createSellAndManageUI } from "../lib/discord-ui";
-import { UI } from "../types/ui";
 
 const command = {
     data: new SlashCommandBuilder()
         .setName("positions")
         .setDescription("Displays your open positions."),
-    async execute(interaction: any) {
+    async execute(interaction: ChatInputCommandInteraction) {
         await interaction.deferReply({ ephemeral: true });
-        const ui: UI = await createSellAndManageUI({ userId: interaction.user.id });
+        const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id });
         await interaction.editReply(ui);
     }
 }

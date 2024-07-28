@@ -12,7 +12,6 @@ import { SolanaWeb3 } from "./solanaweb3";
 import bs58 from 'bs58';
 import crypto from 'crypto';
 import { ERROR_CODES } from "../config/errors";
-import { UI } from "../types/ui";
 import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
@@ -26,6 +25,7 @@ import { TxResponse } from "../types/tx-response";
 import { UIResponse } from "../types/ui-response";
 import { DBError } from "../types/db-error";
 import { Error } from "../models/errors";
+import { InteractionEditReplyOptions } from "discord.js";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -201,33 +201,33 @@ export async function decryptPKey(encryptedPKey: string, iv: string): Promise<st
 
 export async function buyCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
     const contractAddress: string = await extractAndValidateCA(msgContent);
-    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
+    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_buy", error });
-        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+        return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
 export async function buyCoinX(userId: string, msgContent: string, amount: string): Promise<UIResponse> {
     const contractAddress: string = await extractAndValidateCA(msgContent);
-    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
+    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, amount);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_buy", error });
-        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+        return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
 export async function sellCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
     const contractAddress: string = await extractAndValidateCA(msgContent);
-    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
+    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
         await saveDbTransaction(response);
@@ -235,13 +235,13 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
         return createAfterSwapUI(response, storeFee);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
-        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+        return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
 export async function sellCoinX(userId: string, msgContent: string, amountInPercent: string): Promise<UIResponse> {
     const contractAddress: string = await extractAndValidateCA(msgContent);
-    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message, ephemeral: true } };
+    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, amountInPercent);
         await saveDbTransaction(response);
@@ -249,7 +249,7 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
         return createAfterSwapUI(response, storeFee);
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
-        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+        return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
@@ -329,12 +329,10 @@ export async function saveError({ user_id, contract_address, wallet_address, fun
 
 export const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
 
-export async function saveReferralAndUpdateFees(userId: string, refCode: string): Promise<UI> {
+export async function saveReferralAndUpdateFees(userId: string, refCode: string): Promise<InteractionEditReplyOptions> {
     try {
         const user = await User.findOne({ user_id: userId });
-        if (!user) {
-            return addStartButton(ERROR_CODES["0013"].message);
-        }
+        if (!user) return addStartButton(ERROR_CODES["0013"].message);
         const referrer = await User.findOne({ ref_code: refCode });
         if (!referrer) {
             // TODO: store error and submitted ref code in db
@@ -345,9 +343,7 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
         const referrersDefaultWallet = await Wallet.findOne({ user_id: referrer.user_id, is_default_wallet: true }).lean();
         if (referrersDefaultWallet) refsWallet = referrersDefaultWallet.wallet_address;
 
-        if (user.referral) {
-            return addStartButton("This user already used a referral code.");
-        }
+        if (user.referral) return addStartButton("This user already used a referral code.");
 
         referrer.total_refs++;
         user.swap_fee = user.swap_fee * 0.9; // 10% reduction for first month if using a ref code
@@ -430,15 +426,15 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
     let user: any;
     try {
         user = await User.findOne({ user_id: userId });
-        if (!user) return { ui: { content: ERROR_CODES["0011"].message, ephemeral: true } };
+        if (!user) return { ui: { content: ERROR_CODES["0011"].message } };
     } catch (error) {
-        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+        return { ui: { content: ERROR_CODES["0000"].message } };
     }
 
     const payoutAmount: number = user.unclaimed_ref_fees; // in lamports
     if (payoutAmount < 2100000) {
         // 2100000 = 0.0021 SOL. 0.002 SOL is needed for rent fee, in case the user doesn't have deposited any SOL yet
-        return { ui: { content: "You need to have at least 0.0021 SOL accumulated to claim your fees.", ephemeral: true } };
+        return { ui: { content: "You need to have at least 0.0021 SOL accumulated to claim your fees." } };
     }
     const unclaimed_ref_fees: number = user.unclaimed_ref_fees;
     const claimed_ref_fees: number = user.claimed_ref_fees;
@@ -450,7 +446,7 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
     try {
         userUpdated = await user.save();
     } catch (error) {
-        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+        return { ui: { content: ERROR_CODES["0000"].message } };
     }
 
     try {
@@ -465,16 +461,16 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
             await saveDbTransaction(txResponse);
             if (!txResponse.response) {
                 return {
-                    ui: { content: `Claim request received. Your fees will arrive soon.${txResponse.tx_signature ? ` Transaction ID: ${txResponse.tx_signature}` : ""}`, ephemeral: true },
+                    ui: { content: `Claim request received. Your fees will arrive soon.${txResponse.tx_signature ? ` Transaction ID: ${txResponse.tx_signature}` : ""}` },
                     transaction: txResponse,
                 };
             }
             return {
-                ui: { content: txResponse.response, ephemeral: true },
+                ui: { content: txResponse.response },
                 transaction: txResponse,
             };
         }
-        return { ui: { content: ERROR_CODES["0000"].message, ephemeral: true } };
+        return { ui: { content: ERROR_CODES["0000"].message } };
     } catch (error) {
         await saveDbTransaction({ user_id: userId, tx_type: "transfer_ref_fee", error: error, success: false, token_amount: payoutAmount });
         // revert db changes on error
@@ -484,6 +480,6 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
             user.last_fee_claim_timestamp = lastClaimTimestamp;
             await user.save();
         }
-        return { ui: { content: ERROR_CODES["0016"].message, ephemeral: true } };
+        return { ui: { content: ERROR_CODES["0016"].message } };
     }
 }
