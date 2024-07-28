@@ -431,7 +431,7 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address.", ephemeral: true });
             return;
         }
-        const amount: string | null = extractAmountFromMessage(interaction.message.content);
+        const amount: string = extractAmountFromMessage(interaction.message.content);
         if (!amount) {
             await interaction.editReply({ content: "Server Error. Please try again.", ephemeral: true });
             return;

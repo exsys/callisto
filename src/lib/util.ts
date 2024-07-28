@@ -140,10 +140,10 @@ export async function extractAndValidateCA(message: string): Promise<string> {
     return ca;
 }
 
-export function extractAmountFromMessage(message: string): string | null {
+export function extractAmountFromMessage(message: string): string {
     const firstLine = message.split("\n")[0];
     const parts = firstLine.split(" | ");
-    if (!parts.length) return null;
+    if (!parts.length) return "";
 
     if (parts[0].includes("SOL")) {
         // buy (return just the number)

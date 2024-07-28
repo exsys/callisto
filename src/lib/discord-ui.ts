@@ -497,7 +497,7 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
         amount = `${txResponse.sell_amount}% | `;
     }
     if (txResponse.token_amount) {
-        const tokenAmount: number = Number(txResponse.token_amount) / LAMPORTS_PER_SOL;
+        const tokenAmount: number = txResponse.token_amount / LAMPORTS_PER_SOL;
         amount = `${tokenAmount} SOL | `;
     }
 
