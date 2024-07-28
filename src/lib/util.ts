@@ -119,7 +119,16 @@ export function extractCAFromMessage(message: string, line: number): string | nu
     return parts[parts.length - 1];
 }
 
-export async function extractAndValidateCA(message: string): Promise<string> {
+export async function extractAndValidateCA(message: string, line?: number): Promise<string> {
+    if (line) {
+        const lineWithCa: string = message.split("\n")[line - 1];
+        const caParts: string[] = lineWithCa.split(" | ");
+        const ca: string = caParts[caParts.length - 1];
+        if (ca === "SOL") return "SOL";
+        const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(ca);
+        if (!isValidAddress) return "";
+        return ca;
+    }
     const firstLine: string = message.split("\n")[0];
     const parts: string[] = firstLine.split(" | ");
     if (!parts.length) return "";
@@ -152,6 +161,20 @@ export function extractAmountFromMessage(message: string): string {
 
     // sell (includes % after number)
     return parts[0];
+}
+
+export function extractUserIdFromMessage(message: string): string {
+    const firstLine: string = message.split("\n")[0];
+    const userIdFormatted: string = firstLine.split(" ")[3];
+    const recipientUserId: string | undefined = userIdFormatted.match(/\d+/)?.[0];
+    if (!recipientUserId) return "";
+    return recipientUserId;
+}
+
+export function extractBalanceFromMessage(message: string, line: number): number {
+    const lineWithBal: string = message.split("\n")[line - 1];
+    const balance: string = lineWithBal.split(" ")[1];
+    return Number(balance);
 }
 
 export function formatNumber(num: string): string {

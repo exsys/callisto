@@ -20,8 +20,8 @@ const command = {
                     return;
                 }
             }
-            
-            await interaction.reply(startUI as InteractionReplyOptions);
+
+            await interaction.reply({ ...startUI as InteractionReplyOptions, ephemeral: true });
         } catch (error) {
             await interaction.reply("Server error. Please try again later.");
         }

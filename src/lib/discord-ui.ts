@@ -50,9 +50,9 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
         if (!wallet) return { content: "Server error. Please try again later. " };
 
         let content: string = "Solana's fastest Discord bot to trade any coin.";
-        const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+        const walletBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
         // TODO: if walletBalance is null return start UI anyways but NaN for SOL balance
-        if (walletBalance === null) return { content: "Server error. Please try again later." };
+        if (!walletBalance) return { content: "Server error. Please try again later." };
         const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
 
         if (formattedBalance == "0" || formattedBalance == "0.0") {
@@ -116,8 +116,8 @@ export const createWalletUI = async (userId: string): Promise<InteractionEditRep
     const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
     if (!wallet) return { content: ERROR_CODES["0003"].message };
 
-    const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
-    if (walletBalance === null) return { content: ERROR_CODES["0015"].message };
+    const walletBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+    if (!walletBalance) return { content: ERROR_CODES["0015"].message };
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
     const content = `Default Wallet Address:\n${wallet.wallet_address}\n\nBalance:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
 
@@ -195,7 +195,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
     let content: string = "";
     const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
     if (!wallet) return { ui: { content: "No default wallet found. Create one with the /create command." } };
-    const walletBalance: number | null = await SolanaWeb3.getBalanceOfWalletInLamports(wallet.wallet_address);
+    const walletBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInLamports(wallet.wallet_address);
     if (!walletBalance) return { ui: { content: ERROR_CODES["0015"].message } };
     if (wallet.settings.auto_buy_value > 0) {
         const txPrio: number = wallet.settings.tx_priority_value;
@@ -337,8 +337,8 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
         if (!selectedCoin) return { content: ERROR_CODES["0007"].message };
         const coinSymbols: string[] = coinsInWallet.map((coin: CoinStats) => coin.symbol);
         const coinSymbolsDivided: string = coinSymbols.join(" | ");
-        const solBalance: number | null = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
-        if (solBalance === null) return { content: "Server error. Please try again later." };
+        const solBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+        if (!solBalance) return { content: "Server error. Please try again later." };
 
         // TODO: uiAmount might be null in some cases. handle that case
         const usdValue: string = selectedCoin.value ? selectedCoin.value.inUSD : "0";
@@ -501,6 +501,87 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
         store_ref_fee: storeRefFee,
     };
 };
+
+export const createTokenSelectionUI = async (user_id: string, recipientId: string): Promise<InteractionEditReplyOptions> => {
+    try {
+        const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+        if (!wallet) return { content: ERROR_CODES["0003"].message };
+
+        const solBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+        if (!solBalance) return { content: "Server error. Please try again later." };
+
+        let content: string = `Sending token to <@${recipientId}>\n\nYour SOL balance: ${solBalance}\nYour Tokens:\n`;
+        const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos({
+            walletAddress: wallet.wallet_address,
+            minPos: wallet.settings.min_position_value
+        });
+        if (!coinInfos) return { content: "Server error. Please try again later." };
+        const symbols: string[] = coinInfos.map((coinInfo: CoinInfo, index: number) => {
+            return index === coinInfos.length - 1 ? `${coinInfo.symbol}` : `${coinInfo.symbol} | `;
+        });
+        if (!symbols.length) {
+            content += "---";
+        } else {
+            symbols.forEach((symbol: string) => {
+                content += symbol;
+            });
+        }
+        content += '\n\nTo send a token press the "Select Token" button below and select a token to send.';
+
+        const selectTokenButton = new ButtonBuilder()
+            .setCustomId("selectTokenToSend")
+            .setLabel("Select Token")
+            .setStyle(ButtonStyle.Secondary);
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(selectTokenButton);
+        return { content, components: [row] };
+    } catch (error) {
+        return { content: "Server error. Please try again later." };
+    }
+}
+
+export const createTokenInfoBeforeSendUI = async (
+    user_id: string,
+    recipientId: string,
+    contract_address: string
+): Promise<InteractionEditReplyOptions> => {
+    const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+    if (!wallet) return { content: ERROR_CODES["0003"].message };
+    const recipientWallet: any = await Wallet.findOne({ user_id: recipientId, is_default_wallet: true }).lean();
+    if (!recipientWallet) return { content: ERROR_CODES["0003"].message };
+
+    let content = `Send token to <@${recipientId}>`;
+
+    if (contract_address === "SOL") {
+        const solBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+        if (!solBalance) return { content: "Server error. Please try again later." };
+        const solPrice: number | null = await SolanaWeb3.getCurrentSolPrice();
+        const holdingsValue: number = Number((solBalance * solPrice).toFixed(2));
+        content += `\n\nSolana | SOL`;
+        content += `\nBalance: ${solBalance}`;
+        content += `\nHoldings value: $${holdingsValue}`;
+    } else {
+        const coinInfo: CoinStats | null = await SolanaWeb3.getCoinStatsFromWallet(wallet.wallet_address, contract_address);
+        if (!coinInfo) return { content: "Server error. Please try again later." };
+        content += `\n\n${coinInfo.name} | ${coinInfo.symbol} | ${coinInfo.address}`;
+        content += `\nMarket Cap: $${coinInfo.fdv} @ $${formatNumber(coinInfo.price)}`;
+        content += `\nBalance: ${coinInfo.tokenAmount ? coinInfo.tokenAmount.uiAmount : "???"}`;
+        content += `\nHoldings value: $${coinInfo.value ? coinInfo.value.inUSD : "???"} | ${coinInfo.value ? coinInfo.value.inSOL : "???"} SOL`;
+    }
+
+    const sendPercentButton = new ButtonBuilder()
+        .setCustomId("sendPercentToUser")
+        .setLabel("Send X percent")
+        .setStyle(ButtonStyle.Secondary);
+
+    const sendAmountButton = new ButtonBuilder()
+        .setCustomId("sendAmountToUser")
+        .setLabel("Send X amount")
+        .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(sendPercentButton, sendAmountButton);
+    return { content, components: [row] };
+}
 
 export const createClaimRefFeeUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
     try {
@@ -747,7 +828,7 @@ export const createChangeWalletMenu = async (userId: string): Promise<Interactio
 export const createSelectCoinMenu = async (userId: string): Promise<InteractionEditReplyOptions> => {
     const content: string = "Select a coin to view its info's.";
     try {
-        const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos(userId);
+        const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos({ user_id: userId });
         if (!coinInfos) return { content: "Server error. Please try again later." };
 
         // TODO: seems like max length is 25, handle that case
@@ -757,9 +838,7 @@ export const createSelectCoinMenu = async (userId: string): Promise<InteractionE
                 .setValue(coinInfo.address);
         });
 
-        if (!options.length) {
-            return { content: "No coins found." };
-        }
+        if (!options.length) return { content: "No coins found." };
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('selectCoin')
@@ -768,6 +847,38 @@ export const createSelectCoinMenu = async (userId: string): Promise<InteractionE
 
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
+        return { content, components: [row] };
+    } catch (error) {
+        return { content: "Server error. Please try again later." };
+    }
+};
+
+export const createSelectCoinToSendMenu = async (userId: string, msgContent: string): Promise<InteractionEditReplyOptions> => {
+    const content: string = `${msgContent}\n\nSelect a coin to send.`;
+    try {
+        const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos({ user_id: userId });
+        if (!coinInfos) return { content: "Server error. Please try again later." };
+
+        // TODO: seems like max length is 25, handle that case
+        const options: StringSelectMenuOptionBuilder[] = [
+            new StringSelectMenuOptionBuilder()
+                .setLabel("SOL")
+                .setValue("SOL"),
+            ...coinInfos.map((coinInfo: CoinInfo) => {
+                return new StringSelectMenuOptionBuilder()
+                    .setLabel(coinInfo.symbol)
+                    .setValue(coinInfo.address);
+            })
+        ];
+
+        if (!options.length) return { content: "No coins found." };
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('selectTokenToSend')
+            .setPlaceholder('Select a Coin')
+            .addOptions(options);
+
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
         return { content, components: [row] };
     } catch (error) {
         return { content: "Server error. Please try again later." };
@@ -1055,6 +1166,44 @@ export const createSendCoinModal = (): ModalBuilder => {
     sendCoinModal.addComponents(row1, row2);
     return sendCoinModal;
 };
+
+export const sendXPercentToUserModal = (): ModalBuilder => {
+    const sendXPercentModal = new ModalBuilder()
+        .setCustomId('sendXPercentToUser')
+        .setTitle('Send X percent');
+
+    const percentInput = new TextInputBuilder()
+        .setCustomId('value1')
+        .setLabel('Amount to send in %')
+        .setPlaceholder('50')
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(5)
+        .setStyle(TextInputStyle.Short);
+
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(percentInput);
+    sendXPercentModal.addComponents(row);
+    return sendXPercentModal;
+}
+
+export const sendXAmountToUserModal = (): ModalBuilder => {
+    const sendXAmountModal = new ModalBuilder()
+        .setCustomId('sendXAmountToUser')
+        .setTitle('Send X amount');
+
+    const amountInput = new TextInputBuilder()
+        .setCustomId('value1')
+        .setLabel('Token amount to send')
+        .setPlaceholder('1000000')
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(30)
+        .setStyle(TextInputStyle.Short);
+
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
+    sendXAmountModal.addComponents(row);
+    return sendXAmountModal;
+}
 
 export const createRefCodeModal = (): ModalBuilder => {
     const refCodeModal = new ModalBuilder()

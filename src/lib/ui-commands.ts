@@ -1,3 +1,4 @@
+import { Wallet } from "../models/wallet";
 import {
     createAutoBuyValueModal,
     createBuyModal,
@@ -25,9 +26,12 @@ import {
     createHelpUI,
     createRefCodeModal,
     createClaimRefFeeUI,
-    createReferUI
+    createReferUI,
+    createSelectCoinToSendMenu,
+    createTokenInfoBeforeSendUI,
+    sendXPercentToUserModal,
+    sendXAmountToUserModal
 } from "./discord-ui";
-import { Wallet } from "../models/wallet";
 import {
     buyCoin,
     buyCoinX,
@@ -44,6 +48,8 @@ import {
     storeUnpaidRefFee,
     claimUnpaidRefFees,
     saveDbTransaction,
+    extractUserIdFromMessage,
+    extractBalanceFromMessage,
 } from "./util";
 import { SolanaWeb3 } from "./solanaweb3";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -51,7 +57,7 @@ import { ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../types/tx-response";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIResponse } from "../types/ui-response";
-import { ButtonInteraction, ChatInputCommandInteraction, CommandInteraction, InteractionEditReplyOptions, ModalBuilder, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
+import { ButtonInteraction, InteractionEditReplyOptions, ModalBuilder, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
 
 const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map();
 const DEBOUNCE_TIME: number = 8000;
@@ -157,6 +163,14 @@ export const BUTTON_COMMANDS = {
         const modal: ModalBuilder = createWithdrawXSolModal();
         await interaction.showModal(modal);
     },
+    sendPercentToUser: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = sendXPercentToUserModal();
+        await interaction.showModal(modal);
+    },
+    sendAmountToUser: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = sendXAmountToUserModal();
+        await interaction.showModal(modal);
+    },
     removeWallet: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const removeWalletUI: InteractionEditReplyOptions = await createRemoveWalletUI(interaction.user.id);
@@ -175,7 +189,7 @@ export const BUTTON_COMMANDS = {
         }
 
         if (walletAddress === REFCODE_MODAL_STRING) {
-            const refCodeModal = createRefCodeModal();
+            const refCodeModal: ModalBuilder = createRefCodeModal();
             await interaction.showModal(refCodeModal);
         }
 
@@ -232,6 +246,16 @@ export const BUTTON_COMMANDS = {
     showRefFees: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const ui: InteractionEditReplyOptions = await createClaimRefFeeUI(interaction.user.id);
+        await interaction.editReply(ui);
+    },
+    selectTokenToSend: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const recipientUserId: string = extractUserIdFromMessage(interaction.message.content);
+        if (!recipientUserId) {
+            await interaction.editReply("Couldn't find recipient. If you believe this is a mistake please contact support.");
+            return;
+        }
+        const ui: InteractionEditReplyOptions = await createSelectCoinToSendMenu(interaction.user.id, `Send token to <@${recipientUserId}>`);
         await interaction.editReply(ui);
     },
     claimRefFees: async (interaction: ButtonInteraction) => {
@@ -514,6 +538,12 @@ export const MENU_COMMANDS = {
         const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
         await interaction.editReply(sellUI);
     },
+    selectTokenToSend: async (interaction: StringSelectMenuInteraction, contractAddress: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        const recipientId: string = extractUserIdFromMessage(interaction.message.content);
+        const ui: InteractionEditReplyOptions = await createTokenInfoBeforeSendUI(interaction.user.id, recipientId, contractAddress);
+        await interaction.editReply(ui);
+    }
 };
 
 export const MODAL_COMMANDS = {
@@ -553,8 +583,8 @@ export const MODAL_COMMANDS = {
         }
 
         const result: TxResponse = await SolanaWeb3.transferXSol(interaction.user.id, amountToWithdraw, destinationAddress);
-        await saveDbTransaction(result);
         await interaction.editReply({ content: result.response });
+        await saveDbTransaction(result);
     },
     withdrawAllSol: async (interaction: ModalSubmitInteraction, destinationAddress: string) => {
         await interaction.deferReply({ ephemeral: true });
@@ -565,8 +595,8 @@ export const MODAL_COMMANDS = {
         }
 
         const result: TxResponse = await SolanaWeb3.transferAllSol(interaction.user.id, destinationAddress);
-        await saveDbTransaction(result);
         await interaction.editReply({ content: result.response });
+        await saveDbTransaction(result);
     },
     changeMinPositionValue: async (interaction: ModalSubmitInteraction, amount: string) => {
         await interaction.deferReply({ ephemeral: true });
@@ -854,7 +884,7 @@ export const MODAL_COMMANDS = {
     },
     sendCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const amountToSend = values[0];
+        const percentToSend = values[0];
         const destinationAddress = values[1];
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content);
         if (!contractAddress) {
@@ -862,8 +892,48 @@ export const MODAL_COMMANDS = {
             return;
         }
 
-        const result: TxResponse = await SolanaWeb3.sendCoin(interaction.user.id, contractAddress, amountToSend, destinationAddress);
+        const result: TxResponse = await SolanaWeb3.sendXPercentOfCoin(interaction.user.id, contractAddress, percentToSend, destinationAddress);
         await interaction.editReply({ content: result.response });
+        await saveDbTransaction(result);
+    },
+    sendXPercentToUser: async (interaction: ModalSubmitInteraction, amountInPercent: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 3);
+        if (!contractAddress) await interaction.editReply("Server error. Please try again later.");
+        const recipientId: string = extractUserIdFromMessage(interaction.message!.content);
+        if (!recipientId) await interaction.editReply("Server error. Please try again later.");
+        const recipientWallet: any = await Wallet.findOne({ user_id: recipientId, is_default_wallet: true }).lean();
+        if (!recipientWallet) await interaction.editReply(ERROR_CODES["0002"].message);
+
+        const tokenBalanceInDecimal: number = extractBalanceFromMessage(interaction.message!.content, 5);
+        if (amountInPercent.includes("%")) amountInPercent = amountInPercent.replace("%", "");
+        const amountToSend: string = String(tokenBalanceInDecimal * (Number(amountInPercent) / 100));
+        let response: TxResponse;
+        if (contractAddress === "SOL") {
+            response = await SolanaWeb3.transferXSol(interaction.user.id, amountToSend, recipientWallet.wallet_address);
+        } else {
+            response = await SolanaWeb3.sendCoin(interaction.user.id, contractAddress, amountToSend, recipientWallet.wallet_address);
+        }
+        await interaction.editReply({ content: response.response });
+        await saveDbTransaction(response);
+    },
+    sendXAmountToUser: async (interaction: ModalSubmitInteraction, amountInToken: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 3);
+        if (!contractAddress) await interaction.editReply("Server error. Please try again later.");
+        const recipientId: string = extractUserIdFromMessage(interaction.message!.content);
+        if (!recipientId) await interaction.editReply("Server error. Please try again later.");
+        const recipientWallet: any = await Wallet.findOne({ user_id: recipientId, is_default_wallet: true }).lean();
+        if (!recipientWallet) await interaction.editReply(ERROR_CODES["0002"].message);
+
+        let response: TxResponse;
+        if (contractAddress === "SOL") {
+            response = await SolanaWeb3.transferXSol(interaction.user.id, amountInToken, recipientWallet.wallet_address);
+        } else {
+            response = await SolanaWeb3.sendCoin(interaction.user.id, contractAddress, amountInToken, recipientWallet.wallet_address);
+        }
+        await interaction.editReply({ content: response.response });
+        await saveDbTransaction(response);
     },
     enterRefCode: async (interaction: ModalSubmitInteraction, refCode: string) => {
         await interaction.deferReply({ ephemeral: true });
