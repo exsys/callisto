@@ -794,11 +794,16 @@ export const createSelectCoinMenu = async (userId: string): Promise<UI> => {
         const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos(userId);
         if (!coinInfos) return { content: "Server error. Please try again later.", ephemeral: true };
 
+        // TODO: seems like max length is 25
         const options = coinInfos.map((coinInfo: CoinInfo) => {
             return new StringSelectMenuOptionBuilder()
                 .setLabel(coinInfo.symbol)
                 .setValue(coinInfo.address);
         });
+
+        if (!options.length) {
+            return { content: "No coins found.", ephemeral: true };
+        }
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('selectCoin')
