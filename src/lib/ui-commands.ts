@@ -30,7 +30,13 @@ import {
     createSelectCoinToSendMenu,
     createTokenInfoBeforeSendUI,
     sendXPercentToUserModal,
-    sendXAmountToUserModal
+    sendXAmountToUserModal,
+    createLimitOrderModal,
+    createCoinInfoForLimitOrderUI,
+    createBuyLimitPercentModal,
+    createBuyLimitPriceModal,
+    createSellLimitPercentModal,
+    createSellLimitPriceModal
 } from "./discord-ui";
 import {
     buyCoin,
@@ -91,6 +97,15 @@ export const BUTTON_COMMANDS = {
     buy: async (interaction: ButtonInteraction) => {
         const modal = createBuyModal();
         await interaction.showModal(modal);
+    },
+    limitOrder: async (interaction: ButtonInteraction) => {
+        const modal = createLimitOrderModal();
+        await interaction.showModal(modal);
+        // paste ca
+        // show coin info
+        // let user submit price where to buy
+        // option 1: $ price, but like jup show % change 
+        // option 2: let user 
     },
     sellAndManage: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
@@ -473,6 +488,23 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply(uiResponseBuy.ui);
         }
     },
+    buyLimitPercent: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = createBuyLimitPercentModal();
+        console.log("test")
+        await interaction.showModal(modal);
+    },
+    buyLimitPrice: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = createBuyLimitPriceModal();
+        await interaction.showModal(modal);
+    },
+    sellLimitPercent: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = createSellLimitPercentModal();
+        await interaction.showModal(modal);
+    },
+    sellLimitPrice: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = createSellLimitPriceModal();
+        await interaction.showModal(modal);
+    },
 };
 
 export const MENU_COMMANDS = {
@@ -571,6 +603,17 @@ export const MODAL_COMMANDS = {
             const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
+    },
+    limitOrderInfo: async (interaction: ModalSubmitInteraction, contractAddress: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        const contract_address: string = await extractAndValidateCA(contractAddress);
+        if (!contract_address) {
+            await interaction.editReply("Invalid contract address.");
+            return;
+        }
+
+        const ui: InteractionEditReplyOptions = await createCoinInfoForLimitOrderUI(contract_address);
+        await interaction.editReply(ui);
     },
     withdrawXSol: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
@@ -945,5 +988,21 @@ export const MODAL_COMMANDS = {
             const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
             await interaction.editReply(startUI);
         }
-    }
+    },
+    buyLimitPercentModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        await interaction.deferReply({ ephemeral: true });
+        await interaction.editReply("not implemented yet");
+    },
+    buyLimitPriceModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        await interaction.deferReply({ ephemeral: true });
+        await interaction.editReply("not implemented yet");
+    },
+    sellLimitPercentModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        await interaction.deferReply({ ephemeral: true });
+        await interaction.editReply("not implemented yet");
+    },
+    sellLimitPriceModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        await interaction.deferReply({ ephemeral: true });
+        await interaction.editReply("not implemented yet");
+    },
 };
