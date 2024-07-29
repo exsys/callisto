@@ -1,7 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { createPreBuyUI } from "../lib/discord-ui";
-import { SolanaWeb3 } from "../lib/solanaweb3";
 import { UIResponse } from "../types/ui-response";
+import { checkIfValidAddress } from "../lib/solanaweb3";
 
 const command = {
     data: new SlashCommandBuilder()
@@ -15,7 +15,7 @@ const command = {
         try {
             await interaction.deferReply({ ephemeral: true });
             const contractAddress: string | null = interaction.options.getString("ca");
-            const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(contractAddress);
+            const isValidAddress: boolean = await checkIfValidAddress(contractAddress);
             if (!isValidAddress) {
                 await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
                 return;

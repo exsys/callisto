@@ -1,10 +1,10 @@
+import promiseRetry from "promise-retry";
 import {
     BlockhashWithExpiryBlockHeight,
     Connection,
     TransactionExpiredBlockheightExceededError,
     VersionedTransactionResponse,
 } from "@solana/web3.js";
-import promiseRetry from "promise-retry";
 import { wait } from "./util";
 
 type TransactionSenderAndConfirmationWaiterArgs = {

@@ -8,7 +8,6 @@ import {
 } from "@solana/web3.js";
 import { User } from "../models/user";
 import { Wallet } from "../models/wallet";
-import { SolanaWeb3 } from "./solanaweb3";
 import bs58 from 'bs58';
 import crypto from 'crypto';
 import { ERROR_CODES } from "../config/errors";
@@ -26,30 +25,30 @@ import { UIResponse } from "../types/ui-response";
 import { DBError } from "../types/db-error";
 import { Error } from "../models/errors";
 import { InteractionEditReplyOptions } from "discord.js";
+import { checkIfValidAddress, buyCoinViaAPI, sellCoinViaAPI, getTransactionInfo, payRefFees, createNewWallet } from "./solanaweb3";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
 
-export async function createNewWallet(userId: string): Promise<string | null> {
-    // TODO: make it so only string is returned
+export async function createWallet(userId: string): Promise<string | undefined> {
     // TODO: make it so if one db save fails, the other saves are reverted
 
-    const solanaWallet = SolanaWeb3.createNewWallet();
-    const solanaPrivateKey = bs58.encode(solanaWallet.secretKey);
+    const solanaWallet: Keypair = createNewWallet();
+    const solanaPrivateKey: string = bs58.encode(solanaWallet.secretKey);
     const encryption = await encryptPKey(solanaPrivateKey);
-    if (!encryption) return null;
+    if (!encryption) return undefined;
 
     try {
-        const allWallets = await Wallet.find({ user_id: userId }).lean();
-        const user = await User.findOneAndUpdate(
+        const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
+        const user: any = await User.findOneAndUpdate(
             { user_id: userId },
             { $inc: { wallets_created: 1 } },
             { new: true, upsert: true }
         ).lean();
-        if (!user) return null;
-        const walletCount = user.wallets_created;
+        if (!user) return undefined;
+        const walletCount: number = user.wallets_created;
 
-        const newWallet = new Wallet({
+        const newWallet: any = new Wallet({
             wallet_id: walletCount,
             user_id: userId,
             wallet_name: `Wallet ${walletCount}`,
@@ -68,14 +67,14 @@ export async function createNewWallet(userId: string): Promise<string | null> {
 
         return solanaWallet.publicKey.toString();
     } catch (error) {
-        return null;
+        return undefined;
     }
 }
 
 export async function createOrUseRefCodeForUser(userId: string): Promise<string | null> {
-    let msgContent = "Your referral code is: ";
+    let msgContent: string = "Your referral code is: ";
     try {
-        const user = await User.findOne({ user_id: userId });
+        const user: any = await User.findOne({ user_id: userId });
         if (!user) return null;
         if (user.ref_code) {
             msgContent += user.ref_code;
@@ -83,8 +82,8 @@ export async function createOrUseRefCodeForUser(userId: string): Promise<string 
         }
         
         // this block will only be executed if user doesn't have a ref code already
-        let refCode = createNewRefCode();
-        let userWithRefCodeExistsAlready = await User.findOne({ ref_code: refCode }).lean();
+        let refCode: string = createNewRefCode();
+        let userWithRefCodeExistsAlready: any = await User.findOne({ ref_code: refCode }).lean();
         while (userWithRefCodeExistsAlready) {
             refCode = createNewRefCode();
             userWithRefCodeExistsAlready = await User.findOne({ ref_code: refCode }).lean();
@@ -100,22 +99,22 @@ export async function createOrUseRefCodeForUser(userId: string): Promise<string 
 }
 
 export function createNewRefCode(): string {
-    let result = "";
+    let result: string = "";
     for (let i = 0; i < 8; i++) {
-        const randomIndex = Math.floor(Math.random() * REFCODE_CHARSET.length);
+        const randomIndex: number = Math.floor(Math.random() * REFCODE_CHARSET.length);
         result += REFCODE_CHARSET[randomIndex];
     }
     return result;
 }
 
 export function isNumber(str: string): boolean {
-    const num = Number(str);
+    const num: number = Number(str);
     return !isNaN(num);
 }
 
 export function extractCAFromMessage(message: string, line: number): string | null {
-    const firstLine = message.split("\n")[line];
-    const parts = firstLine.split(" | ");
+    const firstLine: string = message.split("\n")[line];
+    const parts: string[] = firstLine.split(" | ");
     return parts[parts.length - 1];
 }
 
@@ -125,7 +124,7 @@ export async function extractAndValidateCA(message: string, line?: number): Prom
         const caParts: string[] = lineWithCa.split(" | ");
         const ca: string = caParts[caParts.length - 1];
         if (ca === "SOL") return "SOL";
-        const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(ca);
+        const isValidAddress: boolean = await checkIfValidAddress(ca);
         if (!isValidAddress) return "";
         return ca;
     }
@@ -134,14 +133,14 @@ export async function extractAndValidateCA(message: string, line?: number): Prom
     if (!parts.length) return "";
 
     const ca: string = parts[parts.length - 1];
-    const isValidAddress: boolean = await SolanaWeb3.checkIfValidAddress(ca);
+    const isValidAddress: boolean = await checkIfValidAddress(ca);
     if (!isValidAddress) {
         // check if the address is in the 4th line (the case when user buys coin through the sell & manage UI)
         const fourthLine: string = message.split("\n")[3];
         const parts: string[] = fourthLine.split(" | ");
         if (!parts.length) return "";
         const ca2: string = parts[parts.length - 1];
-        const isValidAddress2: boolean = await SolanaWeb3.checkIfValidAddress(ca2);
+        const isValidAddress2: boolean = await checkIfValidAddress(ca2);
         if (!isValidAddress2) return "";
         return ca2;
     }
@@ -150,8 +149,8 @@ export async function extractAndValidateCA(message: string, line?: number): Prom
 }
 
 export function extractAmountFromMessage(message: string): string {
-    const firstLine = message.split("\n")[0];
-    const parts = firstLine.split(" | ");
+    const firstLine: string = message.split("\n")[0];
+    const parts: string[] = firstLine.split(" | ");
     if (!parts.length) return "";
 
     if (parts[0].includes("SOL")) {
@@ -178,7 +177,7 @@ export function extractBalanceFromMessage(message: string, line: number): number
 }
 
 export function formatNumber(num: string): string {
-    const number = Number(num);
+    const number: number = Number(num);
     if (number >= 1000000) {
         return (number / 1000000).toFixed(2).replace(/\.0$/, '') + 'M';
     } else if (number >= 1000) {
@@ -187,38 +186,38 @@ export function formatNumber(num: string): string {
     return number.toString();
 }
 
-export async function getKeypairFromEncryptedPKey(encryptedPKey: string, iv: string): Promise<Keypair | null> {
-    const pkey = await decryptPKey(encryptedPKey, iv);
-    if (!pkey) return null;
+export async function getKeypairFromEncryptedPKey(encryptedPKey: string, iv: string): Promise<Keypair | undefined> {
+    const pkey: string | undefined = await decryptPKey(encryptedPKey, iv);
+    if (!pkey) return undefined;
     return Keypair.fromSecretKey(bs58.decode(pkey));
 }
 
-export async function encryptPKey(pKey: string): Promise<{ encryptedPrivateKey: string, iv: string } | null> {
+export async function encryptPKey(pKey: string): Promise<{ encryptedPrivateKey: string, iv: string } | undefined> {
     try {
-        const secretKey = process.env.ENCRYPTION_SECRET_KEY;
+        const secretKey: string | undefined = process.env.ENCRYPTION_SECRET_KEY;
         if (!secretKey) throw new Error("Encryption key not found.");
-        const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, secretKey, iv);
-        let encrypted = cipher.update(pKey, 'utf8', 'hex');
+        const iv: Buffer = crypto.randomBytes(16);
+        const cipher: crypto.Cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, secretKey, iv);
+        let encrypted: string = cipher.update(pKey, 'utf8', 'hex');
         encrypted += cipher.final('hex');
         return { encryptedPrivateKey: encrypted, iv: iv.toString('hex') };
     } catch (error) {
         await saveError({ function_name: "encryptPKey", error });
-        return null;
+        return undefined;
     }
 }
 
-export async function decryptPKey(encryptedPKey: string, iv: string): Promise<string | null> {
+export async function decryptPKey(encryptedPKey: string, iv: string): Promise<string | undefined> {
     try {
-        const secretKey = process.env.ENCRYPTION_SECRET_KEY;
-        if (!secretKey) return null;
-        const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, secretKey, Buffer.from(iv, 'hex'));
+        const secretKey: string | undefined = process.env.ENCRYPTION_SECRET_KEY;
+        if (!secretKey) return undefined;
+        const decipher: crypto.Cipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, secretKey, Buffer.from(iv, 'hex'));
         let decrypted = decipher.update(encryptedPKey, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
         return decrypted;
     } catch (error) {
         await saveError({ function_name: "decryptPKey", error });
-        return null;
+        return undefined;
     }
 }
 
@@ -226,7 +225,7 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
     const contractAddress: string = await extractAndValidateCA(msgContent);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
-        const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
+        const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
@@ -239,7 +238,7 @@ export async function buyCoinX(userId: string, msgContent: string, amount: strin
     const contractAddress: string = await extractAndValidateCA(msgContent);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
-        const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, amount);
+        const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, amount);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
@@ -252,7 +251,7 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
     const contractAddress: string = await extractAndValidateCA(msgContent);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
-        const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
+        const response: TxResponse = await sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
         await saveDbTransaction(response);
         const storeFee = response.referral && (response.total_fee !== -1 ? true : false); // users who's swap fee is 0. this is so those swaps don't try to store unpaid ref fees in case such a user has used a ref code
         return createAfterSwapUI(response, storeFee);
@@ -266,7 +265,7 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
     const contractAddress: string = await extractAndValidateCA(msgContent);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
-        const response: TxResponse = await SolanaWeb3.sellCoinViaAPI(userId, contractAddress, amountInPercent);
+        const response: TxResponse = await sellCoinViaAPI(userId, contractAddress, amountInPercent);
         await saveDbTransaction(response);
         const storeFee = response.referral && (response.total_fee !== -1 ? true : false); // users who's swap fee is 0
         return createAfterSwapUI(response, storeFee);
@@ -413,7 +412,7 @@ export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean
     // TODO: proper error handling, with returning error message
     if (!txResponse.referral) return false;
     try {
-        const tx: VersionedTransactionResponse | null = await SolanaWeb3.getTransactionInfo(txResponse.tx_signature);
+        const tx: VersionedTransactionResponse | null = await getTransactionInfo(txResponse.tx_signature);
         if (!tx) return false;
         const txInfo: ConfirmedTransactionMeta | null = tx.meta;
         const txMsg: { message: VersionedMessage; signatures: string[]; } = tx.transaction;
@@ -474,7 +473,7 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
 
     try {
         if (userUpdated) {
-            const txResponse: TxResponse = await SolanaWeb3.payRefFees(userId, payoutAmount);
+            const txResponse: TxResponse = await payRefFees(userId, payoutAmount);
             if (!txResponse.success) {
                 user.unclaimed_ref_fees = unclaimed_ref_fees;
                 user.claimed_ref_fees = claimed_ref_fees;

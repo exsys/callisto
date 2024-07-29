@@ -1,3 +1,4 @@
+import { Wallet } from "../models/wallet";
 import {
     ActionRowBuilder,
     ButtonBuilder,
@@ -9,9 +10,7 @@ import {
     TextInputStyle,
     InteractionEditReplyOptions,
 } from "discord.js";
-import { Wallet } from "../models/wallet";
-import { SolanaWeb3 } from "./solanaweb3";
-import { createNewRefCode, createNewWallet, createOrUseRefCodeForUser, formatNumber } from "./util";
+import { createNewRefCode, createWallet, createOrUseRefCodeForUser, formatNumber } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinstats";
 import { CoinInfo } from "../types/coininfo";
@@ -20,6 +19,7 @@ import { TxResponse } from "../types/tx-response";
 import { User } from "../models/user";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIResponse } from "../types/ui-response";
+import { buyCoinViaAPI, getAllCoinInfos, getAllCoinStatsFromWallet, getBalanceOfWalletInDecimal, getBalanceOfWalletInLamports, getCoinPriceStats, getCoinStatsFromWallet, getCurrentSolPrice } from "./solanaweb3";
 
 
 /* ADDITIONAL */
@@ -38,7 +38,7 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
     try {
         const user: any = await User.findOne({ user_id: userId }).lean();
         if (!user) {
-            const walletAddress: string | null = await createNewWallet(userId);
+            const walletAddress: string | undefined = await createWallet(userId);
             if (!walletAddress) {
                 return { content: "Error while trying to create a wallet. If the issue persists please contact support." };
             }
@@ -50,7 +50,7 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
         if (!wallet) return { content: "Server error. Please try again later. " };
 
         let content: string = "Solana's fastest Discord bot to trade any coin.";
-        const walletBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+        const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         let formattedBalance: string;
         if (!walletBalance) {
             // return start ui even if walletBalance returns an error
@@ -124,7 +124,7 @@ export const createWalletUI = async (userId: string): Promise<InteractionEditRep
     const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
     if (!wallet) return { content: ERROR_CODES["0003"].message };
 
-    const walletBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+    const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
     if (!walletBalance) return { content: ERROR_CODES["0015"].message };
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
     const content = `Default Wallet Address:\n${wallet.wallet_address}\n\nBalance:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
@@ -203,7 +203,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
     let content: string = "";
     const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
     if (!wallet) return { ui: { content: "No default wallet found. Create one with the /create command." } };
-    const walletBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInLamports(wallet.wallet_address);
+    const walletBalance: number | undefined = await getBalanceOfWalletInLamports(wallet.wallet_address);
     if (!walletBalance) return { ui: { content: ERROR_CODES["0015"].message } };
     if (wallet.settings.auto_buy_value > 0) {
         const txPrio: number = wallet.settings.tx_priority_value;
@@ -213,7 +213,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
             content += `Not enough SOL for autobuy. Please deposit more SOL to your wallet.`;
             return { ui: { content } };
         }
-        const response: TxResponse = await SolanaWeb3.buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
+        const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
         if (!response.error) {
             const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId });
             return { ui, transaction: response };
@@ -225,7 +225,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
     // TODO: if dexscreener fails try another method
     // TODO: find a way to get a more up-to-date price of the coin, because dex price can lag like 1 min behind
     // best way for this would be to know how much SOL and how much of the token are in the LP and then simply calculate the price
-    const coinInfo: CoinStats | null = await SolanaWeb3.getCoinPriceStats(contractAddress);
+    const coinInfo: CoinStats | null = await getCoinPriceStats(contractAddress);
     if (!coinInfo) return { ui: { content: "Coin not found. Please enter a valid contract address." } };
 
     // TODO: calculate price impact
@@ -292,7 +292,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
 
 export const createCoinInfoForLimitOrderUI = async (contract_address: string): Promise<InteractionEditReplyOptions> => {
     let content: string = "";
-    const coinInfo: CoinStats | null = await SolanaWeb3.getCoinPriceStats(contract_address);
+    const coinInfo: CoinStats | null = await getCoinPriceStats(contract_address);
     if (!coinInfo) return { content: "Coin not found. Please enter a valid coin." };
 
     // TODO: calculate price impact for different SOL amounts
@@ -342,7 +342,7 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
 
-        const coinsInWallet: CoinStats[] | null = await SolanaWeb3.getAllCoinStatsFromWallet(wallet.wallet_address, wallet.settings.min_position_value);
+        const coinsInWallet: CoinStats[] | null = await getAllCoinStatsFromWallet(wallet.wallet_address, wallet.settings.min_position_value);
         if (!coinsInWallet) {
             if (successMsg) {
                 // this block will be executed if user swapped with the sell & manage ui and there are no coins left inside their wallet (except sol)
@@ -386,7 +386,7 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
         if (!selectedCoin) return { content: ERROR_CODES["0007"].message };
         const coinSymbols: string[] = coinsInWallet.map((coin: CoinStats) => coin.symbol);
         const coinSymbolsDivided: string = coinSymbols.join(" | ");
-        const solBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+        const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         if (!solBalance) return { content: "Server error. Please try again later." };
 
         // TODO: uiAmount might be null in some cases. handle that case
@@ -555,11 +555,11 @@ export const createTokenSelectionUI = async (user_id: string, recipientId: strin
         const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
 
-        const solBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+        const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         if (!solBalance) return { content: "Server error. Please try again later." };
 
         let content: string = `Sending token to <@${recipientId}>\n\nYour SOL balance: ${solBalance}\nYour Tokens:\n`;
-        const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos({
+        const coinInfos: CoinInfo[] | null = await getAllCoinInfos({
             walletAddress: wallet.wallet_address,
             minPos: wallet.settings.min_position_value
         });
@@ -601,15 +601,15 @@ export const createTokenInfoBeforeSendUI = async (
     let content = `Send token to <@${recipientId}>`;
 
     if (contract_address === "SOL") {
-        const solBalance: number | undefined = await SolanaWeb3.getBalanceOfWalletInDecimal(wallet.wallet_address);
+        const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         if (!solBalance) return { content: "Server error. Please try again later." };
-        const solPrice: number | null = await SolanaWeb3.getCurrentSolPrice();
+        const solPrice: number | null = await getCurrentSolPrice();
         const holdingsValue: number = Number((solBalance * solPrice).toFixed(2));
         content += `\n\nSolana | SOL`;
         content += `\nBalance: ${solBalance}`;
         content += `\nHoldings value: $${holdingsValue}`;
     } else {
-        const coinInfo: CoinStats | null = await SolanaWeb3.getCoinStatsFromWallet(wallet.wallet_address, contract_address);
+        const coinInfo: CoinStats | null = await getCoinStatsFromWallet(wallet.wallet_address, contract_address);
         if (!coinInfo) return { content: "Server error. Please try again later." };
         content += `\n\n${coinInfo.name} | ${coinInfo.symbol} | ${coinInfo.address}`;
         content += `\nMarket Cap: $${coinInfo.fdv} @ $${formatNumber(coinInfo.price)}`;
@@ -876,7 +876,7 @@ export const createChangeWalletMenu = async (userId: string): Promise<Interactio
 export const createSelectCoinMenu = async (userId: string): Promise<InteractionEditReplyOptions> => {
     const content: string = "Select a coin to view its info's.";
     try {
-        const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos({ user_id: userId });
+        const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
         if (!coinInfos) return { content: "Server error. Please try again later." };
 
         // TODO: seems like max length is 25, handle that case
@@ -904,7 +904,7 @@ export const createSelectCoinMenu = async (userId: string): Promise<InteractionE
 export const createSelectCoinToSendMenu = async (userId: string, msgContent: string): Promise<InteractionEditReplyOptions> => {
     const content: string = `${msgContent}\n\nSelect a coin to send.`;
     try {
-        const coinInfos: CoinInfo[] | null = await SolanaWeb3.getAllCoinInfos({ user_id: userId });
+        const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
         if (!coinInfos) return { content: "Server error. Please try again later." };
 
         // TODO: seems like max length is 25, handle that case
