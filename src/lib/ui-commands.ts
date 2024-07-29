@@ -905,7 +905,8 @@ export const MODAL_COMMANDS = {
         const recipientWallet: any = await Wallet.findOne({ user_id: recipientId, is_default_wallet: true }).lean();
         if (!recipientWallet) await interaction.editReply(ERROR_CODES["0002"].message);
 
-        const tokenBalanceInDecimal: number = extractBalanceFromMessage(interaction.message!.content, 5);
+        const balanceLine: number = contractAddress === "SOL" ? 4 : 5;
+        const tokenBalanceInDecimal: number = extractBalanceFromMessage(interaction.message!.content, balanceLine);
         if (amountInPercent.includes("%")) amountInPercent = amountInPercent.replace("%", "");
         const amountToSend: string = String(tokenBalanceInDecimal * (Number(amountInPercent) / 100));
         let response: TxResponse;

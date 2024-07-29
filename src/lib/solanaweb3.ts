@@ -178,7 +178,7 @@ export class SolanaWeb3 {
             const { blockhash, lastValidBlockHeight } = await this.getConnection().getLatestBlockhash("finalized");
             const signer: Keypair | null = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
             if (!signer) return decryptError(txResponse);
-            const amountToSend: number = Number(amount) * LAMPORTS_PER_SOL;
+            const amountToSend: number = (Number(amount) * LAMPORTS_PER_SOL) - this.GAS_FEE_FOR_SOL_TRANSFER;
             txResponse.token_amount = amountToSend;
 
             const tx: Transaction = new Transaction().add(
@@ -198,10 +198,10 @@ export class SolanaWeb3 {
             if (balanceInLamports === 0) return insufficientBalanceError(txResponse);
             if (!estimatedFeeInLamports) {
                 // get default fee if the estimated fee is not available
-                if (balanceInLamports < (Number(amount) * LAMPORTS_PER_SOL) + this.GAS_FEE_FOR_SOL_TRANSFER) {
+                if (balanceInLamports < amountToSend + this.GAS_FEE_FOR_SOL_TRANSFER) {
                     return insufficientBalanceError(txResponse);
                 }
-            } else if (balanceInLamports < (Number(amount) * LAMPORTS_PER_SOL) + estimatedFeeInLamports) {
+            } else if (balanceInLamports < amountToSend + estimatedFeeInLamports) {
                 return insufficientBalanceError(txResponse);
             }
 
