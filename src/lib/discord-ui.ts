@@ -52,7 +52,7 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
         let content: string = "Solana's fastest Discord bot to trade any coin.";
         const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         let formattedBalance: string;
-        if (!walletBalance) {
+        if (walletBalance === undefined) {
             // return start ui even if walletBalance returns an error
             formattedBalance = "???";
         } else {
@@ -111,7 +111,7 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
             .setLabel('Refer Friends')
             .setStyle(ButtonStyle.Secondary);
 
-        const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, limitOrderButton, sellButton, walletButton);
+        const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, walletButton);
         const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(helpButton, referButton, settingsButton, refreshButton);
 
         return { content, components: [firstRow, secondRow] };

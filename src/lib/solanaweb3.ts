@@ -665,6 +665,50 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
     }
 }
 
+export async function createBuyLimitOrder(
+    user_id: string, contract_address: string, buyEntry: number, amount: number
+): Promise<TxResponse> {
+    const tx_type: string = `buy_limit`;
+    const txResponse: TxResponse = {
+        user_id,
+        tx_type,
+        contract_address,
+        token_amount: amount,
+    };
+
+    try {
+        // TODO NEXT: implement
+
+        txResponse.success = true;
+        txResponse.response = "Successfully set buy limit order.";
+        return successResponse(txResponse);
+    } catch (error) {
+        return unknownError({ ...txResponse, error });
+    }
+}
+
+export async function createSellLimitOrder(
+    user_id: string, contract_address: string, sellEntry: number, amount: number
+): Promise<TxResponse> {
+    const tx_type: string = `sell_limit`;
+    const txResponse: TxResponse = {
+        user_id,
+        tx_type,
+        contract_address,
+        token_amount: amount,
+    };
+
+    try {
+        // TODO NEXT: implement
+
+        txResponse.success = true;
+        txResponse.response = "Successfully set sell limit order.";
+        return successResponse(txResponse);
+    } catch (error) {
+        return unknownError({ ...txResponse, error });
+    }
+}
+
 // amount in lamports
 export async function payRefFees(user_id: string, amount: number): Promise<TxResponse> {
     const tx_type: string = "transfer_ref_fee";

@@ -63,7 +63,7 @@ import { TxResponse } from "../types/tx-response";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIResponse } from "../types/ui-response";
 import { ButtonInteraction, InteractionEditReplyOptions, ModalBuilder, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
-import { getTokenAccountOfWallet, checkIfValidAddress, transferXSol, transferAllSol, sendXPercentOfCoin, sendCoin } from "./solanaweb3";
+import { getTokenAccountOfWallet, checkIfValidAddress, transferXSol, transferAllSol, sendXPercentOfCoin, sendCoin, createBuyLimitOrder } from "./solanaweb3";
 
 const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map();
 const DEBOUNCE_TIME: number = 8000;
@@ -990,18 +990,55 @@ export const MODAL_COMMANDS = {
     },
     buyLimitPercentModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        await interaction.editReply("not implemented yet");
+        const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 0);
+        if (!contractAddress) {
+            await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
+            return;
+        }
+        const buyEntry: string = values[0];
+        const amountToBuyInSol: string = values[1];
+        // TODO NEXT: validate values
+        const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(buyEntry), Number(amountToBuyInSol));
+        await saveDbTransaction(result);
+        await interaction.editReply({ content: result.response });
     },
     buyLimitPriceModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        await interaction.editReply("not implemented yet");
+        const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 0);
+        if (!contractAddress) {
+            await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
+            return;
+        }
+        const buyEntry: string = values[0];
+        const amountToBuyInSol: string = values[1];
+        // TODO NEXT: validate values
+        const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(buyEntry), Number(amountToBuyInSol));
+        await interaction.editReply({ content: result.response });
     },
     sellLimitPercentModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        await interaction.editReply("not implemented yet");
+        const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 0);
+        if (!contractAddress) {
+            await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
+            return;
+        }
+        const sellEntry: string = values[0];
+        const amountToSellInPercent: string = values[1];
+        // TODO NEXT: validate values
+        const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(sellEntry), Number(amountToSellInPercent));
+        await interaction.editReply({ content: result.response });
     },
     sellLimitPriceModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        await interaction.editReply("not implemented yet");
+        const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 0);
+        if (!contractAddress) {
+            await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
+            return;
+        }
+        const sellEntry: string = values[0];
+        const amountToSellInPercent: string = values[1];
+        // TODO NEXT: validate values
+        const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(sellEntry), Number(amountToSellInPercent));
+        await interaction.editReply({ content: result.response });
     },
 };
