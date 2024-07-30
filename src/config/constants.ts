@@ -14,6 +14,7 @@ export const LEVEL2_FEE_IN_PERCENT: number = 20;
 export const LEVEL3_FEE_IN_PERCENT: number = 30;
 export const REFCODE_MODAL_STRING: string = "refcodemodal";
 export const DEFAULT_RPC_URL: string = "https://quaint-practical-liquid.solana-mainnet.quiknode.pro/de215f4d6fabf6c4bb0cb0eab8aceb79e8567a27/";
+export const ERRORS_WEBHOOK: string = "https://discord.com/api/webhooks/1267889101269368906/Lw8j5-f5KUqTLbcG_CpuXIyRWzrk7Qk36bquXHZ1uDQO1W8MIUbB3Phh50vzbutwC5Op";
 
 // variables below are not needed for the bot but written down here for easy access to these values
 const BOT_APP_ID: string = "1247262826838622311";

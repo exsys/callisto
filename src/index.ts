@@ -3,6 +3,7 @@ import { Client, GatewayIntentBits, Collection, Partials } from "discord.js";
 import fs from "fs";
 import path from "path";
 import connectDb from "./lib/connect-db";
+import { postDbErrorWebhook } from "./lib/util";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const client: any = new Client({
@@ -44,7 +45,11 @@ for (const file of eventFiles) {
 }
 
 client.on("ready", async () => {
-    await connectDb();
+    try {
+        await connectDb();
+    } catch (error: any) {
+        await postDbErrorWebhook(error);
+    }
     console.log("Bot started.");
 });
 client.login(isDevelopment ? process.env.BOT_TOKEN_DEV : process.env.BOT_TOKEN_PROD);

@@ -14,6 +14,7 @@ import { ERROR_CODES } from "../config/errors";
 import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
+    ERRORS_WEBHOOK,
     FEE_TOKEN_ACCOUNT,
     LEVEL1_FEE_IN_PERCENT,
     LEVEL2_FEE_IN_PERCENT,
@@ -80,7 +81,7 @@ export async function createOrUseRefCodeForUser(userId: string): Promise<string 
             msgContent += user.ref_code;
             return msgContent;
         }
-        
+
         // this block will only be executed if user doesn't have a ref code already
         let refCode: string = createNewRefCode();
         let userWithRefCodeExistsAlready: any = await User.findOne({ ref_code: refCode }).lean();
@@ -504,4 +505,34 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
         }
         return { ui: { content: ERROR_CODES["0016"].message } };
     }
+}
+
+export async function postDbErrorWebhook(error: any): Promise<void> {
+    const embed: any = {
+        title: "Database error",
+        timestamp: new Date().toISOString(),
+        color: 0x4F01EB,
+        fields: [
+            {
+                name: "Error name",
+                value: error.name || "undefined",
+            },
+            {
+                name: "Message",
+                value: error.message || "undefined",
+            },
+            {
+                name: "Stack",
+                value: error.stack || "undefined",
+            },
+        ],
+    };
+    const body: string = JSON.stringify({
+        embeds: [embed],
+    });
+    await fetch(ERRORS_WEBHOOK, {
+        method: "POST",
+        body: body,
+        headers: { "Content-Type": "application/json" },
+    });
 }

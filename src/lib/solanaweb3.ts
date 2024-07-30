@@ -971,7 +971,6 @@ export async function checkIfValidAddress(address: string | null): Promise<boole
         const isValid: boolean = PublicKey.isOnCurve(ca.toBuffer()) && PublicKey.isOnCurve(ca.toString());
         return isValid;
     } catch (error) {
-        await saveError({ wallet_address: address as string, contract_address: address as string, function_name: "checkIfValidAddress", error });
         return false;
     }
 }
