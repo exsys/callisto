@@ -45,11 +45,7 @@ for (const file of eventFiles) {
 }
 
 client.on("ready", async () => {
-    try {
-        await connectDb();
-    } catch (error: any) {
-        await postDbErrorWebhook(error);
-    }
+    await connectDb();
     console.log("Bot started.");
 });
 client.login(isDevelopment ? process.env.BOT_TOKEN_DEV : process.env.BOT_TOKEN_PROD);
