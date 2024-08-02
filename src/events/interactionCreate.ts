@@ -1,5 +1,6 @@
 import { Events } from "discord.js";
 import { BUTTON_COMMANDS, MENU_COMMANDS, MODAL_COMMANDS } from "../lib/ui-commands";
+import { saveError } from "../lib/util";
 
 const event = {
     name: Events.InteractionCreate,
@@ -28,7 +29,7 @@ const event = {
             try {
                 await command.execute(interaction);
             } catch (error) {
-                //console.log(error);
+                await saveError({ function_name: "InteractionCreate interaction.isCommand()", error });
                 await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
             }
         } else if (interaction.isButton()) {
@@ -42,7 +43,7 @@ const event = {
                 const buttonCommand = BUTTON_COMMANDS[buttonId as keyof typeof BUTTON_COMMANDS];
                 await buttonCommand(interaction);
             } catch (error) {
-                console.log(error);
+                await saveError({ function_name: "InteractionCreate interaction.isButton()", error });
                 await interaction.reply({ content: 'Server error. Please try again later.', ephemeral: true });
             }
         } else if (interaction.isModalSubmit()) {
@@ -52,24 +53,24 @@ const event = {
                 return;
             }
 
-            let inputValues: string | string[] | null = null;
-            switch (modalId) {
-                case "withdrawXSol":
-                    const amountToWithdraw = interaction.fields.getTextInputValue("value1");
-                    const destinationAddressX = interaction.fields.getTextInputValue("value2");
-                    inputValues = [amountToWithdraw, destinationAddressX];
-                    break;
-                case "sendCoin": 
-                    const amountToSend = interaction.fields.getTextInputValue("value1");
-                    const destinationAddress = interaction.fields.getTextInputValue("value2");
-                    inputValues = [amountToSend, destinationAddress];
-                    break;
-                default:
-                    inputValues = interaction.fields.getTextInputValue("value1");
-                    break;
+            let inputValues: string | string[] | undefined;
+            let value1: string | undefined;
+            let value2: string | undefined;
+            try {
+                value1 = interaction.fields.getTextInputValue("value1");
+                value2 = interaction.fields.getTextInputValue("value2");
+            } catch (error) {
+                // discord throws an error when a value doesn't exist.
+                // so we just catch it here and continue normally
             }
 
-            if (inputValues === null) {
+            if (value1 && value2) {
+                inputValues = [value1, value2];
+            } else if (value1) {
+                inputValues = value1;
+            }
+
+            if (!inputValues) {
                 await interaction.reply({ content: 'Server error. Please try again later. Error code: 0001', ephemeral: true });
                 return;
             }
@@ -78,7 +79,7 @@ const event = {
                 const modalCommand = MODAL_COMMANDS[modalId as keyof typeof MODAL_COMMANDS];
                 await modalCommand(interaction, inputValues as string & string[]);
             } catch (error) {
-                console.log(error);
+                await saveError({ function_name: "InteractionCreate interaction.isModalSubmit()", error });
                 await interaction.reply({ content: 'Server error. Please try again later.', ephemeral: true });
             }
         } else if (interaction.isStringSelectMenu()) {
@@ -93,7 +94,7 @@ const event = {
                 const menuCommand = MENU_COMMANDS[menuId as keyof typeof MENU_COMMANDS];
                 await menuCommand(interaction, value);
             } catch (error) {
-                console.log(error);
+                await saveError({ function_name: "InteractionCreate interaction.isStringSelectMenu()", error });
                 await interaction.reply({ content: 'Server error. Please try again later.', ephemeral: true });
             }
         }
