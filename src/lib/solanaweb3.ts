@@ -19,7 +19,7 @@ import {
     formatNumber,
     getFeeInPercentFromFeeLevel,
     getKeypairFromEncryptedPKey,
-    isNumber,
+    isPositiveNumber,
     saveError,
     successResponse
 } from './util';
@@ -172,7 +172,7 @@ export async function transferXSol(user_id: string, amount: string, recipientAdd
     txResponse.wallet_address = wallet_address;
 
     try {
-        if (!isNumber(amount)) return invalidNumberError(txResponse);
+        if (!isPositiveNumber(amount)) return invalidNumberError(txResponse);
         const { blockhash, lastValidBlockHeight } = await getConnection().getLatestBlockhash("finalized");
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) return decryptError(txResponse);
@@ -247,7 +247,7 @@ export async function sendXPercentOfCoin(user_id: string, contract_address: stri
 
     try {
         if (percent.includes("%")) percent = percent.replace("%", "");
-        if (!isNumber(percent)) return invalidNumberError(txResponse);
+        if (!isPositiveNumber(percent)) return invalidNumberError(txResponse);
         if (Number(percent) < 0) return invalidNumberError(txResponse);
 
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
@@ -324,7 +324,7 @@ export async function sendCoin(user_id: string, contract_address: string, amount
     txResponse.wallet_address = wallet_address;
 
     try {
-        if (!isNumber(amount)) return invalidNumberError(txResponse);
+        if (!isPositiveNumber(amount)) return invalidNumberError(txResponse);
 
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) return decryptError({ user_id, tx_type });
@@ -423,7 +423,7 @@ export async function buyCoinViaAPI(user_id: string, contract_address: string, a
         }
 
         const txPrio: number = wallet.settings.tx_priority_value;
-        if (!isNumber(amountToSwap)) return invalidNumberError(txResponse);
+        if (!isPositiveNumber(amountToSwap)) return invalidNumberError(txResponse);
         if (Number(amountToSwap) <= 0) return invalidAmountError(txResponse);
         if (balanceInLamports < Number(amountToSwap) * LAMPORTS_PER_SOL + txPrio) {
             return insufficientBalanceError({ ...txResponse, include_retry_button: true });
@@ -575,7 +575,7 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
     if (amountToSellInPercentString.includes("sell_button_")) {
         amountToSellInPercentString = wallet.settings[amountToSellInPercentString as string];
     }
-    if (!isNumber(amountToSellInPercentString)) return invalidNumberError(txResponse);
+    if (!isPositiveNumber(amountToSellInPercentString)) return invalidNumberError(txResponse);
 
     const amountToSellInPercent: number = Number(amountToSellInPercentString);
     if (amountToSellInPercent < 0.01 || amountToSellInPercent > 100) return invalidAmountError(txResponse);

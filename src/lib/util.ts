@@ -536,3 +536,8 @@ export async function postDbErrorWebhook(error: any): Promise<void> {
         headers: { "Content-Type": "application/json" },
     });
 }
+
+export function isPositiveNumber(numberToCheck: number | string): boolean {
+    if (!isNumber(String(numberToCheck))) return false;
+    return Number(numberToCheck) > 0;
+}
