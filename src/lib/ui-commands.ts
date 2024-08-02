@@ -65,7 +65,7 @@ import { UIResponse } from "../types/ui-response";
 import { ButtonInteraction, InteractionEditReplyOptions, ModalBuilder, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
 import { getTokenAccountOfWallet, checkIfValidAddress, transferXSol, transferAllSol, sendXPercentOfCoin, sendCoin, createBuyLimitOrder } from "./solanaweb3";
 
-const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map();
+const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map<string, boolean>();
 const DEBOUNCE_TIME: number = 8000;
 
 export const BUTTON_COMMANDS = {
@@ -995,9 +995,17 @@ export const MODAL_COMMANDS = {
             await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
             return;
         }
-        const buyEntry: string = values[0];
+        let buyEntry: string = values[0];
         const amountToBuyInSol: string = values[1];
-        // TODO NEXT: validate values
+        if (buyEntry.includes("%")) buyEntry = buyEntry.replace("%", "");
+        if (!isNumber(buyEntry) || !isNumber(amountToBuyInSol)) {
+            await interaction.editReply("Please enter a valid number.");
+            return;
+        }
+        if (buyEntry[0] === "-" || amountToBuyInSol[0] === "-") {
+            await interaction.editReply("Negative numbers are not allowed.");
+            return;
+        }
         const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(buyEntry), Number(amountToBuyInSol));
         await saveDbTransaction(result);
         await interaction.editReply({ content: result.response });
@@ -1011,7 +1019,14 @@ export const MODAL_COMMANDS = {
         }
         const buyEntry: string = values[0];
         const amountToBuyInSol: string = values[1];
-        // TODO NEXT: validate values
+        if (!isNumber(buyEntry) || !isNumber(amountToBuyInSol)) {
+            await interaction.editReply("Please enter a valid number.");
+            return;
+        }
+        if (buyEntry[0] === "-" || amountToBuyInSol[0] === "-") {
+            await interaction.editReply("Negative numbers are not allowed.");
+            return;
+        }
         const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(buyEntry), Number(amountToBuyInSol));
         await interaction.editReply({ content: result.response });
     },
@@ -1022,9 +1037,17 @@ export const MODAL_COMMANDS = {
             await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
             return;
         }
-        const sellEntry: string = values[0];
+        let sellEntry: string = values[0];
         const amountToSellInPercent: string = values[1];
-        // TODO NEXT: validate values
+        if (sellEntry.includes("%")) sellEntry = sellEntry.replace("%", "");
+        if (!isNumber(sellEntry) || !isNumber(amountToSellInPercent)) {
+            await interaction.editReply("Please enter a valid number.");
+            return;
+        }
+        if (sellEntry[0] === "-" || amountToSellInPercent[0] === "-") {
+            await interaction.editReply("Negative numbers are not allowed.");
+            return;
+        }
         const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(sellEntry), Number(amountToSellInPercent));
         await interaction.editReply({ content: result.response });
     },
@@ -1037,7 +1060,14 @@ export const MODAL_COMMANDS = {
         }
         const sellEntry: string = values[0];
         const amountToSellInPercent: string = values[1];
-        // TODO NEXT: validate values
+        if (!isNumber(sellEntry) || !isNumber(amountToSellInPercent)) {
+            await interaction.editReply("Please enter a valid number.");
+            return;
+        }
+        if (sellEntry[0] === "-" || amountToSellInPercent[0] === "-") {
+            await interaction.editReply("Negative numbers are not allowed.");
+            return;
+        }
         const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(sellEntry), Number(amountToSellInPercent));
         await interaction.editReply({ content: result.response });
     },

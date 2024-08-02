@@ -1299,7 +1299,7 @@ export const createBuyLimitPercentModal = (): ModalBuilder => {
         .setCustomId('value1')
         .setLabel('Buy after token price has fallen X percent')
         .setPlaceholder("50")
-        .setRequired(false)
+        .setRequired(true)
         .setMinLength(1)
         .setMaxLength(5)
         .setStyle(TextInputStyle.Short);
@@ -1308,7 +1308,7 @@ export const createBuyLimitPercentModal = (): ModalBuilder => {
         .setCustomId('value2')
         .setLabel('Amount to buy (in SOL)')
         .setPlaceholder("1")
-        .setRequired(false)
+        .setRequired(true)
         .setMinLength(1)
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
@@ -1328,7 +1328,7 @@ export const createBuyLimitPriceModal = (): ModalBuilder => {
         .setCustomId('value1')
         .setLabel('Buy when token price falls below price')
         .setPlaceholder("0.0069")
-        .setRequired(false)
+        .setRequired(true)
         .setMinLength(1)
         .setMaxLength(30)
         .setStyle(TextInputStyle.Short);
@@ -1337,7 +1337,7 @@ export const createBuyLimitPriceModal = (): ModalBuilder => {
         .setCustomId('value2')
         .setLabel('Amount to buy (in SOL)')
         .setPlaceholder("1")
-        .setRequired(false)
+        .setRequired(true)
         .setMinLength(1)
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
@@ -1357,7 +1357,7 @@ export const createSellLimitPercentModal = (): ModalBuilder => {
         .setCustomId('value1')
         .setLabel('Sell when token price increases by X percent')
         .setPlaceholder("150")
-        .setRequired(false)
+        .setRequired(true)
         .setMinLength(1)
         .setMaxLength(30)
         .setStyle(TextInputStyle.Short);
@@ -1366,7 +1366,7 @@ export const createSellLimitPercentModal = (): ModalBuilder => {
         .setCustomId('value2')
         .setLabel('Amount to sell (in %)')
         .setPlaceholder("100")
-        .setRequired(false)
+        .setRequired(true)
         .setMinLength(1)
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
@@ -1386,7 +1386,7 @@ export const createSellLimitPriceModal = (): ModalBuilder => {
         .setCustomId('value1')
         .setLabel('Sell when token price goes above price')
         .setPlaceholder("0.69")
-        .setRequired(false)
+        .setRequired(true)
         .setMinLength(1)
         .setMaxLength(30)
         .setStyle(TextInputStyle.Short);
@@ -1395,7 +1395,7 @@ export const createSellLimitPriceModal = (): ModalBuilder => {
         .setCustomId('value2')
         .setLabel('Amount to sell (in %)')
         .setPlaceholder("100")
-        .setRequired(false)
+        .setRequired(true)
         .setMinLength(1)
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
