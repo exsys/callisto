@@ -53,21 +53,14 @@ const event = {
                 return;
             }
 
-            let inputValues: string | string[] | undefined;
-            let value1: string | undefined;
-            let value2: string | undefined;
-            try {
-                value1 = interaction.fields.getTextInputValue("value1");
-                value2 = interaction.fields.getTextInputValue("value2");
-            } catch (error) {
-                // discord throws an error when a value doesn't exist.
-                // so we just catch it here and continue normally
-            }
-
-            if (value1 && value2) {
-                inputValues = [value1, value2];
-            } else if (value1) {
-                inputValues = value1;
+            let inputValues: string[] = [];
+            const totalValues: string[] = ["value1", "value2", "value3"]; // max possible values from callisto modals
+            for (const value of totalValues) {
+                try {
+                    inputValues.push(interaction.fields.getTextInputValue(value));
+                } catch (error) {
+                    break;
+                }
             }
 
             if (!inputValues) {
@@ -77,7 +70,7 @@ const event = {
 
             try {
                 const modalCommand = MODAL_COMMANDS[modalId as keyof typeof MODAL_COMMANDS];
-                await modalCommand(interaction, inputValues as string & string[]);
+                await modalCommand(interaction, inputValues as string[]);
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isModalSubmit()", error });
                 await interaction.reply({ content: 'Server error. Please try again later.', ephemeral: true });

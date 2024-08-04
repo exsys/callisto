@@ -19,20 +19,18 @@ import { TxResponse } from "../types/tx-response";
 import { User } from "../models/user";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIResponse } from "../types/ui-response";
-import { buyCoinViaAPI, getAllCoinInfos, getAllCoinStatsFromWallet, getBalanceOfWalletInDecimal, getBalanceOfWalletInLamports, getCoinPriceStats, getCoinStatsFromWallet, getCurrentSolPrice } from "./solanaweb3";
+import {
+    buyCoinViaAPI,
+    getAllCoinInfos,
+    getAllCoinStatsFromWallet,
+    getBalanceOfWalletInDecimal,
+    getBalanceOfWalletInLamports,
+    getCoinPriceStats,
+    getCoinStatsFromWallet,
+    getCurrentSolPrice
+} from "./solanaweb3";
 
-
-/* ADDITIONAL */
-export const addStartButton = (content: string): InteractionEditReplyOptions => {
-    const startButton = new ButtonBuilder()
-        .setCustomId('start')
-        .setLabel('Start')
-        .setStyle(ButtonStyle.Secondary);
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(startButton);
-    return { content, components: [row] };
-}
-
-/* UIs */
+/***************************************************** UIs *****************************************************/
 
 export const createStartUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
     try {
@@ -76,11 +74,6 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
             .setLabel('Buy')
             .setStyle(ButtonStyle.Secondary);
 
-        const limitOrderButton = new ButtonBuilder()
-            .setCustomId("limitOrder")
-            .setLabel("Limit Order")
-            .setStyle(ButtonStyle.Secondary);
-
         const sellButton = new ButtonBuilder()
             .setCustomId('sellAndManage')
             .setLabel('Sell & Manage')
@@ -111,6 +104,11 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
             .setLabel('Refer Friends')
             .setStyle(ButtonStyle.Secondary);
 
+        const advancedButton = new ButtonBuilder()
+            .setCustomId('advanced')
+            .setLabel('Advanced')
+            .setStyle(ButtonStyle.Secondary);
+
         const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, walletButton);
         const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(helpButton, referButton, settingsButton, refreshButton);
 
@@ -119,6 +117,31 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
         return { content: "Server error. Please try again later" };
     }
 };
+
+export const createAdvancedUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
+    const content: string = "";
+    try {
+        const limitOrderButton = new ButtonBuilder()
+            .setCustomId('limitOrder')
+            .setLabel('Limit Order')
+            .setStyle(ButtonStyle.Secondary);
+
+        const openLimitOrdersButton = new ButtonBuilder()
+            .setCustomId('openLimitOrders')
+            .setLabel('Open Limit Orders')
+            .setStyle(ButtonStyle.Secondary);
+
+        const dcaOrderButton = new ButtonBuilder()
+            .setCustomId('dcaOrder')
+            .setLabel('DCA')
+            .setStyle(ButtonStyle.Secondary);
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(limitOrderButton, openLimitOrdersButton, dcaOrderButton);
+        return { content, components: [row] };
+    } catch (error) {
+        return { content: "Server error. Please try again later" };
+    }
+}
 
 export const createWalletUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
     const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
@@ -292,47 +315,51 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
 
 export const createCoinInfoForLimitOrderUI = async (contract_address: string): Promise<InteractionEditReplyOptions> => {
     let content: string = "";
-    const coinInfo: CoinStats | null = await getCoinPriceStats(contract_address);
-    if (!coinInfo) return { content: "Coin not found. Please enter a valid coin." };
+    try {
+        const coinInfo: CoinStats | null = await getCoinPriceStats(contract_address);
+        if (!coinInfo) return { content: "Coin not found. Please enter a valid coin." };
 
-    // TODO: calculate price impact for different SOL amounts
+        // TODO: calculate price impact for different SOL amounts
 
-    const mcapNumber: number = Number(coinInfo.fdv.replace("M", ""));
-    const coinPrice: number = Number(coinInfo.price);
-    const price50PercentDown: number = Math.round(coinPrice * 50000) / 100000;
-    const price50PercentUp: number = Math.round(coinPrice * 150000) / 100000;
-    const mcap50PercentDown: string = ((Math.round(mcapNumber * 10000) / 10000) * 0.5).toFixed(2);
-    const mcap50PercentUp: string = ((Math.round(mcapNumber * 10000) / 10000) * 1.5).toFixed(2);
-    content += `\n\n${coinInfo.name} | ${coinInfo.symbol} | ${contract_address}`;
-    content += `\n\nPrice: $${coinInfo.price}, -50%: $${price50PercentDown}, +50%: $${price50PercentUp}`;
-    content += `\nMarket Cap: $${coinInfo.fdv}, -50%: ${mcap50PercentDown}M, +50%: ${mcap50PercentUp}M`;
-    content += `\n5m: ${coinInfo.priceChange.m5}%, 1h: ${coinInfo.priceChange.h1}%, 6h: ${coinInfo.priceChange.h6}%, 24h: ${coinInfo.priceChange.h24}%`
-    content += "\n\nTap one of the buttons below to create a limit order.";
+        const mcapNumber: number = Number(coinInfo.fdv.replace("M", ""));
+        const coinPrice: number = Number(coinInfo.price);
+        const price50PercentDown: number = Math.round(coinPrice * 50000) / 100000;
+        const price50PercentUp: number = Math.round(coinPrice * 150000) / 100000;
+        const mcap50PercentDown: string = ((Math.round(mcapNumber * 10000) / 10000) * 0.5).toFixed(2);
+        const mcap50PercentUp: string = ((Math.round(mcapNumber * 10000) / 10000) * 1.5).toFixed(2);
+        content += `\n\n${coinInfo.name} | ${coinInfo.symbol} | ${contract_address}`;
+        content += `\n\nPrice: $${coinInfo.price} | -50%: $${price50PercentDown} | +50%: $${price50PercentUp}`;
+        content += `\nMarket Cap: $${coinInfo.fdv} | -50%: ${mcap50PercentDown}M | +50%: ${mcap50PercentUp}M`;
+        content += `\n5m: ${coinInfo.priceChange.m5}% | 1h: ${coinInfo.priceChange.h1}% | 6h: ${coinInfo.priceChange.h6}% | 24h: ${coinInfo.priceChange.h24}%`
+        content += "\n\nTap one of the buttons below to create a limit order.";
 
-    const buyLimitPercentButton = new ButtonBuilder()
-        .setCustomId('buyLimitPercent')
-        .setLabel(`Buy Limit (%)`)
-        .setStyle(ButtonStyle.Secondary);
+        const buyLimitPercentButton = new ButtonBuilder()
+            .setCustomId('buyLimitPercent')
+            .setLabel(`Buy Limit (%)`)
+            .setStyle(ButtonStyle.Secondary);
 
-    const buyLimitPriceButton = new ButtonBuilder()
-        .setCustomId('buyLimitPrice')
-        .setLabel(`Buy Limit ($)`)
-        .setStyle(ButtonStyle.Secondary);
+        const buyLimitPriceButton = new ButtonBuilder()
+            .setCustomId('buyLimitPrice')
+            .setLabel(`Buy Limit ($)`)
+            .setStyle(ButtonStyle.Secondary);
 
-    const sellLimitPercentButton = new ButtonBuilder()
-        .setCustomId('sellLimitPercent')
-        .setLabel(`Sell Limit (%)`)
-        .setStyle(ButtonStyle.Secondary);
+        const sellLimitPercentButton = new ButtonBuilder()
+            .setCustomId('sellLimitPercent')
+            .setLabel(`Sell Limit (%)`)
+            .setStyle(ButtonStyle.Secondary);
 
 
-    const sellLimitPriceButton = new ButtonBuilder()
-        .setCustomId('sellLimitPrice')
-        .setLabel('Sell Limit ($)')
-        .setStyle(ButtonStyle.Secondary);
+        const sellLimitPriceButton = new ButtonBuilder()
+            .setCustomId('sellLimitPrice')
+            .setLabel('Sell Limit ($)')
+            .setStyle(ButtonStyle.Secondary);
 
-    const row = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(buyLimitPercentButton, buyLimitPriceButton, sellLimitPercentButton, sellLimitPriceButton);
-    return { content, components: [row] };
+        const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(buyLimitPercentButton, buyLimitPriceButton, sellLimitPercentButton, sellLimitPriceButton);
+        return { content, components: [row] };
+    } catch (error) {
+        return { content: "Server error. Please try again later." };
+    }
 }
 
 export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prevCoin, nextCoin }:
@@ -848,7 +875,7 @@ export const createRemoveWalletUI = async (userId: string): Promise<InteractionE
     };
 };
 
-/** MENUS */
+/****************************************************** MENUS *****************************************************/
 
 export const createChangeWalletMenu = async (userId: string): Promise<InteractionEditReplyOptions> => {
     const content: string = "Select a wallet to set it as your default wallet.";
@@ -933,7 +960,7 @@ export const createSelectCoinToSendMenu = async (userId: string, msgContent: str
     }
 };
 
-/** MODALS */
+/************************************************************** MODALS *****************************************************/
 
 export const createBuyModal = (): ModalBuilder => {
     const enterCAModal = new ModalBuilder()
@@ -1313,9 +1340,18 @@ export const createBuyLimitPercentModal = (): ModalBuilder => {
         .setMaxLength(10)
         .setStyle(TextInputStyle.Short);
 
+    const validForInput = new TextInputBuilder()
+        .setCustomId('value3')
+        .setLabel('Valid for X hours (empty = valid forever)')
+        .setPlaceholder("0")
+        .setRequired(false)
+        .setMaxLength(5)
+        .setStyle(TextInputStyle.Short);
+
     const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(percentInput);
     const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-    buyLimitPercentModal.addComponents(row1, row2);
+    const row3 = new ActionRowBuilder<TextInputBuilder>().addComponents(validForInput);
+    buyLimitPercentModal.addComponents(row1, row2, row3);
     return buyLimitPercentModal;
 }
 
@@ -1404,4 +1440,15 @@ export const createSellLimitPriceModal = (): ModalBuilder => {
     const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
     sellLimitPriceModal.addComponents(row1, row2);
     return sellLimitPriceModal;
+}
+
+/**************************************************** ADDITIONAL **********************************************************/
+
+export const addStartButton = (content: string): InteractionEditReplyOptions => {
+    const startButton = new ButtonBuilder()
+        .setCustomId('start')
+        .setLabel('Start')
+        .setStyle(ButtonStyle.Secondary);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(startButton);
+    return { content, components: [row] };
 }

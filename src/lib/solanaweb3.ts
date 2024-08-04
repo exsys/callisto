@@ -16,6 +16,7 @@ import {
 } from '@solana/web3.js';
 import { Wallet } from '../models/wallet';
 import {
+    errorResponse,
     formatNumber,
     getFeeInPercentFromFeeLevel,
     getKeypairFromEncryptedPKey,
@@ -32,7 +33,8 @@ import {
     FEE_REDUCTION_WITH_REF_CODE,
     TOKEN_PROGRAM,
     CALLISTO_FEE_WALLET,
-    DEFAULT_RPC_URL
+    DEFAULT_RPC_URL,
+    WRAPPED_SOL_ADDRESS
 } from "../config/constants";
 import { ParsedTokenInfo } from "../types/parsedtokeninfo";
 import { CoinInfo } from "../types/coininfo";
@@ -632,7 +634,7 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
         tx.sign([signer]);
         const signature: string | undefined = getSignature(tx);
         txResponse.tx_signature = signature;
-        const serializedTx = Buffer.from(tx.serialize());
+        const serializedTx: Buffer = Buffer.from(tx.serialize());
         const startTimeTx: number = Date.now();
         const result: VersionedTransactionResponse | null = await transactionSenderAndConfirmationWaiter({
             connection: conn,
@@ -666,7 +668,7 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
 }
 
 export async function createBuyLimitOrder(
-    user_id: string, contract_address: string, buyEntry: number, amount: number
+    user_id: string, contract_address: string, buyEntry: number, amount: number, validFor: number, isPercentOrder: boolean
 ): Promise<TxResponse> {
     const tx_type: string = `buy_limit`;
     const txResponse: TxResponse = {
@@ -676,8 +678,75 @@ export async function createBuyLimitOrder(
         token_amount: amount,
     };
 
+    let wallet: any;
+    let user: any;
     try {
-        // TODO NEXT: implement
+        wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+        if (!wallet) return walletNotFoundError(txResponse);
+        user = await User.findOne({ user_id }).lean();
+        if (!user) return userNotFoundError(txResponse);
+    } catch (error) {
+        return unknownError({ ...txResponse, error });
+    }
+    const wallet_address: string = wallet.wallet_address;
+    txResponse.wallet_address = wallet_address;
+
+    try {
+        const conn: Connection = getConnection();
+        const coinInfo: CoinStats | null = await getCoinPriceStats(contract_address);
+        if (!coinInfo) return coinstatsNotFoundError(txResponse);
+
+        let entryPrice: number;
+        if (isPercentOrder) {
+            entryPrice = Number(coinInfo.price) * (1 - buyEntry / 100);
+        } else {
+            entryPrice = buyEntry;
+        }
+
+        if (entryPrice >= Number(coinInfo.price)) {
+            txResponse.response = "Entry price can't be higher than current price.";
+            txResponse.error = "Entry price can't be higher than current price.";
+            return errorResponse(txResponse);
+        }
+
+        const amountToBuyInLamports: number = Number(amount) * LAMPORTS_PER_SOL;
+
+        // TODO: use pool formula to calculate exact inAmount & outAmount for specific price
+
+        const base: Keypair = Keypair.generate();
+        const { tx } = await (
+            await fetch('https://jup.ag/api/limit/v1/createOrder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    owner: wallet.publicKey.toString(),
+                    inAmount: 100000,
+                    outAmount: 100000,
+                    inputMint: WRAPPED_SOL_ADDRESS,
+                    outputMint: contract_address,
+                    expiredAt: null,
+                    base: base.publicKey.toString(),
+                })
+            })
+        ).json();
+
+        const txBuffer: Buffer = Buffer.from(tx, "base64");
+        const limitTx: VersionedTransaction = VersionedTransaction.deserialize(txBuffer);
+        limitTx.sign([wallet.payer, base]);
+        const signature: string | undefined = getSignature(limitTx);
+        txResponse.tx_signature = signature;
+        const serializedTx: Buffer = Buffer.from(limitTx.serialize());
+        const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
+        const result: VersionedTransactionResponse | null = await transactionSenderAndConfirmationWaiter({
+            connection: conn,
+            serializedTransaction: serializedTx,
+            blockhashWithExpiryBlockHeight: {
+                blockhash: blockhash,
+                lastValidBlockHeight: lastValidBlockHeight,
+            },
+        });
+        if (!result) return txExpiredError(txResponse);
+        if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
 
         txResponse.success = true;
         txResponse.response = "Successfully set buy limit order.";
@@ -688,7 +757,7 @@ export async function createBuyLimitOrder(
 }
 
 export async function createSellLimitOrder(
-    user_id: string, contract_address: string, sellEntry: number, amount: number
+    user_id: string, contract_address: string, sellEntry: number, amount: number, validFor: number
 ): Promise<TxResponse> {
     const tx_type: string = `sell_limit`;
     const txResponse: TxResponse = {
@@ -1080,8 +1149,7 @@ export async function getCoinInfo(contract_address: string): Promise<CoinInfo | 
 }
 
 export async function getAllCoinInfos(
-    { user_id, walletAddress, minPos }:
-        { user_id?: string, walletAddress?: string, minPos?: number }
+    { user_id, walletAddress, minPos }: { user_id?: string, walletAddress?: string, minPos?: number }
 ): Promise<CoinInfo[] | null> {
     try {
         let wallet_address: string | undefined = walletAddress;

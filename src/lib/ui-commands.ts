@@ -36,7 +36,8 @@ import {
     createBuyLimitPercentModal,
     createBuyLimitPriceModal,
     createSellLimitPercentModal,
-    createSellLimitPriceModal
+    createSellLimitPriceModal,
+    createAdvancedUI
 } from "./discord-ui";
 import {
     buyCoin,
@@ -56,6 +57,7 @@ import {
     saveDbTransaction,
     extractUserIdFromMessage,
     extractBalanceFromMessage,
+    isPositiveNumber,
 } from "./util";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
@@ -63,7 +65,7 @@ import { TxResponse } from "../types/tx-response";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIResponse } from "../types/ui-response";
 import { ButtonInteraction, InteractionEditReplyOptions, ModalBuilder, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
-import { getTokenAccountOfWallet, checkIfValidAddress, transferXSol, transferAllSol, sendXPercentOfCoin, sendCoin, createBuyLimitOrder } from "./solanaweb3";
+import { getTokenAccountOfWallet, checkIfValidAddress, transferXSol, transferAllSol, sendXPercentOfCoin, sendCoin, createBuyLimitOrder, createSellLimitOrder } from "./solanaweb3";
 
 const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map<string, boolean>();
 const DEBOUNCE_TIME: number = 8000;
@@ -91,41 +93,49 @@ export const BUTTON_COMMANDS = {
     },
     start: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
-        await interaction.editReply(startUI);
+        const ui: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
+        await interaction.editReply(ui);
+    },
+    advanced: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionEditReplyOptions = await createAdvancedUI(interaction.user.id);
+        await interaction.editReply(ui);
     },
     buy: async (interaction: ButtonInteraction) => {
         const modal = createBuyModal();
         await interaction.showModal(modal);
     },
+    sellAndManage: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
+        await interaction.editReply(ui);
+    },
     limitOrder: async (interaction: ButtonInteraction) => {
         const modal = createLimitOrderModal();
         await interaction.showModal(modal);
-        // paste ca
-        // show coin info
-        // let user submit price where to buy
-        // option 1: $ price, but like jup show % change 
-        // option 2: let user 
     },
-    sellAndManage: async (interaction: ButtonInteraction) => {
+    openLimitOrders: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
-        await interaction.editReply(sellUI);
+        await interaction.editReply("not implemented yet");
+    },
+    dcaOrder: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        await interaction.editReply("not implemented yet");
     },
     wallet: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const walletUi: InteractionEditReplyOptions = await createWalletUI(interaction.user.id);
-        await interaction.editReply(walletUi);
+        const ui: InteractionEditReplyOptions = await createWalletUI(interaction.user.id);
+        await interaction.editReply(ui);
     },
     settings: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
-        await interaction.editReply(settingsUI);
+        const ui: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+        await interaction.editReply(ui);
     },
     refresh: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
-        await interaction.editReply(startUI);
+        const ui: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
+        await interaction.editReply(ui);
     },
     refreshCoinInfo: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
@@ -144,12 +154,12 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply({ content: ERROR_CODES["0006"].message });
             return;
         }
-        const sellAndManageUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
-        await interaction.editReply(sellAndManageUI);
+        const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
+        await interaction.editReply(ui);
     },
     help: async (interaction: ButtonInteraction) => {
-        const helpUI: string = createHelpUI();
-        await interaction.reply(helpUI);
+        const ui: string = createHelpUI();
+        await interaction.reply(ui);
     },
     refer: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
@@ -578,39 +588,38 @@ export const MENU_COMMANDS = {
 };
 
 export const MODAL_COMMANDS = {
-    buyCoin: async (interaction: ModalSubmitInteraction, contractAddress: string) => {
+    buyCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
         // this one will be called after pasting the contract address in the CA modal
         await interaction.deferReply({ ephemeral: true });
-        const isValidAddress: boolean = await checkIfValidAddress(contractAddress);
+        const isValidAddress: boolean = await checkIfValidAddress(values[0]);
         if (!isValidAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
             return;
         }
-        const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress);
+        const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, values[0]);
         await interaction.editReply(uiResponse.ui);
     },
-    buyXSol: async (interaction: ModalSubmitInteraction, amount: string) => {
+    buyXSol: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await buyCoinX(interaction.user.id, interaction.message!.content, amount);
+        const uiResponse: UIResponse = await buyCoinX(interaction.user.id, interaction.message!.content, values[0]);
         await interaction.editReply(uiResponse.ui);
     },
-    sellXPercent: async (interaction: ModalSubmitInteraction, percent: string) => {
+    sellXPercent: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await sellCoinX(interaction.user.id, interaction.message!.content, percent);
+        const uiResponse: UIResponse = await sellCoinX(interaction.user.id, interaction.message!.content, values[0]);
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
             const success = await storeUnpaidRefFee(uiResponse.transaction!);
             if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
         }
     },
-    limitOrderInfo: async (interaction: ModalSubmitInteraction, contractAddress: string) => {
+    limitOrderInfo: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const contract_address: string = await extractAndValidateCA(contractAddress);
+        const contract_address: string = await extractAndValidateCA(values[0]);
         if (!contract_address) {
             await interaction.editReply("Invalid contract address.");
             return;
         }
-
         const ui: InteractionEditReplyOptions = await createCoinInfoForLimitOrderUI(contract_address);
         await interaction.editReply(ui);
     },
@@ -623,26 +632,25 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Invalid destination address. Please enter a valid address." });
             return;
         }
-
         const result: TxResponse = await transferXSol(interaction.user.id, amountToWithdraw, destinationAddress);
         await interaction.editReply({ content: result.response });
         await saveDbTransaction(result);
     },
-    withdrawAllSol: async (interaction: ModalSubmitInteraction, destinationAddress: string) => {
+    withdrawAllSol: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const isValidAddress: boolean = await checkIfValidAddress(destinationAddress);
+        const isValidAddress: boolean = await checkIfValidAddress(values[0]);
         if (!isValidAddress) {
             await interaction.editReply({ content: "Invalid destination address. Please enter a valid address." });
             return;
         }
 
-        const result: TxResponse = await transferAllSol(interaction.user.id, destinationAddress);
+        const result: TxResponse = await transferAllSol(interaction.user.id, values[0]);
         await interaction.editReply({ content: result.response });
         await saveDbTransaction(result);
     },
-    changeMinPositionValue: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeMinPositionValue: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.reply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -652,15 +660,15 @@ export const MODAL_COMMANDS = {
             return;
         }
 
-        wallet.settings.min_position_value = Number(amount);
+        wallet.settings.min_position_value = Number(values[0]);
         await wallet.save();
 
         const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
         await interaction.editReply(settingsUI);
     },
-    changeAutoBuyValue: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeAutoBuyValue: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -671,7 +679,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.auto_buy_value = Number(amount);
+            wallet.settings.auto_buy_value = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -680,9 +688,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuySlippage: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeBuySlippage: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -693,7 +701,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.buy_slippage = Number(amount);
+            wallet.settings.buy_slippage = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -703,9 +711,9 @@ export const MODAL_COMMANDS = {
         }
 
     },
-    changeSellSlippage: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeSellSlippage: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -716,7 +724,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.sell_slippage = Number(amount);
+            wallet.settings.sell_slippage = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -725,9 +733,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeTransactionPriority: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeTransactionPriority: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -739,7 +747,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.tx_priority_value = Number(amount) * LAMPORTS_PER_SOL; // convert to lamports
+            wallet.settings.tx_priority_value = Number(values[0]) * LAMPORTS_PER_SOL; // convert to lamports
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -748,9 +756,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuyButton1: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeBuyButton1: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -761,7 +769,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.buy_button_1 = Number(amount);
+            wallet.settings.buy_button_1 = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -770,9 +778,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuyButton2: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeBuyButton2: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -783,7 +791,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.buy_button_2 = Number(amount);
+            wallet.settings.buy_button_2 = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -792,9 +800,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuyButton3: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeBuyButton3: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -805,7 +813,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.buy_button_3 = Number(amount);
+            wallet.settings.buy_button_3 = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -814,9 +822,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBuyButton4: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeBuyButton4: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -827,7 +835,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.buy_button_4 = Number(amount);
+            wallet.settings.buy_button_4 = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -836,9 +844,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeSellButton1: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeSellButton1: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -849,7 +857,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.sell_button_1 = Number(amount);
+            wallet.settings.sell_button_1 = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -858,9 +866,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeSellButton2: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeSellButton2: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -871,7 +879,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.sell_button_2 = Number(amount);
+            wallet.settings.sell_button_2 = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -880,9 +888,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeSellButton3: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeSellButton3: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -893,7 +901,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.sell_button_3 = Number(amount);
+            wallet.settings.sell_button_3 = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -902,9 +910,9 @@ export const MODAL_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeSellButton4: async (interaction: ModalSubmitInteraction, amount: string) => {
+    changeSellButton4: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isNumber(amount)) {
+        if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -915,7 +923,7 @@ export const MODAL_COMMANDS = {
         }
 
         try {
-            wallet.settings.sell_button_4 = Number(amount);
+            wallet.settings.sell_button_4 = Number(values[0]);
             await wallet.save();
 
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
@@ -938,7 +946,7 @@ export const MODAL_COMMANDS = {
         await interaction.editReply({ content: result.response });
         await saveDbTransaction(result);
     },
-    sendXPercentToUser: async (interaction: ModalSubmitInteraction, amountInPercent: string) => {
+    sendXPercentToUser: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 3);
         if (!contractAddress) await interaction.editReply("Server error. Please try again later.");
@@ -949,8 +957,8 @@ export const MODAL_COMMANDS = {
 
         const balanceLine: number = contractAddress === "SOL" ? 4 : 5;
         const tokenBalanceInDecimal: number = extractBalanceFromMessage(interaction.message!.content, balanceLine);
-        if (amountInPercent.includes("%")) amountInPercent = amountInPercent.replace("%", "");
-        const amountToSend: string = String(tokenBalanceInDecimal * (Number(amountInPercent) / 100));
+        if (values[0].includes("%")) values[0] = values[0].replace("%", "");
+        const amountToSend: string = String(tokenBalanceInDecimal * (Number(values[0]) / 100));
         let response: TxResponse;
         if (contractAddress === "SOL") {
             response = await transferXSol(interaction.user.id, amountToSend, recipientWallet.wallet_address);
@@ -960,7 +968,7 @@ export const MODAL_COMMANDS = {
         await interaction.editReply({ content: response.response });
         await saveDbTransaction(response);
     },
-    sendXAmountToUser: async (interaction: ModalSubmitInteraction, amountInToken: string) => {
+    sendXAmountToUser: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 3);
         if (!contractAddress) await interaction.editReply("Server error. Please try again later.");
@@ -971,17 +979,17 @@ export const MODAL_COMMANDS = {
 
         let response: TxResponse;
         if (contractAddress === "SOL") {
-            response = await transferXSol(interaction.user.id, amountInToken, recipientWallet.wallet_address);
+            response = await transferXSol(interaction.user.id, values[0], recipientWallet.wallet_address);
         } else {
-            response = await sendCoin(interaction.user.id, contractAddress, amountInToken, recipientWallet.wallet_address);
+            response = await sendCoin(interaction.user.id, contractAddress, values[0], recipientWallet.wallet_address);
         }
         await interaction.editReply({ content: response.response });
         await saveDbTransaction(response);
     },
-    enterRefCode: async (interaction: ModalSubmitInteraction, refCode: string) => {
+    enterRefCode: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (refCode) {
-            const response: InteractionEditReplyOptions = await saveReferralAndUpdateFees(interaction.user.id, refCode);
+        if (values[0]) {
+            const response: InteractionEditReplyOptions = await saveReferralAndUpdateFees(interaction.user.id, values[0]);
             await interaction.editReply(response);
         } else {
             const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
@@ -995,18 +1003,28 @@ export const MODAL_COMMANDS = {
             await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
             return;
         }
-        let buyEntry: string = values[0];
+        let buyAfterXPercentDecrease: string = values[0];
         const amountToBuyInSol: string = values[1];
-        if (buyEntry.includes("%")) buyEntry = buyEntry.replace("%", "");
-        if (!isNumber(buyEntry) || !isNumber(amountToBuyInSol)) {
+        const validFor: string | undefined = values[2];
+        if (buyAfterXPercentDecrease.includes("%")) buyAfterXPercentDecrease = buyAfterXPercentDecrease.replace("%", "");
+        if (!isPositiveNumber(buyAfterXPercentDecrease) || !isPositiveNumber(amountToBuyInSol)) {
             await interaction.editReply("Please enter a valid number.");
             return;
         }
-        if (buyEntry[0] === "-" || amountToBuyInSol[0] === "-") {
-            await interaction.editReply("Negative numbers are not allowed.");
-            return;
+        if (validFor) {
+            if (!isPositiveNumber(validFor)) {
+                await interaction.editReply("Please enter a valid number.");
+                return;
+            }
         }
-        const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(buyEntry), Number(amountToBuyInSol));
+        const result: TxResponse = await createBuyLimitOrder(
+            interaction.user.id,
+            contractAddress,
+            Number(buyAfterXPercentDecrease),
+            Number(amountToBuyInSol),
+            Number(validFor),
+            true
+        );
         await saveDbTransaction(result);
         await interaction.editReply({ content: result.response });
     },
@@ -1019,15 +1037,19 @@ export const MODAL_COMMANDS = {
         }
         const buyEntry: string = values[0];
         const amountToBuyInSol: string = values[1];
-        if (!isNumber(buyEntry) || !isNumber(amountToBuyInSol)) {
+        const validFor: string = values[2];
+        if (!isPositiveNumber(buyEntry) || !isPositiveNumber(amountToBuyInSol) || !isPositiveNumber(validFor)) {
             await interaction.editReply("Please enter a valid number.");
             return;
         }
-        if (buyEntry[0] === "-" || amountToBuyInSol[0] === "-") {
-            await interaction.editReply("Negative numbers are not allowed.");
-            return;
-        }
-        const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(buyEntry), Number(amountToBuyInSol));
+        const result: TxResponse = await createBuyLimitOrder(
+            interaction.user.id,
+            contractAddress,
+            Number(buyEntry),
+            Number(amountToBuyInSol),
+            Number(validFor),
+            false
+        );
         await interaction.editReply({ content: result.response });
     },
     sellLimitPercentModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -1039,16 +1061,19 @@ export const MODAL_COMMANDS = {
         }
         let sellEntry: string = values[0];
         const amountToSellInPercent: string = values[1];
+        const validFor: string = values[2];
         if (sellEntry.includes("%")) sellEntry = sellEntry.replace("%", "");
-        if (!isNumber(sellEntry) || !isNumber(amountToSellInPercent)) {
+        if (!isPositiveNumber(sellEntry) || !isPositiveNumber(amountToSellInPercent) || !isPositiveNumber(validFor)) {
             await interaction.editReply("Please enter a valid number.");
             return;
         }
-        if (sellEntry[0] === "-" || amountToSellInPercent[0] === "-") {
-            await interaction.editReply("Negative numbers are not allowed.");
-            return;
-        }
-        const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(sellEntry), Number(amountToSellInPercent));
+        const result: TxResponse = await createSellLimitOrder(
+            interaction.user.id,
+            contractAddress,
+            Number(sellEntry),
+            Number(amountToSellInPercent),
+            Number(validFor)
+        );
         await interaction.editReply({ content: result.response });
     },
     sellLimitPriceModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -1058,17 +1083,21 @@ export const MODAL_COMMANDS = {
             await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
             return;
         }
-        const sellEntry: string = values[0];
+        let sellEntry: string = values[0];
         const amountToSellInPercent: string = values[1];
-        if (!isNumber(sellEntry) || !isNumber(amountToSellInPercent)) {
+        const validFor: string = values[2];
+        if (sellEntry.includes("%")) sellEntry = sellEntry.replace("%", "");
+        if (!isPositiveNumber(sellEntry) || !isPositiveNumber(amountToSellInPercent) || !isPositiveNumber(validFor)) {
             await interaction.editReply("Please enter a valid number.");
             return;
         }
-        if (sellEntry[0] === "-" || amountToSellInPercent[0] === "-") {
-            await interaction.editReply("Negative numbers are not allowed.");
-            return;
-        }
-        const result: TxResponse = await createBuyLimitOrder(interaction.user.id, contractAddress, Number(sellEntry), Number(amountToSellInPercent));
+        const result: TxResponse = await createSellLimitOrder(
+            interaction.user.id,
+            contractAddress,
+            Number(sellEntry),
+            Number(amountToSellInPercent),
+            Number(validFor)
+        );
         await interaction.editReply({ content: result.response });
     },
 };

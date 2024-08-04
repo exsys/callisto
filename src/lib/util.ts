@@ -407,6 +407,10 @@ export function successResponse(txResponse: TxResponse): TxResponse {
     return { ...txResponse };
 }
 
+export function errorResponse(txResponse: TxResponse): TxResponse {
+    return { ...txResponse };
+}
+
 // this will only be called for sell transactions. so only checking for FEE_TOKEN_ACCOUNT for the balances is correct.
 export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean> {
     if (!txResponse) return false;
