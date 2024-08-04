@@ -713,6 +713,8 @@ export async function createBuyLimitOrder(
 
         // TODO: use pool formula to calculate exact inAmount & outAmount for specific price
 
+        // TODO: calculate epxiration timestamp
+
         const base: Keypair = Keypair.generate();
         const { tx } = await (
             await fetch('https://jup.ag/api/limit/v1/createOrder', {
@@ -768,7 +770,7 @@ export async function createSellLimitOrder(
     };
 
     try {
-        // TODO NEXT: implement
+        // TODO: implement
 
         txResponse.success = true;
         txResponse.response = "Successfully set sell limit order.";
