@@ -240,7 +240,9 @@ export const BUTTON_COMMANDS = {
                 return;
             }
             const oldDefaultWallet: any = allWallets.find((wallet: any) => wallet.is_default_wallet);
-            const newDefaultWallet: any = allWallets.sort((a: any, b: any) => a.createdAt - b.createdAt)[0]; // find the latest wallet by date
+            const newDefaultWallet: any = allWallets.sort((a: any, b: any) => {
+                return Math.floor(new Date(b.createdAt).getTime() / 1000) - Math.floor(new Date(a.createdAt).getTime() / 1000);
+            })[0]; // find the latest wallet by date
             if (!newDefaultWallet || !oldDefaultWallet) {
                 await interaction.editReply({ content: "Server error. Please try again later" });
                 return;
@@ -556,18 +558,20 @@ export const MENU_COMMANDS = {
         }
 
         try {
+            if (allWallets.length > 1) {
+                const newDefaultWallet: any = allWallets.find((wallet: any) => wallet.wallet_address !== removeWallet.wallet_address);
+                newDefaultWallet.is_default_wallet = true;
+                await newDefaultWallet.save();
+            }
+
             removeWallet.user_id = "deleted";
             removeWallet.user_id_deleted = interaction.user.id;
             if (removeWallet.is_default_wallet) {
                 removeWallet.is_default_wallet = false;
             }
             await removeWallet.save();
+            console.log(removeWallet.user_id);
 
-            if (allWallets.length > 1) {
-                const newDefaultWallet: any = allWallets.find((wallet: any) => wallet.wallet_address !== removeWallet.wallet_address);
-                newDefaultWallet.is_default_wallet = true;
-                await newDefaultWallet.save();
-            }
 
             await interaction.editReply({ content: "Successfully removed wallet." });
         } catch (error) {

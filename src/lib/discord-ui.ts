@@ -148,7 +148,7 @@ export const createWalletUI = async (userId: string): Promise<InteractionEditRep
     if (!wallet) return { content: ERROR_CODES["0003"].message };
 
     const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-    if (!walletBalance) return { content: ERROR_CODES["0015"].message };
+    if (walletBalance === undefined) return { content: ERROR_CODES["0015"].message };
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
     const content = `Default Wallet Address:\n${wallet.wallet_address}\n\nBalance:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
 
@@ -227,7 +227,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
     const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
     if (!wallet) return { ui: { content: "No default wallet found. Create one with the /create command." } };
     const walletBalance: number | undefined = await getBalanceOfWalletInLamports(wallet.wallet_address);
-    if (!walletBalance) return { ui: { content: ERROR_CODES["0015"].message } };
+    if (walletBalance === undefined) return { ui: { content: ERROR_CODES["0015"].message } };
     if (wallet.settings.auto_buy_value > 0) {
         const txPrio: number = wallet.settings.tx_priority_value;
 
