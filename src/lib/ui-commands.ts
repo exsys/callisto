@@ -570,9 +570,6 @@ export const MENU_COMMANDS = {
                 removeWallet.is_default_wallet = false;
             }
             await removeWallet.save();
-            console.log(removeWallet.user_id);
-
-
             await interaction.editReply({ content: "Successfully removed wallet." });
         } catch (error) {
             await interaction.editReply({ content: "Server error. Please try again later." });
