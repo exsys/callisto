@@ -21,9 +21,9 @@ import {
     LEVEL3_FEE_IN_PERCENT,
     REFCODE_MODAL_STRING
 } from "../config/constants";
-import { TxResponse } from "../types/tx-response";
-import { UIResponse } from "../types/ui-response";
-import { DBError } from "../types/db-error";
+import { TxResponse } from "../types/txResponse";
+import { UIResponse } from "../types/uiResponse";
+import { DBError } from "../types/dbError";
 import { Error } from "../models/errors";
 import { InteractionEditReplyOptions } from "discord.js";
 import { checkIfValidAddress, buyCoinViaAPI, sellCoinViaAPI, getTransactionInfo, payRefFees, createNewWallet } from "./solanaweb3";

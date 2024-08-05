@@ -1,4 +1,4 @@
-import { TxResponse } from "../types/tx-response";
+import { TxResponse } from "../types/txResponse";
 
 export const ERROR_CODES = {
     "0000": {

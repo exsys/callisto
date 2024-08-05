@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import { DBTransaction } from "../types/db-tx";
+import { DBTransaction } from "../types/dbTransaction";
 
 const TransactionSchema = new Schema<DBTransaction>({
     user_id: {

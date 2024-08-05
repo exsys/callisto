@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import { DBError } from "../types/db-error";
+import { DBError } from "../types/dbError";
 
 const ErrorSchema = new Schema<DBError>({
     user_id: {

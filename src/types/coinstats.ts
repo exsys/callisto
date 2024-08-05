@@ -1,7 +1,7 @@
 import { TokenAmount } from "@solana/web3.js";
-import { PriceChangeInfo } from "./pricechangeinfo";
+import { PriceChangeInfo } from "./priceChangeInfo";
 import { TxInfo } from "./txinfo";
-import { VolumeInfo } from "./volumeinfo";
+import { VolumeInfo } from "./volumeInfo";
 
 export interface CoinStats {
     address: string;

@@ -24,7 +24,7 @@ import {
     saveError,
     successResponse
 } from './util';
-import { SwapTx } from "../types/swaptx";
+import { SwapTx } from "../types/swapTx";
 import {
     BASE_SWAP_FEE,
     FEE_TOKEN_ACCOUNT,
@@ -36,9 +36,9 @@ import {
     DEFAULT_RPC_URL,
     WRAPPED_SOL_ADDRESS
 } from "../config/constants";
-import { ParsedTokenInfo } from "../types/parsedtokeninfo";
-import { CoinInfo } from "../types/coininfo";
-import { CoinStats } from "../types/coinstats";
+import { ParsedTokenInfo } from "../types/parsedTokenInfo";
+import { CoinInfo } from "../types/coinInfo";
+import { CoinStats } from "../types/coinStats";
 import {
     getAssociatedTokenAddress,
     ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -67,14 +67,13 @@ import {
 } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
-import { QuoteResponse } from "../types/quoteresponse";
-import { CAWithAmount } from "../types/cawithamount";
+import { QuoteResponse } from "../types/quoteResponse";
+import { CAWithAmount } from "../types/caWithAmount";
 import { User } from "../models/user";
-import { TxResponse } from "../types/tx-response";
-import { CaAmount } from "../types/caamount";
+import { TxResponse } from "../types/txResponse";
 import { PROMO_REF_MAPPING } from "../config/promo_ref_mapping";
 import { CoinPriceQuote } from "../types/coinPriceQuote";
-import { ParsedProgramAccountWrittenOut } from "../types/parsedprogramaccount";
+import { ParsedProgramAccountWrittenOut } from "../types/parsedProgramAccount";
 
 
 /*jitoConn: Connection = new Connection("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/transactions", {
@@ -969,10 +968,10 @@ export async function getCurrentTokenPriceInSol(contract_address: string, amount
     }
 }
 
-export async function getCurrentTokenPriceInSolAll(casAndAmounts: CaAmount[]): Promise<number[]> {
+export async function getCurrentTokenPriceInSolAll(casAndAmounts: CAWithAmount[]): Promise<number[]> {
     try {
-        const requests: Promise<Response>[] = casAndAmounts.map((caAndAmount: CaAmount) => {
-            return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caAndAmount.contractAddress}&outputMint=So11111111111111111111111111111111111111112&amount=${caAndAmount.amount}&slippageBps=100`);
+        const requests: Promise<Response>[] = casAndAmounts.map((caAndAmount: CAWithAmount) => {
+            return fetch(`https://quote-api.jup.ag/v6/quote?inputMint=${caAndAmount.contract_address}&outputMint=So11111111111111111111111111111111111111112&amount=${caAndAmount.amount}&slippageBps=100`);
         });
         const quoteResponsesRaw: Response[] = await Promise.all(requests);
         const quoteResponses: QuoteResponse[] = await Promise.all(quoteResponsesRaw.map((response) => response.json()));

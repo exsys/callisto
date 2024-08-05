@@ -37,7 +37,8 @@ import {
     createBuyLimitPriceModal,
     createSellLimitPercentModal,
     createSellLimitPriceModal,
-    createAdvancedUI
+    createAdvancedUI,
+    createBlinkCreationMenu
 } from "./discord-ui";
 import {
     buyCoin,
@@ -48,7 +49,6 @@ import {
     extractAndValidateCA,
     getKeypairFromEncryptedPKey,
     exportPrivateKeyOfUser,
-    isNumber,
     sellCoin,
     sellCoinX,
     saveReferralAndUpdateFees,
@@ -61,9 +61,9 @@ import {
 } from "./util";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
-import { TxResponse } from "../types/tx-response";
+import { TxResponse } from "../types/txResponse";
 import { REFCODE_MODAL_STRING } from "../config/constants";
-import { UIResponse } from "../types/ui-response";
+import { UIResponse } from "../types/uiResponse";
 import { ButtonInteraction, InteractionEditReplyOptions, ModalBuilder, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
 import { getTokenAccountOfWallet, checkIfValidAddress, transferXSol, transferAllSol, sendXPercentOfCoin, sendCoin, createBuyLimitOrder, createSellLimitOrder } from "./solanaweb3";
 
@@ -108,6 +108,11 @@ export const BUTTON_COMMANDS = {
     sellAndManage: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
+        await interaction.editReply(ui);
+    },
+    createBlink: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionEditReplyOptions = createBlinkCreationMenu();
         await interaction.editReply(ui);
     },
     limitOrder: async (interaction: ButtonInteraction) => {
@@ -585,7 +590,12 @@ export const MENU_COMMANDS = {
         const recipientId: string = extractUserIdFromMessage(interaction.message.content);
         const ui: InteractionEditReplyOptions = await createTokenInfoBeforeSendUI(interaction.user.id, recipientId, contractAddress);
         await interaction.editReply(ui);
-    }
+    },
+    selectBlinkType: async (interaction: StringSelectMenuInteraction, blinkType: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        
+        await interaction.editReply("not implemented yet");
+    },
 };
 
 export const MODAL_COMMANDS = {

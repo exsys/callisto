@@ -9,16 +9,17 @@ import {
     TextInputBuilder,
     TextInputStyle,
     InteractionEditReplyOptions,
+    SelectMenuComponentOptionData,
 } from "discord.js";
 import { createNewRefCode, createWallet, createOrUseRefCodeForUser, formatNumber } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { CoinStats } from "../types/coinstats";
-import { CoinInfo } from "../types/coininfo";
+import { CoinStats } from "../types/coinStats";
+import { CoinInfo } from "../types/coinInfo";
 import { ERROR_CODES } from "../config/errors";
-import { TxResponse } from "../types/tx-response";
+import { TxResponse } from "../types/txResponse";
 import { User } from "../models/user";
 import { REFCODE_MODAL_STRING } from "../config/constants";
-import { UIResponse } from "../types/ui-response";
+import { UIResponse } from "../types/uiResponse";
 import {
     buyCoinViaAPI,
     getAllCoinInfos,
@@ -107,6 +108,11 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
         const advancedButton = new ButtonBuilder()
             .setCustomId('advanced')
             .setLabel('Advanced')
+            .setStyle(ButtonStyle.Secondary);
+
+        const blinkButton = new ButtonBuilder()
+            .setCustomId('createBlink')
+            .setLabel('Create Blink')
             .setStyle(ButtonStyle.Secondary);
 
         const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, walletButton);
@@ -856,6 +862,7 @@ export const createRemoveWalletUI = async (userId: string): Promise<InteractionE
     const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
     if (!allWallets) return { content: "No wallets found. Create one with the /create command to get started." };
 
+
     const options = allWallets.map((wallet: any) => {
         return new StringSelectMenuOptionBuilder()
             .setLabel(wallet.wallet_address)
@@ -877,6 +884,29 @@ export const createRemoveWalletUI = async (userId: string): Promise<InteractionE
 
 /****************************************************** MENUS *****************************************************/
 
+export const createBlinkCreationMenu = (): InteractionEditReplyOptions => {
+    let content: string = "What type of Action Blink do you want to create?";
+    content += "\n\n**Token Transfer:** Can be used for donations or simply sending tokens to another wallet.";
+    content += "\n**Token Swap:** Swap any token with SOL.";
+    const blinkTypes: SelectMenuComponentOptionData[] = [
+        { label: "blinkTokenTransfer", value: "Token Transfer" },
+        { label: "blinkTokenSwap", value: "Token Swap" },
+    ];
+    const options: StringSelectMenuOptionBuilder[] = blinkTypes.map((type: SelectMenuComponentOptionData) => {
+        return new StringSelectMenuOptionBuilder()
+            .setLabel(type.label)
+            .setValue(type.value);
+    });
+
+    const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
+        .setCustomId('selectBlinkType')
+        .setPlaceholder('Select a Blink type')
+        .addOptions(options);
+
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+    return { content, components: [row] };
+}
+
 export const createChangeWalletMenu = async (userId: string): Promise<InteractionEditReplyOptions> => {
     const content: string = "Select a wallet to set it as your default wallet.";
     const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
@@ -884,19 +914,19 @@ export const createChangeWalletMenu = async (userId: string): Promise<Interactio
         return { content: "No wallets found. Create one with the /create command to get started." };
     }
 
-    const options = allWallets.map((wallet: any) => {
+    // TODO: seems like max length is 25, handle that case
+    const options: StringSelectMenuOptionBuilder[] = allWallets.map((wallet: any) => {
         return new StringSelectMenuOptionBuilder()
             .setLabel(wallet.wallet_address)
             .setValue(wallet.wallet_address);
     });
 
-    const selectMenu = new StringSelectMenuBuilder()
+    const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
         .setCustomId('selectWallet')
         .setPlaceholder('Select a Wallet')
         .addOptions(options);
 
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
     return { content, components: [row] };
 };
 
@@ -907,7 +937,7 @@ export const createSelectCoinMenu = async (userId: string): Promise<InteractionE
         if (!coinInfos) return { content: "Server error. Please try again later." };
 
         // TODO: seems like max length is 25, handle that case
-        const options = coinInfos.map((coinInfo: CoinInfo) => {
+        const options: StringSelectMenuOptionBuilder[] = coinInfos.map((coinInfo: CoinInfo) => {
             return new StringSelectMenuOptionBuilder()
                 .setLabel(coinInfo.symbol)
                 .setValue(coinInfo.address);
@@ -915,13 +945,12 @@ export const createSelectCoinMenu = async (userId: string): Promise<InteractionE
 
         if (!options.length) return { content: "No coins found." };
 
-        const selectMenu = new StringSelectMenuBuilder()
+        const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
             .setCustomId('selectCoin')
             .setPlaceholder('Select a Coin')
             .addOptions(options);
 
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
         return { content, components: [row] };
     } catch (error) {
         return { content: "Server error. Please try again later." };
@@ -948,7 +977,7 @@ export const createSelectCoinToSendMenu = async (userId: string, msgContent: str
 
         if (!options.length) return { content: "No coins found." };
 
-        const selectMenu = new StringSelectMenuBuilder()
+        const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
             .setCustomId('selectTokenToSend')
             .setPlaceholder('Select a Coin')
             .addOptions(options);

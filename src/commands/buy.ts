@@ -1,6 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { createPreBuyUI } from "../lib/discord-ui";
-import { UIResponse } from "../types/ui-response";
+import { UIResponse } from "../types/uiResponse";
 import { checkIfValidAddress } from "../lib/solanaweb3";
 
 const command = {
