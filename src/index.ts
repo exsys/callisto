@@ -3,7 +3,6 @@ import { Client, GatewayIntentBits, Collection, Partials } from "discord.js";
 import fs from "fs";
 import path from "path";
 import connectDb from "./lib/connect-db";
-import { postDbErrorWebhook } from "./lib/util";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 const client: any = new Client({
@@ -13,6 +12,7 @@ const client: any = new Client({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent,
     ],
     partials: [
         Partials.Channel,

@@ -38,7 +38,10 @@ import {
     createSellLimitPercentModal,
     createSellLimitPriceModal,
     createAdvancedUI,
-    createBlinkCreationMenu
+    createBlinkCreationMenu,
+    createBlinkCreationUI,
+    createBlinkCustomValuesModal,
+    creatChangeBlinkCustomValueModal
 } from "./discord-ui";
 import {
     buyCoin,
@@ -58,14 +61,39 @@ import {
     extractUserIdFromMessage,
     extractBalanceFromMessage,
     isPositiveNumber,
+    exctractAndValidateBlinkId,
+    executeBlink,
+    isNumber,
+    changeBlinkEmbedModal,
+    validateCustomBlinkValues,
+    convertDescriptionToOrderedValues,
 } from "./util";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../types/txResponse";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIResponse } from "../types/uiResponse";
-import { ButtonInteraction, InteractionEditReplyOptions, ModalBuilder, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
-import { getTokenAccountOfWallet, checkIfValidAddress, transferXSol, transferAllSol, sendXPercentOfCoin, sendCoin, createBuyLimitOrder, createSellLimitOrder } from "./solanaweb3";
+import {
+    ButtonInteraction,
+    InteractionEditReplyOptions,
+    MessageCreateOptions,
+    ModalBuilder,
+    ModalSubmitInteraction,
+    StringSelectMenuInteraction
+} from "discord.js";
+import {
+    getTokenAccountOfWallet,
+    checkIfValidAddress,
+    transferXSol,
+    transferAllSol,
+    sendXPercentOfCoin,
+    sendCoin,
+    createBuyLimitOrder,
+    createSellLimitOrder,
+} from "./solanaweb3";
+import { BlinkResponse } from "../types/blinkResponse";
+import { BlinkCustomValue } from "../types/blinkCustomValue";
+import { ActionUI } from "../models/actionui";
 
 const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map<string, boolean>();
 const DEBOUNCE_TIME: number = 8000;
@@ -293,6 +321,9 @@ export const BUTTON_COMMANDS = {
     claimRefFees: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
 
+        // TODO: save claimed = true before doing the debounce
+        // if later claiming fails, revert db change
+
         const userId: string = interaction.user.id;
         if (REF_FEE_DEBOUNCE_MAP.has(userId)) {
             await interaction.editReply("Claim request already sent. Please wait until the current request has been processed.");
@@ -300,8 +331,6 @@ export const BUTTON_COMMANDS = {
         }
         REF_FEE_DEBOUNCE_MAP.set(userId, true);
 
-        // TODO: change it so reply is sent after a few seconds, and actual request is sent after, after a longer waiting period
-        // or backend request to another server after 5 seconds, where the actual transfer will be processed, or something like that
         setTimeout(async () => {
             REF_FEE_DEBOUNCE_MAP.delete(userId);
             const uiResponse: UIResponse = await claimUnpaidRefFees(userId);
@@ -337,8 +366,7 @@ export const BUTTON_COMMANDS = {
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "1");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
-            const success: boolean = await storeUnpaidRefFee(uiResponse.transaction!);
-            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
+            await storeUnpaidRefFee(uiResponse.transaction!);
         }
     },
     sellButton2: async (interaction: ButtonInteraction) => {
@@ -346,8 +374,7 @@ export const BUTTON_COMMANDS = {
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "2");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
-            const success: boolean = await storeUnpaidRefFee(uiResponse.transaction!);
-            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
+            await storeUnpaidRefFee(uiResponse.transaction!);
         }
     },
     sellButton3: async (interaction: ButtonInteraction) => {
@@ -355,8 +382,7 @@ export const BUTTON_COMMANDS = {
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "3");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
-            const success: boolean = await storeUnpaidRefFee(uiResponse.transaction!);
-            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
+            await storeUnpaidRefFee(uiResponse.transaction!);
         }
     },
     sellButton4: async (interaction: ButtonInteraction) => {
@@ -364,8 +390,7 @@ export const BUTTON_COMMANDS = {
         const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "4");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
-            const success: boolean = await storeUnpaidRefFee(uiResponse.transaction!);
-            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
+            await storeUnpaidRefFee(uiResponse.transaction!);
         }
     },
     sellButtonX: async (interaction: ButtonInteraction) => {
@@ -496,11 +521,11 @@ export const BUTTON_COMMANDS = {
             const amountWithoutPercentSymbol = amount.slice(0, -1);
             const uiResponseSell: UIResponse = await sellCoinX(interaction.user.id, interaction.message.content, amountWithoutPercentSymbol);
             await interaction.editReply(uiResponseSell.ui);
-            if (uiResponseSell.store_ref_fee) {
-                const success = await storeUnpaidRefFee(uiResponseSell.transaction!);
-                if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponseSell));
+            if (uiResponseSell.store_ref_fee && !uiResponseSell.transaction?.error) {
+                await storeUnpaidRefFee(uiResponseSell.transaction!);
             }
         } else {
+            // NOTE: ref fee for buys is stored inside the buyCoinViaAPI function
             const uiResponseBuy: UIResponse = await buyCoinX(interaction.user.id, interaction.message.content, amount);
             await interaction.editReply(uiResponseBuy.ui);
         }
@@ -519,6 +544,66 @@ export const BUTTON_COMMANDS = {
     },
     sellLimitPrice: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createSellLimitPriceModal();
+        await interaction.showModal(modal);
+    },
+    blinkButton: async (interaction: ButtonInteraction, blink_id?: string, button_id?: string, buttonType?: string) => {
+        try {
+            if (buttonType !== "custom") {
+                // NOTE: discord doesn't allow to show a modal after a reply, and a reply has to be send within 3 seconds
+                // but this function might take more than 3 seconds to process
+                await interaction.deferReply({ ephemeral: true });
+            }
+            const result: BlinkResponse = await executeBlink(interaction.user.id, blink_id!, button_id!);
+            if (result.custom_values) {
+                const modal: ModalBuilder | MessageCreateOptions | undefined =
+                    await createBlinkCustomValuesModal(result.blink_id!, result.button_id!, result.params!);
+                if (!modal) {
+                    await interaction.editReply({ content: "Server error. Please try again later." });
+                    return;
+                }
+
+                if (modal instanceof ModalBuilder) {
+                    await interaction.showModal(modal);
+                } else {
+                    await interaction.reply({ embeds: modal.embeds, components: modal.components, ephemeral: true });
+                }
+            } else {
+                await interaction.editReply({ content: result.content! });
+            }
+        } catch (error) {
+            await interaction.editReply({ content: "Server error. Please try again later." });
+        }
+    },
+    changeBlinkEmbedValue: async (interaction: ButtonInteraction, blink_id?: string, button_id?: string, valueIndex?: string) => {
+        const embedDescription: string | undefined = interaction.message.embeds[0].data.description;
+        if (!embedDescription) {
+            return await interaction.reply({ content: "Server error. Please try again later.", ephemeral: true });
+        }
+        if (valueIndex === "send") {
+            await interaction.deferReply({ ephemeral: true });
+            const actionUI: any = await ActionUI.findOne({ blink_id }).lean();
+            if (!actionUI) return await interaction.editReply({ content: "Couldn't find corresponding Blink." });
+            const correspondingButton: any = actionUI.buttons.find((button: any) => button.button_id == button_id);
+            if (!correspondingButton) return await interaction.editReply({ content: "Couldn't find corresponding Blink." });
+            // check if everything is valid and if all required fields are submitted
+            const missingValues: string = await validateCustomBlinkValues(embedDescription, actionUI, correspondingButton);
+            if (missingValues) return await interaction.editReply({ content: missingValues });
+
+            // order values and prepare them to send to the RPC
+            const orderedBlinkValues: BlinkCustomValue[] = convertDescriptionToOrderedValues(embedDescription, actionUI, correspondingButton);
+            const result: BlinkResponse = await executeBlink(interaction.user.id, blink_id!, button_id!, orderedBlinkValues);
+            return await interaction.editReply({ content: result.content! });
+        }
+
+        // get all lines from the embed
+        const lines: string[] = embedDescription.split("\n");
+        // find the corresponding line to change and create a modal to submit the value
+        const correspondingLine: string = lines[Number(valueIndex)];
+        let lineSplit: string[] = correspondingLine.split(": ");
+        const modal: ModalBuilder | undefined = await creatChangeBlinkCustomValueModal(lineSplit[0], lineSplit[1], valueIndex!)
+        if (!modal) {
+            return await interaction.reply({ content: "Server error. Please try again later.", ephemeral: true });
+        }
         await interaction.showModal(modal);
     },
 };
@@ -593,12 +678,39 @@ export const MENU_COMMANDS = {
     },
     selectBlinkType: async (interaction: StringSelectMenuInteraction, blinkType: string) => {
         await interaction.deferReply({ ephemeral: true });
-        
-        await interaction.editReply("not implemented yet");
+        const blinkId: string | undefined = exctractAndValidateBlinkId(interaction.message.content);
+        const ui: InteractionEditReplyOptions = await createBlinkCreationUI(interaction.user.id, blinkId);
+        await interaction.editReply(ui);
     },
 };
 
 export const MODAL_COMMANDS = {
+    changeBlinkEmbedValue: async (interaction: ModalSubmitInteraction, values: any[]) => {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+            const embed = interaction.message?.embeds[0];
+            const rows = interaction.message?.components; // buttons
+            const lineToChange: number = Number(values[0]);
+            const newValue: string = values[1];
+            const response: MessageCreateOptions = changeBlinkEmbedModal(embed, rows, lineToChange, newValue);
+            await interaction.editReply(response);
+        } catch (error) {
+            await interaction.editReply("Server error. Please try again later.");
+        }
+    },
+    blinkCustomValues: async (interaction: ModalSubmitInteraction, values: any[]) => {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+            const blinkId: string = values[0];
+            const buttonId: string = values[1];
+            const orderedBlinkValues: BlinkCustomValue[] = values[2];
+
+            const result: BlinkResponse = await executeBlink(interaction.user.id, blinkId, buttonId, orderedBlinkValues);
+            await interaction.editReply({ content: result.content! });
+        } catch (error) {
+            await interaction.editReply({ content: "Server error. Please try again later." });
+        }
+    },
     buyCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
         // this one will be called after pasting the contract address in the CA modal
         await interaction.deferReply({ ephemeral: true });
@@ -620,8 +732,7 @@ export const MODAL_COMMANDS = {
         const uiResponse: UIResponse = await sellCoinX(interaction.user.id, interaction.message!.content, values[0]);
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
-            const success = await storeUnpaidRefFee(uiResponse.transaction!);
-            if (!success) console.log("Failed to store ref fee. UI response: " + JSON.stringify(uiResponse));
+            await storeUnpaidRefFee(uiResponse.transaction!);
         }
     },
     limitOrderInfo: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -679,7 +790,7 @@ export const MODAL_COMMANDS = {
     },
     changeAutoBuyValue: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (!isPositiveNumber(values[0])) {
+        if (!isNumber(values[0]) || values[0].includes("-")) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });
             return;
         }
@@ -745,6 +856,7 @@ export const MODAL_COMMANDS = {
         }
     },
     changeTransactionPriority: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        // TODO: consider allowing disabling tx prio by setting it to 0 (isPositiveNumber)
         await interaction.deferReply({ ephemeral: true });
         if (!isPositiveNumber(values[0])) {
             await interaction.editReply({ content: "Invalid amount. Please enter a valid number." });

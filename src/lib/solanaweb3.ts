@@ -74,6 +74,8 @@ import { TxResponse } from "../types/txResponse";
 import { PROMO_REF_MAPPING } from "../config/promo_ref_mapping";
 import { CoinPriceQuote } from "../types/coinPriceQuote";
 import { ParsedProgramAccountWrittenOut } from "../types/parsedProgramAccount";
+import { SWAP_BLINKS_MAPPING } from "../config/swap_blinks_mapping";
+import { ActionPostResponse } from "@solana/actions";
 
 
 /*jitoConn: Connection = new Connection("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/transactions", {
@@ -148,7 +150,7 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
         if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
 
         txResponse.success = true;
-        txResponse.response = `Successfully transferred funds. Transaction ID: ${signature}`;
+        txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
         return successResponse(txResponse);
     } catch (error) {
         return unknownError({ ...txResponse, error });
@@ -222,7 +224,7 @@ export async function transferXSol(user_id: string, amount: string, recipientAdd
         if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
 
         txResponse.success = true;
-        txResponse.response = `Successfully transferred funds. Transaction ID: ${signature}`;
+        txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
         return successResponse(txResponse);
     } catch (error) {
         return unknownError({ ...txResponse, error });
@@ -300,7 +302,7 @@ export async function sendXPercentOfCoin(user_id: string, contract_address: stri
         if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
 
         txResponse.success = true;
-        txResponse.response = `Successfully transferred funds. Transaction ID: ${signature}`;
+        txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
         return successResponse(txResponse);
     } catch (error) {
         return unknownError({ ...txResponse, error });
@@ -384,7 +386,7 @@ export async function sendCoin(user_id: string, contract_address: string, amount
         if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
 
         txResponse.success = true;
-        txResponse.response = `Successfully transferred funds. Transaction ID: ${signature}`;
+        txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
         return successResponse(txResponse);
     } catch (error) {
         return unknownError({ ...txResponse, error });
@@ -461,11 +463,16 @@ export async function buyCoinViaAPI(user_id: string, contract_address: string, a
                 txResponse.ref_fee = refFeesInLamports;
                 referrer.unclaimed_ref_fees += refFeesInLamports;
                 // TODO: proper error handling. maybe rabbitmq so it will be stored later?
-                // TODO: move referrer.save() to after interaction.editReply
                 try {
+                    // TODO: move referrer.save() to after interaction.editReply
                     await referrer.save();
                 } catch (error) {
-                    console.log(`Failed to store ${refFeesInLamports} Lamports for user: ${referrer.user_id}`);
+                    await saveError({
+                        user_id,
+                        wallet_address: wallet.wallet_address,
+                        function_name: "buyCoinViaAPI",
+                        error: `Failed to store ${refFeesInLamports} Lamports for user: ${referrer.user_id}`,
+                    });
                 }
             }
         }
@@ -540,7 +547,7 @@ export async function buyCoinViaAPI(user_id: string, contract_address: string, a
         if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err, include_retry_button: true });
 
         txResponse.success = true;
-        txResponse.response = "Successfully swapped. Transaction ID: " + signature;
+        txResponse.response = `Successfully swapped: https://solscan.io/tx/${signature}`;
         return successResponse(txResponse);
     } catch (error) {
         const endTimeFunction: number = Date.now();
@@ -654,7 +661,7 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
 
         txResponse.success = true;
         txResponse.referral = user.referral;
-        txResponse.response = "Successfully swapped. Transaction ID: " + signature;
+        txResponse.response = `Successfully swapped: https://solscan.io/tx/${signature}`;
         if (wallet.swap_fee === 0) txResponse.total_fee = -1;
         return successResponse(txResponse);
     } catch (error) {
@@ -663,6 +670,54 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
         txResponse.processing_time_function = functionProcessingTime;
         txResponse.error = `sellCoinViaAPI unknown error: ${error}`;
         return unknownError(txResponse);
+    }
+}
+
+export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostResponse, root_url: string): Promise<TxResponse> {
+    const conn: Connection = getConnection();
+    const txResponse: TxResponse = {
+        user_id: wallet.user_id,
+        wallet_address: wallet.wallet_address,
+        tx_type: "execute_blink",
+    }
+    try {
+        if (SWAP_BLINKS_MAPPING.includes(root_url)) {
+            // TODO: calculate wheter user has enough SOL/Tokens to swap
+            // TODO: calculate fees and subtract them (has to be done beforehand)
+            // TODO: update ref fees if its a swap
+        }
+
+        const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
+        if (!signer) return decryptError(txResponse);
+
+        const swapTxBuf: Buffer = Buffer.from(blinkTx.transaction, 'base64');
+        const tx: VersionedTransaction = VersionedTransaction.deserialize(swapTxBuf);        
+        tx.sign([signer]);
+        const signature: string | undefined = getSignature(tx);
+        txResponse.tx_signature = signature;
+        const rawTx: Buffer = Buffer.from(tx.serialize());
+        const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
+        const result: VersionedTransactionResponse | null = await transactionSenderAndConfirmationWaiter({
+            connection: conn,
+            serializedTransaction: rawTx,
+            blockhashWithExpiryBlockHeight: {
+                blockhash: blockhash,
+                lastValidBlockHeight: lastValidBlockHeight,
+            },
+        });
+        if (!result) return txExpiredError(txResponse);
+        if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
+
+        txResponse.success = true;
+        // TODO: handle case where only message was signed and no actual transaction happened
+        txResponse.response = `Blink successfully executed: https://solscan.io/tx/${signature}`;
+        if (blinkTx.message) {
+            txResponse.response += `\n\n${blinkTx.message}`;
+        }
+        return txResponse;
+    } catch (error) {
+        txResponse.success = false;
+        return unknownError({ ...txResponse, error });
     }
 }
 
@@ -1187,10 +1242,7 @@ export function getConnection(): Connection {
 
 export function getSignature(transaction: Transaction | VersionedTransaction): string | undefined {
     const signature: Buffer | Uint8Array | null = "signature" in transaction ? transaction.signature : transaction.signatures[0];
-    if (!signature) {
-        console.log("Missing transaction signature, the transaction was not signed by the fee payer");
-        return undefined;
-    }
+    if (!signature) return undefined;
     return bs58.encode(signature);
 }
 

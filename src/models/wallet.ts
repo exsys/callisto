@@ -26,6 +26,7 @@ const WalletSchema = new Schema({
     wallet_address: {
         type: String,
         required: true,
+        unique: true,
     },
     swap_fee: {
         type: Number,

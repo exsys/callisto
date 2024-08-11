@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@solana/actions": "^1.6.1",
     "@solana/spl-token": "^0.4.6",
     "@solana/web3.js": "^1.91.1",
     "bs58": "^5.0.0",
@@ -20,7 +21,8 @@
     "dotenv": "^16.4.5",
     "mongoose": "^8.2.3",
     "promise-retry": "^2.0.1",
-    "rpc-websockets": "^7.11.0"
+    "rpc-websockets": "^7.11.0",
+    "sharp": "^0.33.4"
   },
   "devDependencies": {
     "@types/bs58": "^4.0.4",

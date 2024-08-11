@@ -25,8 +25,30 @@ import { TxResponse } from "../types/txResponse";
 import { UIResponse } from "../types/uiResponse";
 import { DBError } from "../types/dbError";
 import { Error } from "../models/errors";
-import { InteractionEditReplyOptions } from "discord.js";
-import { checkIfValidAddress, buyCoinViaAPI, sellCoinViaAPI, getTransactionInfo, payRefFees, createNewWallet } from "./solanaweb3";
+import {
+    ActionRow,
+    APIEmbed,
+    Embed,
+    EmbedBuilder,
+    InteractionEditReplyOptions,
+    MessageActionRowComponent,
+    MessageCreateOptions
+} from "discord.js";
+import {
+    checkIfValidAddress,
+    buyCoinViaAPI,
+    sellCoinViaAPI,
+    getTransactionInfo,
+    payRefFees,
+    createNewWallet,
+    executeBlinkTransaction
+} from "./solanaweb3";
+import { ActionUI } from "../models/actionui";
+import { BlinkResponse } from "../types/blinkResponse";
+import { BlinkCustomValue } from "../types/blinkCustomValue";
+import { ActionPostResponse, ACTIONS_CORS_HEADERS } from "@solana/actions";
+import { URLSearchParams } from "url";
+import { get } from "https";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -413,24 +435,59 @@ export function errorResponse(txResponse: TxResponse): TxResponse {
 
 // this will only be called for sell transactions. so only checking for FEE_TOKEN_ACCOUNT for the balances is correct.
 export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean> {
+    const user_id: string = txResponse.user_id;
     if (!txResponse) return false;
-    // TODO: proper error handling, with returning error message
-    if (!txResponse.referral) return false;
+    if (!txResponse.referral) {
+        await saveError({
+            user_id,
+            function_name: "storeUnpaidRefFee",
+            error: `txResponse.referral is undefined. Tx Response: ${txResponse}`
+        });
+        return false;
+    }
+
     try {
         const tx: VersionedTransactionResponse | null = await getTransactionInfo(txResponse.tx_signature);
-        if (!tx) return false;
+        if (!tx) {
+            await saveError({
+                user_id,
+                function_name: "storeUnpaidRefFee",
+                error: `Couldn't find corresponding transaction. Tx Response: ${txResponse}`
+            });
+            return false;
+        }
         const txInfo: ConfirmedTransactionMeta | null = tx.meta;
         const txMsg: { message: VersionedMessage; signatures: string[]; } = tx.transaction;
-        if (!txInfo) return false;
+        if (!txInfo) {
+            await saveError({
+                user_id,
+                function_name: "storeUnpaidRefFee",
+                error: `txInfo (tx.meta) is undefined. Tx Response: ${txResponse}`
+            });
+            return false;
+        }
 
         // how much the user paid in fees. this is checking how much the calli fee wallet received from this tx
         const solPreBalance: number = txInfo.preBalances[txMsg.message.staticAccountKeys.findIndex((key: PublicKey) => key.toBase58() === FEE_TOKEN_ACCOUNT)];
         const solPostBalance: number = txInfo.postBalances[txMsg.message.staticAccountKeys.findIndex((key: PublicKey) => key.toBase58() === FEE_TOKEN_ACCOUNT)];
         const solReceivedInLamports: number = solPostBalance - solPreBalance;
-        // TODO: proper error handling
-        if (!solReceivedInLamports) return false;
+        if (!solReceivedInLamports) {
+            await saveError({
+                user_id,
+                function_name: "storeUnpaidRefFee",
+                error: `unexpected value in solReceivedInLamports: ${solReceivedInLamports} | Pre Balance: ${solPreBalance} | Post Balance: ${solPostBalance} | Tx Info: ${txInfo} | Tx Msg: ${txMsg} | Tx Response: ${txResponse}`
+            });
+            return false;
+        }
         const referrer: any = await User.findOne({ user_id: txResponse.referral?.referrer_user_id });
-        if (!referrer) return false;
+        if (!referrer) {
+            await saveError({
+                user_id,
+                function_name: "storeUnpaidRefFee",
+                error: `Couldn't find referrer. Tx Response: ${txResponse}`
+            });
+            return false;
+        }
 
         /* if any user ever has 0 swap fee, a check for this has to be done, or else the referrer receives fees anyways
         const user: any = await User.findOne({ user_id: txResponse.user_id });
@@ -445,6 +502,11 @@ export async function storeUnpaidRefFee(txResponse: TxResponse): Promise<boolean
         await referrer.save();
         return true;
     } catch (error) {
+        await saveError({
+            user_id,
+            function_name: "storeUnpaidRefFee",
+            error: `Tx Response: ${txResponse} | Error: ${error}`
+        });
         return false;
     }
 }
@@ -459,9 +521,11 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
     }
 
     const payoutAmount: number = user.unclaimed_ref_fees; // in lamports
-    if (payoutAmount < 2100000) {
-        // 2100000 = 0.0021 SOL. 0.002 SOL is needed for rent fee, in case the user doesn't have deposited any SOL yet
-        return { ui: { content: "You need to have at least 0.0021 SOL accumulated to claim your fees." } };
+    if (payoutAmount < 3000000) {
+        // 3000000 = 0.003 SOL. 
+        // 0.002 SOL is needed for rent (first time transfering SOL to a wallet).
+        // so only allow users with min 0.003 SOL to claim in case they don't have any SOL yet
+        return { ui: { content: "You need to have at least 0.003 SOL accumulated to claim your fees." } };
     }
     const unclaimed_ref_fees: number = user.unclaimed_ref_fees;
     const claimed_ref_fees: number = user.claimed_ref_fees;
@@ -544,4 +608,268 @@ export async function postDbErrorWebhook(error: any): Promise<void> {
 export function isPositiveNumber(numberToCheck: number | string): boolean {
     if (!isNumber(String(numberToCheck))) return false;
     return Number(numberToCheck) > 0;
+}
+
+export function exctractAndValidateBlinkId(message: string): string | undefined {
+    try {
+        const firstLine: string = message.split("\n")[0];
+        const blinkId: string = firstLine.split(": ")[1];
+        if (!isPositiveNumber(blinkId)) return undefined;
+        return blinkId;
+    } catch (error) {
+        return undefined;
+    }
+}
+
+// find the part of originalUrl which matches with pathPattern
+export function replaceWildcards(originalUrl: string, apiPath: string, pathPattern: string): string | undefined {
+    let escapedPattern: string = pathPattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+    // replace * with a regex group that matches a single segment and are not part of a double star "**"
+    escapedPattern = escapedPattern.replace(/(?<!\*)\*(?!\*)/g, '([^/]+)');
+    // replace ** with a regex group that matches multiple segments
+    escapedPattern = escapedPattern.replace(/\*\*/g, '(.*)');
+    const regex: RegExp = new RegExp(escapedPattern);
+    const match: RegExpMatchArray | null = originalUrl.match(regex);
+    if (!match) return undefined;
+
+    let endResult: string = apiPath;
+    let totalSegmentsToReplace: number = match.length - 1;
+    let matchIndex: number = 1; // start from 1 because match[0] is the full match
+    endResult = endResult.replace(/\*/g, () => {
+        if (matchIndex > totalSegmentsToReplace) return "";
+        return match[matchIndex++];
+    });
+    endResult = endResult.replace(/\*\*/g, () => {
+        if (matchIndex > totalSegmentsToReplace) return "";
+        return match[matchIndex++];
+    });
+    return endResult;
+}
+
+// processes_values will only be defined when user presses a button where custom values have to be submitted
+export async function executeBlink(
+    user_id: string, blink_id: string, button_id: string, processed_values?: BlinkCustomValue[]
+): Promise<BlinkResponse> {
+    let wallet: any;
+    let user: any;
+    try {
+        wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+        if (!wallet) return { content: ERROR_CODES["0003"].message };
+        user = await User.findOne({ user_id });
+        if (!user) {
+            const walletAddress: string | undefined = await createWallet(user_id);
+            if (!walletAddress) {
+                return { content: "No wallet found. Please create a wallet with the /start command first." };
+            }
+            return { content: `You have no SOL balance. Load up your wallet to use Blinks.\n\nYour wallet address: ${walletAddress}` };
+        }
+    } catch (error) {
+        return { content: "Server error. Please try again later." };
+    }
+
+    try {
+        const actionUI: any = await ActionUI.findOne({ blink_id }).lean();
+        if (!actionUI) return { content: "The Blink magically disappeared. Please contact support for more information." };
+
+        const button: any = actionUI.buttons.find((button: any) => Number(button.button_id) === Number(button_id));
+        if (!button) {
+            await saveError({
+                user_id,
+                wallet_address: wallet.wallet_address,
+                function_name: "sendBlinkPostReq",
+                error: `Couldn't find action button. ActionUI: ${JSON.stringify(actionUI)}`
+            });
+            return { content: "Server error. Please try again later." };
+        }
+
+        // if button has custom values and user didn't submit those values yet
+        if (button.parameters?.length && !processed_values?.length) {
+            return { custom_values: true, blink_id, button_id, params: button.parameters };
+        }
+
+        // if button has custom values and user submitted them
+        let url: string | undefined;
+        if (button.parameters?.length && processed_values?.length) {
+            try {
+                let actionLink: URL;
+                if (button.href.includes("https://")) {
+                    actionLink = new URL(button.href);
+                } else {
+                    actionLink = new URL(actionUI.action_root_url + button.href);
+                }
+
+                const searchParams: URLSearchParams = actionLink.searchParams;
+                if (searchParams.toString()) {
+                    // this block is executed if the action url is in this format: /swap?amount=amount
+                    let index: number = 0;
+                    for (const [key, value] of searchParams) {
+                        const correspondingValue: BlinkCustomValue | undefined = processed_values.find((orderedValue: BlinkCustomValue) => {
+                            return orderedValue.index === index;
+                        });
+                        if (!correspondingValue) return { content: "Failed to process Blink. Please try again later." };
+                        searchParams.set(key, correspondingValue.value);
+                        index++;
+                    }
+
+                    url = actionLink.href;
+                } else {
+                    // this block is executed if the action url is in this format: /swap/{amount}
+                    const parameterNames: string[] = button.parameters.map((param: any) => param.name);
+                    parameterNames.forEach((paramName: string, index: number) => {
+                        const correspondingValue: BlinkCustomValue | undefined = processed_values.find((value: BlinkCustomValue) => {
+                            return value.index === index;
+                        });
+                        if (!correspondingValue) return { content: "Failed to process Blink. Please try again later." };
+                        const regex: RegExp = new RegExp(`{${paramName}}`, 'g');
+                        button.href = button.href.replace(regex, correspondingValue.value);
+                    });
+
+                    if (button.href.includes("https://")) {
+                        url = button.href;
+                    } else {
+                        url = actionUI.action_root_url + button.href;
+                    }
+                }
+            } catch (error) {
+                await saveError({
+                    user_id,
+                    wallet_address: wallet.wallet_address,
+                    function_name: "executeBlink",
+                    error: `Error in blink id ${blink_id}, button id ${button_id}: ${error}`,
+                });
+                return { content: "Failed to process Blink. Please try again later." };
+            }
+        }
+
+        if (!url) return { content: "Couldn't process Blink URL. Please contact support for more information." };
+
+        const blinkTx: ActionPostResponse = await (
+            await fetch(url, {
+                method: "POST",
+                headers: ACTIONS_CORS_HEADERS,
+                body: JSON.stringify({
+                    account: wallet.wallet_address
+                }),
+            })
+        ).json();
+
+        if (blinkTx.transaction) {
+            const result: TxResponse = await executeBlinkTransaction(wallet, blinkTx, actionUI.root_url);
+            await saveDbTransaction(result);
+            return { content: result.response };
+        } else {
+            // TODO: proper error handling
+            return { content: `Blink provider returned an error: ${blinkTx.message}` };
+        }
+    } catch (error) {
+        if (error instanceof SyntaxError) {
+            return { content: "Blink returned unexpected values. Transaction cancelled." };
+        } else {
+            await saveError({
+                user_id,
+                wallet_address: wallet.wallet_address,
+                function_name: "executeBlink",
+                error,
+            });
+            return { content: "Server error. Please try again later." };
+        }
+    }
+}
+
+export async function urlToBuffer(url: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        const data: Uint8Array[] = [];
+        get(url, (res: any) => {
+            res
+                .on("data", (chunk: Uint8Array) => {
+                    data.push(chunk);
+                })
+                .on("end", () => {
+                    resolve(Buffer.concat(data));
+                })
+                .on("error", (error: any) => {
+                    reject(error);
+                });
+        });
+    });
+}
+
+export function changeBlinkEmbedModal(
+    embed: Embed | undefined, components: ActionRow<MessageActionRowComponent>[] | undefined, lineToChange: number, newValue: string
+): MessageCreateOptions {
+    if (!embed) return { content: "Server error. Please try again later." };
+    if (!components) return { content: "Server error. Please try again later." };
+
+    let embedDescription: string | undefined = embed?.data.description;
+    const lines: string[] | undefined = embedDescription?.split("\n");
+    if (!lines) return { content: "Server error. Please try again later." };
+
+    lines[lineToChange] = lines[lineToChange].split(": ")[0] + ": " + newValue;
+    const joinedLines = lines.join("\n");
+    const changedEmbed: EmbedBuilder = copyDiscordEmbed(embed.data, joinedLines);
+
+    return { embeds: [changedEmbed], components: components };
+}
+
+export function copyDiscordEmbed(embed: Readonly<APIEmbed>, newDescription: string): EmbedBuilder {
+    const copiedEmbed: EmbedBuilder = new EmbedBuilder()
+        .setColor(0x4F01EB)
+        .setURL(embed.url ? embed.url : null)
+        .setTitle(embed.title ? embed.title : null)
+        .setDescription(newDescription)
+        .setTimestamp()
+        .setAuthor(embed.author ? embed.author : null)
+        .setThumbnail(embed.thumbnail ? embed.thumbnail.url : null);
+
+    return copiedEmbed;
+}
+
+export async function validateCustomBlinkValues(embedDescription: string, actionUI: any, correspondingButton: any): Promise<string> {
+    try {
+        // TODO: currently this is checking if parameter.name is the same as the placeholder value, but there might be a case
+        // where such a value is legit. change it so there will never be problems
+
+        // find the corresponding placeholder (parameter.name) of each button parameter and check if the value has been changed
+        const unchangedValues: string[] = [];
+        const lines: string[] = embedDescription.split("\n");
+        lines.forEach((line: string) => {
+            const lineSplit: string[] = line.split(": ");
+            const label: string = lineSplit[0].replaceAll("**", "");
+            const value: string = lineSplit[1];
+            const isRequired: boolean = label[label.length - 1] === "*";
+
+            const correspondingParam: any = correspondingButton.parameters.find((param: any) => label.includes(param.label));
+            if (!correspondingParam) return;
+            if (value === correspondingParam.name && isRequired) unchangedValues.push(correspondingParam.label);
+        });
+
+        let response = "";
+        unchangedValues.forEach((value: string) => {
+            response += `"${value}" is required.\n`;
+        });
+        return response;
+    } catch (error) {
+        return "Server error. Please try again later.";
+    }
+}
+
+export function convertDescriptionToOrderedValues(embedDescription: string, actionUI: any, correspondingButton: any): BlinkCustomValue[] {
+    const orderedValues: BlinkCustomValue[] = [];
+    const lines: string[] = embedDescription.split("\n");
+    lines.forEach((line: string, index: number) => {
+        const inputName: string = line.split(": ")[0].replaceAll("**", "");
+        const isRequired: boolean = inputName[inputName.length - 1] === "*";
+        const value: string = line.split(": ")[1].replaceAll(" ", "_");
+        if (!isRequired) {
+            const correspondingParam: any = correspondingButton.parameters.find((param: any) => inputName.includes(param.label));
+            if (!correspondingParam) return;
+            if (correspondingParam.name === value) {
+                orderedValues.push({ index, value: "" });
+                return;
+            }
+        }
+        orderedValues.push({ index, value });
+    });
+
+    return orderedValues;
 }

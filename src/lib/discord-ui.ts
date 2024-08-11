@@ -10,8 +10,18 @@ import {
     TextInputStyle,
     InteractionEditReplyOptions,
     SelectMenuComponentOptionData,
+    EmbedBuilder,
+    MessageCreateOptions,
+    AttachmentBuilder,
 } from "discord.js";
-import { createNewRefCode, createWallet, createOrUseRefCodeForUser, formatNumber } from "./util";
+import {
+    createNewRefCode,
+    createWallet,
+    createOrUseRefCodeForUser,
+    formatNumber,
+    saveError,
+    urlToBuffer
+} from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinStats";
 import { CoinInfo } from "../types/coinInfo";
@@ -30,6 +40,12 @@ import {
     getCoinStatsFromWallet,
     getCurrentSolPrice
 } from "./solanaweb3";
+import { Blink } from "../models/blink";
+import { ActionGetResponse, LinkedAction } from "@solana/actions";
+import { ActionUI } from "../models/actionui";
+import { AppStats } from "../models/appstats";
+import { TypedActionParameter } from "@solana/actions-spec";
+import sharp from "sharp";
 
 /***************************************************** UIs *****************************************************/
 
@@ -110,7 +126,7 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
             .setLabel('Advanced')
             .setStyle(ButtonStyle.Secondary);
 
-        const blinkButton = new ButtonBuilder()
+        const createBlinkButton = new ButtonBuilder()
             .setCustomId('createBlink')
             .setLabel('Create Blink')
             .setStyle(ButtonStyle.Secondary);
@@ -205,6 +221,158 @@ export const createWalletUI = async (userId: string): Promise<InteractionEditRep
 
     return { content, components: [firstRow, secondRow] };
 };
+
+export const createBlinkCreationUI = async (user_id: string, blink_id?: string): Promise<InteractionEditReplyOptions> => {
+    try {
+        let blinkId: string | undefined;
+        const blink: any = await Blink.findOne({ user_id, blink_id });
+        /*if (!blink) {
+            const newBlink = new Blink({
+
+            });
+            await newBlink.save();
+            // return it
+        }*/
+        let content = `Blink ID: ${blinkId}`;
+
+        const titleButton = new ButtonBuilder()
+            .setCustomId('changeBlinkTitle')
+            .setLabel('Change Title')
+            .setStyle(ButtonStyle.Secondary);
+
+        const iconButton = new ButtonBuilder()
+            .setCustomId('changeBlinkIcon')
+            .setLabel('Change Icon')
+            .setStyle(ButtonStyle.Secondary);
+
+        const descriptionButton = new ButtonBuilder()
+            .setCustomId('changeBlinkDescription')
+            .setLabel('Change Description')
+            .setStyle(ButtonStyle.Secondary);
+
+        const labelButton = new ButtonBuilder()
+            .setCustomId('changeBlinkLabel')
+            .setLabel('Change Label')
+            .setStyle(ButtonStyle.Secondary);
+
+        const disabledButton = new ButtonBuilder()
+            .setCustomId('changeBlinkDisabled')
+            .setLabel(`${blink.disabled ? "Enable" : "Disable"}`)
+            .setStyle(ButtonStyle.Secondary);
+
+        const addActionButton = new ButtonBuilder()
+            .setCustomId('addBlinkAction')
+            .setLabel("Add Action")
+            .setStyle(ButtonStyle.Secondary);
+
+        const firstRow = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(titleButton, descriptionButton, labelButton, iconButton, disabledButton);
+        const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(addActionButton);
+        return { content, components: [firstRow, secondRow] };
+    } catch (error) {
+        return { content: "Server error. Please try again later. " };
+    }
+}
+
+export const createBlinkUI = async (urls: any, action: ActionGetResponse): Promise<MessageCreateOptions | undefined> => {
+    try {
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setURL(urls.posted_url)
+            .setTitle(action.title)
+            .setDescription(action.description ? action.description : null)
+            .setTimestamp()
+            .setAuthor({ name: action.label });
+
+        let attachment: AttachmentBuilder | undefined;
+        if (action.icon.endsWith(".svg")) {
+            const buffer: Buffer = await urlToBuffer(action.icon);
+            const imageBuffer: Buffer = await sharp(buffer).png().toBuffer();
+            attachment = new AttachmentBuilder("image.png").setFile(imageBuffer);
+            embed.setImage("attachment://image.png");
+        } else {
+            embed.setImage(action.icon);
+        }
+
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        appStats.blinks_created++;
+        let buttons: ButtonBuilder[] = [];
+        let dbButtons: any[] = [];
+        action.links?.actions.forEach((linkedAction: LinkedAction, index: number) => {
+            // NOTE: discord only allows up to 45 chars for customId, keep that in mind
+            const customId: string = `blinkButton:${appStats.blinks_created}:${index + 1}${linkedAction.parameters?.length ? ":custom" : ""}`;
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId(customId)
+                    .setLabel(linkedAction.label)
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(action.disabled ? true : false)
+            );
+            dbButtons.push({
+                button_id: index + 1,
+                custom_id: customId,
+                label: linkedAction.label,
+                href: linkedAction.href,
+                parameters: linkedAction.parameters,
+            });
+        });
+
+        if (!buttons.length || !dbButtons.length) {
+            // Action UIs can have no buttons, in that case store a disabled default button, else discord API throws an error
+            const customId: string = `blinkButton:${appStats.blinks_created}:${1}`;
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId(customId)
+                    .setLabel("Closed")
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(true)
+            );
+            dbButtons.push({
+                button_id: 1,
+                custom_id: customId,
+                label: "Closed",
+            });
+        }
+
+        let rows: ActionRowBuilder<ButtonBuilder>[] = [];
+        let tempButtons: ButtonBuilder[] = [];
+        for (let i = 0; i < buttons.length; i++) {
+            // NOTE: 5 is the max amount of buttons per row (discord api limit)
+            if (i !== 0 && i % 5 === 0) {
+                rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...tempButtons));
+                tempButtons = [buttons[i]];
+            } else {
+                tempButtons.push(buttons[i]);
+            }
+        }
+        rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...tempButtons));
+
+        const newActionUI: any = new ActionUI({
+            blink_id: appStats.blinks_created,
+            posted_url: urls.posted_url,
+            action_root_url: urls.action_root_url,
+            root_url: urls.root_url,
+            action_url: urls.action_url,
+            api_path: urls.api_path, // only defined if actions.json was found on root domain
+            path_pattern: urls.path_pattern, // only defined if actions.json was found on root domain
+            action: action,
+            buttons: dbButtons,
+            rows: rows.map((row: ActionRowBuilder<ButtonBuilder>) => row.toJSON()),
+            embed: embed.toJSON(),
+            has_attachment: attachment ? true : false,
+        });
+        // TODO: retry a few times if save error
+        await newActionUI.save();
+        await appStats.save();
+        return { embeds: [embed], components: rows, files: attachment ? [attachment] : undefined };
+    } catch (error) {
+        await saveError({
+            function_name: "createBlinkUI",
+            error: `originUrl: ${urls.posted_url} | actionUrl: ${urls.action_url} | action: ${JSON.stringify(action)} | original error: ${JSON.stringify(error)}`,
+        });
+        return undefined;
+    }
+}
 
 export const createHelpUI = (): string => {
     const content = "Welcome to Callisto, the fastest Solana trading bot on Discord.\n\nTo get started, use the /start command, this command will create a new Solana wallet for your automatically if you don't have one yet.\n\nOnce you have a wallet, you can use the Buy button to buy a coin.\n\nTo sell a coin, use the Sell & Manage button.\n\nTo view your wallet, tap the Wallet button.\n\nTo view and change your settings, tap the Settings button. Here you can change different settings like priority fee and slippage.\n\nTo refer friends, tap the Refer Friends button.\n\nWith the Refresh button you can refresh your Account Balance.\n\nFor more information, visit our website at https://callistobot.com";
@@ -991,6 +1159,71 @@ export const createSelectCoinToSendMenu = async (userId: string, msgContent: str
 
 /************************************************************** MODALS *****************************************************/
 
+export const creatChangeBlinkCustomValueModal = async (
+    label: string, placeholder: string, lineIndex: string
+): Promise<ModalBuilder | undefined> => {
+    try {
+        const changeCustomValueModal: ModalBuilder = new ModalBuilder()
+            .setCustomId(`changeBlinkEmbedValue:${lineIndex}`)
+            .setTitle(label.replaceAll("*", ""));
+
+        const input = new TextInputBuilder()
+            .setCustomId('value1')
+            .setLabel(label.replaceAll("*", ""))
+            .setPlaceholder(placeholder)
+            .setRequired(true)
+            .setStyle(TextInputStyle.Short);
+
+        const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
+        changeCustomValueModal.addComponents(row);
+        return changeCustomValueModal;
+    } catch (error) {
+        return;
+    }
+}
+
+export const createBlinkCustomValuesModal = async (
+    blink_id: string, button_id: string, params: TypedActionParameter[]
+): Promise<ModalBuilder | MessageCreateOptions | undefined> => {
+    try {
+        if (params.length > 5) {
+            // NOTE: discord only allows 5 text inputs per modal, so we have to handle action UIs with more than 5 buttons differently
+            // in this case we are creating an embed with buttons which will act as an modal
+            const embed: MessageCreateOptions | undefined = await createBlinkUIEmbed(blink_id, button_id, params);
+            return embed;
+        }
+
+        const blinkCustomValuesModal: ModalBuilder = new ModalBuilder()
+            .setCustomId(`blinkCustomValues:${blink_id}:${button_id}`)
+            .setTitle(`Enter custom value${params.length > 1 ? "s" : ""}`);
+
+        params.forEach((param: TypedActionParameter, i: number) => {
+            const row = new ActionRowBuilder<TextInputBuilder>();
+            if (param.label && param.label.length > 45) {
+                // NOTE: discord api limits. label can't be more than 45 chars long
+                param.label = param.label.slice(0, 42) + "...";
+            }
+            const input = new TextInputBuilder()
+                .setCustomId(`value${i + 1}`)
+                .setLabel(param.label ? param.label : "Enter custom value")
+                .setPlaceholder(param.name)
+                .setRequired(param.required)
+                .setStyle(TextInputStyle.Short);
+
+            row.addComponents(input);
+            blinkCustomValuesModal.addComponents(row);
+        });
+
+        return blinkCustomValuesModal;
+    } catch (error) {
+        await saveError({
+            function_name: "createBlinkCustomValuesModal",
+            error,
+        });
+        return;
+    }
+}
+
 export const createBuyModal = (): ModalBuilder => {
     const enterCAModal = new ModalBuilder()
         .setCustomId('buyCoin')
@@ -1006,7 +1239,6 @@ export const createBuyModal = (): ModalBuilder => {
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(CAInput);
-
     enterCAModal.addComponents(row);
     return enterCAModal;
 };
@@ -1045,7 +1277,6 @@ export const createChangeBuyButtonModal = (buttonNumber: string): ModalBuilder =
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-
     changeBuyButton1Modal.addComponents(row);
     return changeBuyButton1Modal;
 };
@@ -1065,7 +1296,6 @@ export const createChangeSellButtonModal = (buttonNumber: string): ModalBuilder 
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-
     changeSellButton1Modal.addComponents(row);
     return changeSellButton1Modal;
 };
@@ -1095,7 +1325,6 @@ export const createWithdrawXSolModal = (): ModalBuilder => {
 
     const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
     const secondRow = new ActionRowBuilder<TextInputBuilder>().addComponents(withdrawAddressInput);
-
     withdrawXSolModal.addComponents(firstRow, secondRow);
     return withdrawXSolModal;
 };
@@ -1115,7 +1344,6 @@ export const createWithdrawAllSolModal = (): ModalBuilder => {
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(withdrawAddressInput);
-
     withdrawXSolModal.addComponents(row);
     return withdrawXSolModal;
 };
@@ -1135,7 +1363,6 @@ export const createMinPositionValueModal = (): ModalBuilder => {
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-
     minPositionValueModal.addComponents(row);
     return minPositionValueModal;
 };
@@ -1155,7 +1382,6 @@ export const createAutoBuyValueModal = (): ModalBuilder => {
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-
     autoBuyValueModal.addComponents(row);
     return autoBuyValueModal;
 };
@@ -1175,7 +1401,6 @@ export const createBuySlippageModal = (): ModalBuilder => {
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-
     buySlippageModal.addComponents(row);
     return buySlippageModal;
 };
@@ -1195,7 +1420,6 @@ export const createSellSlippageModal = (): ModalBuilder => {
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-
     sellSlippageModal.addComponents(row);
     return sellSlippageModal;
 };
@@ -1215,7 +1439,6 @@ export const createTransactionPriorityModal = (): ModalBuilder => {
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-
     transactionPriorityModal.addComponents(row);
     return transactionPriorityModal;
 };
@@ -1235,7 +1458,6 @@ export const createBuyXSolModal = (): ModalBuilder => {
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-
     buyXSolModal.addComponents(row);
     return buyXSolModal;
 };
@@ -1255,7 +1477,6 @@ export const createSellXPercentModal = (): ModalBuilder => {
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
-
     sellXPercentModal.addComponents(row);
     return sellXPercentModal;
 };
@@ -1471,7 +1692,65 @@ export const createSellLimitPriceModal = (): ModalBuilder => {
     return sellLimitPriceModal;
 }
 
-/**************************************************** ADDITIONAL **********************************************************/
+/************************************************************** EMBEDS ***********************************************************/
+
+export const createBlinkUIEmbed = async (
+    blink_id: string, button_id: string, params: TypedActionParameter[]
+): Promise<MessageCreateOptions | undefined> => {
+    try {
+        let content: string = "";
+        // create a line for each custom value
+        const rows: ActionRowBuilder<ButtonBuilder>[] = [new ActionRowBuilder<ButtonBuilder>];
+        let rowsIndex: number = 0;
+        params.forEach((param: TypedActionParameter, index: number) => {
+            if (index !== 0) content += "\n";
+            content += `${param.label ? `**${param.label}**` : `Custom value ${index + 1}`}${param.required ? "*" : ""}: ${param.name}`;
+
+            const button = new ButtonBuilder()
+                // last value (index) will be used to find the correct line later, so the value for that custom value can be changed
+                .setCustomId(`changeBlinkEmbedValue:${blink_id}:${button_id}:${index}`)
+                .setLabel(param.label ? param.label : `Custom value ${index + 1}`)
+                .setStyle(ButtonStyle.Secondary);
+
+            if (index !== 0 && index % 5 === 0) {
+                // discord limit: only 5 buttons per row
+                rows.push(new ActionRowBuilder<ButtonBuilder>);
+                rowsIndex++;
+            }
+            rows[rowsIndex].addComponents(button);
+        });
+
+        // create a send button which sends the blink transaction
+        const button = new ButtonBuilder()
+            // last value (index) will be used to find the correct line later, so the value for that custom value can be changed
+            .setCustomId(`changeBlinkEmbedValue:${blink_id}:${button_id}:send`)
+            .setLabel("Send")
+            .setStyle(ButtonStyle.Secondary);
+        // check if a new row needs to be created
+        if (rows[rows.length - 1].components.length === 5) {
+            rows.push(new ActionRowBuilder<ButtonBuilder>);
+            rowsIndex++;
+        }
+        rows[rowsIndex].addComponents(button)
+
+        const actionUI: any = await ActionUI.findOne({ blink_id }).lean();
+
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setURL(actionUI.posted_url)
+            .setTitle(actionUI.action.title)
+            .setDescription(content)
+            .setTimestamp()
+            .setAuthor({ name: actionUI.action.label })
+            .setThumbnail(actionUI.action.icon);
+
+        return { embeds: [embed], components: rows };
+    } catch (error) {
+        return;
+    }
+}
+
+/************************************************************** BUTTONS **********************************************************/
 
 export const addStartButton = (content: string): InteractionEditReplyOptions => {
     const startButton = new ButtonBuilder()
