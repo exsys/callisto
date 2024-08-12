@@ -30,25 +30,27 @@ const BlinkSchema = new Schema({
         default: false,
     },
     links: {
-        actions: {
-            type: [{
-                href: String,
-                label: String,
-                parameters: {
-                    type: [{
-                        name: {
-                            type: String,
-                            required: true,
-                        },
-                        label: String,
-                        required: Boolean,
-                    }],
-                    required: false,
-                    _id: false,
-                },
-            }],
-            required: true,
-            _id: false,
+        type: {
+            actions: {
+                type: [{
+                    href: String,
+                    label: String,
+                    parameters: {
+                        type: [{
+                            name: {
+                                type: String,
+                                required: true,
+                            },
+                            label: String,
+                            required: Boolean,
+                        }],
+                        required: false,
+                        _id: false,
+                    },
+                }],
+                required: true,
+                _id: false,
+            },
         },
         required: false,
         _id: false,
