@@ -76,6 +76,7 @@ import { UIResponse } from "../types/uiResponse";
 import {
     ButtonInteraction,
     InteractionEditReplyOptions,
+    InteractionReplyOptions,
     MessageCreateOptions,
     ModalBuilder,
     ModalSubmitInteraction,
@@ -191,7 +192,7 @@ export const BUTTON_COMMANDS = {
         await interaction.editReply(ui);
     },
     help: async (interaction: ButtonInteraction) => {
-        const ui: string = createHelpUI();
+        const ui: InteractionReplyOptions = createHelpUI();
         await interaction.reply(ui);
     },
     refer: async (interaction: ButtonInteraction) => {
@@ -398,16 +399,16 @@ export const BUTTON_COMMANDS = {
         await interaction.showModal(modal);
     },
     generalSettings: async (interaction: ButtonInteraction) => {
-        await interaction.reply({ content: "GENERAL SETTINGS\n\nMin Position Value: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\n\nAuto Buy: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\n\nSlippage Config: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.", ephemeral: true });
+        await interaction.reply({ content: "**GENERAL SETTINGS**\n\n**Min Position Value**: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\n\n**Auto Buy**: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\n\n**Slippage Config**: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.", ephemeral: true });
     },
     buyButtonsConfig: async (interaction: ButtonInteraction) => {
-        await interaction.reply({ content: "BUY BUTTONS CONFIG\n\nCustomize your buy buttons when buying a coin.", ephemeral: true });
+        await interaction.reply({ content: "**BUY BUTTONS CONFIG**\n\nCustomize your buy buttons when buying a coin.", ephemeral: true });
     },
     sellButtonsConfig: async (interaction: ButtonInteraction) => {
-        await interaction.reply({ content: "SELL BUTTONS CONFIG\n\nCustomize your sell buttons when selling a coin.", ephemeral: true });
+        await interaction.reply({ content: "**SELL BUTTONS CONFIG**\n\nCustomize your sell buttons when selling a coin.", ephemeral: true });
     },
     transactionConfig: async (interaction: ButtonInteraction) => {
-        await interaction.reply({ content: "TRANSACTION CONFIG\n\nMEV Protection: Accelerates your transactions and protect against frontruns to make sure you get the best price possible or turn it off for faster transactions.\nOff: Callisto will not use MEV protection. Transactions will be faster but might get frontrun.\nOn: Transactions are guaranteed to be protected from MEV, but transactions may be slower or fail.\n\nTransaction Priority: Increase your Transaction Priority to improve transaction speed. Tap to edit.", ephemeral: true });
+        await interaction.reply({ content: "**TRANSACTION CONFIG**\n\n**MEV Protection**: Accelerates your transactions and protect against frontruns to make sure you get the best price possible or turn it off for faster transactions.\n**Off**: Callisto will not use MEV protection. Transactions will be faster but might get frontrun.\n**On**: Transactions are guaranteed to be protected from MEV, but transactions may be slower or fail.\n\n**Transaction Priority**: Increase your Transaction Priority to improve transaction speed. Tap to edit.", ephemeral: true });
     },
     minPositionValue: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createMinPositionValueModal();

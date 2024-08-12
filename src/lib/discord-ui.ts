@@ -13,6 +13,7 @@ import {
     EmbedBuilder,
     MessageCreateOptions,
     AttachmentBuilder,
+    InteractionReplyOptions,
 } from "discord.js";
 import {
     createNewRefCode,
@@ -77,7 +78,7 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
         if (formattedBalance == "0" || formattedBalance == "0.0") {
             content += "\n\nYou currently have no SOL balance. To get started with trading, send some SOL to your Callisto wallet address. Once done tap refresh and your balance will appear here.";
         } else {
-            content += `\n\nYour current balance is ${formattedBalance} SOL.`;
+            content += `\n\nYour current balance: ${formattedBalance} SOL.`;
         }
 
         content += `\n\nWallet: ${wallet.wallet_address}`;
@@ -172,7 +173,7 @@ export const createWalletUI = async (userId: string): Promise<InteractionEditRep
     const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
     if (walletBalance === undefined) return { content: ERROR_CODES["0015"].message };
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
-    const content = `Default Wallet Address:\n${wallet.wallet_address}\n\nBalance:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
+    const content = `**Default Wallet Address**:\n${wallet.wallet_address}\n\n**Balance**:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
 
     const solscanButton = new ButtonBuilder()
         .setLabel('View on Solscan')
@@ -374,9 +375,19 @@ export const createBlinkUI = async (urls: any, action: ActionGetResponse): Promi
     }
 }
 
-export const createHelpUI = (): string => {
-    const content = "Welcome to Callisto, the fastest Solana trading bot on Discord.\n\nTo get started, use the /start command, this command will create a new Solana wallet for your automatically if you don't have one yet.\n\nOnce you have a wallet, you can use the Buy button to buy a coin.\n\nTo sell a coin, use the Sell & Manage button.\n\nTo view your wallet, tap the Wallet button.\n\nTo view and change your settings, tap the Settings button. Here you can change different settings like priority fee and slippage.\n\nTo refer friends, tap the Refer Friends button.\n\nWith the Refresh button you can refresh your Account Balance.\n\nFor more information, visit our website at https://callistobot.com";
-    return content;
+export const createHelpUI = (): InteractionReplyOptions => {
+    let content = "Welcome to Callisto, the fastest Solana trading bot on Discord."
+    content += "\n\nTo get started, use the /start command, this command will create a new Solana wallet "
+    content += "for your automatically if you don't have one already."
+    content += "\n\nOnce you have a wallet, you can use the Buy button to buy a coin."
+    content += "\n\nTo sell a coin, use the Sell & Manage button."
+    content += "\n\nTo view your wallet, tap the Wallet button."
+    content += "\n\nTo view and change your settings, tap the Settings button. "
+    content += "Here you can change different settings like priority fee and slippage."
+    content += "\n\nTo refer friends, tap the Refer Friends button."
+    content += "\n\nWith the Refresh button you can refresh your Account Balance."
+    content += "\n\nFor more information, visit our website at https://callistobot.com";
+    return { content, ephemeral: true };
 };
 
 export const createReferUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
@@ -408,6 +419,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
         if (walletBalance < wallet.settings.auto_buy_value * LAMPORTS_PER_SOL + txPrio + 105000) {
             // 105000 is the minimum amount of lamports needed for a swap
             content += `Not enough SOL for autobuy. Please deposit more SOL to your wallet.`;
+            // TODO: don't return here, give use coin info anyways but with the content above this line as extra
             return { ui: { content } };
         }
         const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
@@ -427,11 +439,11 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
 
     // TODO: calculate price impact
 
-    content += `\n\n${coinInfo.name} | ${coinInfo.symbol} | ${contractAddress}`;
-    content += `\n\nPrice: $${coinInfo.price}`;
-    content += `\nMarket Cap: $${coinInfo.fdv}`;
-    content += `\n5m: ${coinInfo.priceChange.m5}%, 1h: ${coinInfo.priceChange.h1}%, 6h: ${coinInfo.priceChange.h6}%, 24h: ${coinInfo.priceChange.h24}%`
-    content += `\n\nWallet Balance: ${(walletBalance / LAMPORTS_PER_SOL).toFixed(5)} SOL`;
+    content += `\n\n**${coinInfo.name}** | **${coinInfo.symbol}** | **${contractAddress}**`;
+    content += `\n\n**Price**: $${coinInfo.price}`;
+    content += `\n**Market Cap**: $${coinInfo.fdv}`;
+    content += `\n**5m**: ${coinInfo.priceChange.m5}%, **1h**: ${coinInfo.priceChange.h1}%, **6h**: ${coinInfo.priceChange.h6}%, **24h**: ${coinInfo.priceChange.h24}%`
+    content += `\n\n**Wallet Balance**: ${(walletBalance / LAMPORTS_PER_SOL).toFixed(5)} SOL`;
     content += "\n\nTap one of the buttons below to buy the coin.";
 
     const solscanCoinButton = new ButtonBuilder()
@@ -501,10 +513,10 @@ export const createCoinInfoForLimitOrderUI = async (contract_address: string): P
         const price50PercentUp: number = Math.round(coinPrice * 150000) / 100000;
         const mcap50PercentDown: string = ((Math.round(mcapNumber * 10000) / 10000) * 0.5).toFixed(2);
         const mcap50PercentUp: string = ((Math.round(mcapNumber * 10000) / 10000) * 1.5).toFixed(2);
-        content += `\n\n${coinInfo.name} | ${coinInfo.symbol} | ${contract_address}`;
-        content += `\n\nPrice: $${coinInfo.price} | -50%: $${price50PercentDown} | +50%: $${price50PercentUp}`;
-        content += `\nMarket Cap: $${coinInfo.fdv} | -50%: ${mcap50PercentDown}M | +50%: ${mcap50PercentUp}M`;
-        content += `\n5m: ${coinInfo.priceChange.m5}% | 1h: ${coinInfo.priceChange.h1}% | 6h: ${coinInfo.priceChange.h6}% | 24h: ${coinInfo.priceChange.h24}%`
+        content += `\n\n**${coinInfo.name}** | **${coinInfo.symbol}** | **${contract_address}**`;
+        content += `\n\n**Price**: $${coinInfo.price} | **-50%**: $${price50PercentDown} | **+50%**: $${price50PercentUp}`;
+        content += `\n**Market Cap**: $${coinInfo.fdv} | **-50%**: ${mcap50PercentDown}M | **+50%**: ${mcap50PercentUp}M`;
+        content += `\n**5m**: ${coinInfo.priceChange.m5}% | **1h**: ${coinInfo.priceChange.h1}% | **6h**: ${coinInfo.priceChange.h6}% | **24h**: ${coinInfo.priceChange.h24}%`
         content += "\n\nTap one of the buttons below to create a limit order.";
 
         const buyLimitPercentButton = new ButtonBuilder()
@@ -584,7 +596,8 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
                 }
             }
         }
-        if (!selectedCoin) return { content: ERROR_CODES["0007"].message };
+
+        if (!selectedCoin) return { content: "No coins found. Buy a coin to see it here." };
         const coinSymbols: string[] = coinsInWallet.map((coin: CoinStats) => coin.symbol);
         const coinSymbolsDivided: string = coinSymbols.join(" | ");
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
@@ -596,12 +609,12 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
 
         // TODO: add profit in % and SOL
 
-        let content = `Open Positions:\n${coinSymbolsDivided}`;
-        content += `\n\n${selectedCoin.name} | ${selectedCoin.symbol} | ${selectedCoin.address}`;
-        content += `\nHoldings Value: $${usdValue} | ${solValue} SOL`;
-        content += `\nMcap: $${selectedCoin.fdv} @ $${formatNumber(selectedCoin.price)}`;
-        content += `\n5m: ${selectedCoin.priceChange.m5}%, 1h: ${selectedCoin.priceChange.h1}%, 6h: ${selectedCoin.priceChange.h6}%, 24h: ${selectedCoin.priceChange.h24}%`;
-        content += `\n\nBalance: ${solBalance?.toFixed(4)} SOL`;
+        let content = `**Open Positions**:\n${coinSymbolsDivided}`;
+        content += `\n\n**${selectedCoin.name}** | **${selectedCoin.symbol}** | **${selectedCoin.address}**`;
+        content += `\n**Holdings Value**: $${usdValue} | ${solValue} SOL`;
+        content += `\n**Market cap**: $${selectedCoin.fdv} @ $${formatNumber(selectedCoin.price)}`;
+        content += `\n**5m**: ${selectedCoin.priceChange.m5}%, **1h**: ${selectedCoin.priceChange.h1}%, **6h**: ${selectedCoin.priceChange.h6}%, **24h**: ${selectedCoin.priceChange.h24}%`;
+        content += `\n\n**Balance**: ${solBalance?.toFixed(4)} SOL`;
         // buy buttons
         const buyButton1Button = new ButtonBuilder()
             .setCustomId('buyButton1')
@@ -759,7 +772,7 @@ export const createTokenSelectionUI = async (user_id: string, recipientId: strin
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         if (!solBalance) return { content: "Server error. Please try again later." };
 
-        let content: string = `Sending token to <@${recipientId}>\n\nYour SOL balance: ${solBalance}\nYour Tokens:\n`;
+        let content: string = `Sending token to <@${recipientId}>\n\n**Your SOL balance**: ${solBalance}\n**Your Tokens**:\n`;
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({
             walletAddress: wallet.wallet_address,
             minPos: wallet.settings.min_position_value
@@ -807,15 +820,15 @@ export const createTokenInfoBeforeSendUI = async (
         const solPrice: number | null = await getCurrentSolPrice();
         const holdingsValue: number = Number((solBalance * solPrice).toFixed(2));
         content += `\n\nSolana | SOL`;
-        content += `\nBalance: ${solBalance}`;
-        content += `\nHoldings value: $${holdingsValue}`;
+        content += `\n**Balance**: ${solBalance}`;
+        content += `\n**Holdings value**: $${holdingsValue}`;
     } else {
         const coinInfo: CoinStats | null = await getCoinStatsFromWallet(wallet.wallet_address, contract_address);
         if (!coinInfo) return { content: "Server error. Please try again later." };
-        content += `\n\n${coinInfo.name} | ${coinInfo.symbol} | ${coinInfo.address}`;
-        content += `\nMarket Cap: $${coinInfo.fdv} @ $${formatNumber(coinInfo.price)}`;
-        content += `\nBalance: ${coinInfo.tokenAmount ? coinInfo.tokenAmount.uiAmount : "???"}`;
-        content += `\nHoldings value: $${coinInfo.value ? coinInfo.value.inUSD : "???"} | ${coinInfo.value ? coinInfo.value.inSOL : "???"} SOL`;
+        content += `\n\n**${coinInfo.name}** | **${coinInfo.symbol}** | **${coinInfo.address}**`;
+        content += `\n**Market Cap**: $${coinInfo.fdv} @ $${formatNumber(coinInfo.price)}`;
+        content += `\n**Balance**: ${coinInfo.tokenAmount ? coinInfo.tokenAmount.uiAmount : "???"}`;
+        content += `\n**Holdings value**: $${coinInfo.value ? coinInfo.value.inUSD : "???"} | ${coinInfo.value ? coinInfo.value.inSOL : "???"} SOL`;
     }
 
     const sendPercentButton = new ButtonBuilder()
@@ -876,7 +889,7 @@ export const createClaimRefFeeUI = async (userId: string): Promise<InteractionEd
 }
 
 export const createSettingsUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
-    const content = "Settings Help\n\nGENERAL SETTINGS\nMin Position Value: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\nAuto Buy: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\nSlippage Config: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.\n\nBUTTONS CONFIG\nCustomize your buy and sell buttons. Tap to edit.\n\nTRANSACTION CONFIG\nMEV Protection: Accelerates your transactions and protect against frontruns to make sure you get the best price possible.\nTurbo: Callisto will use MEV Protection, but if unprotected sending is faster it will use that instead.\nSecure: Transactions are guaranteed to be protected from MEV, but transactions may be slower.\nTransaction Priority: Increase your Transaction Priority to improve transaction speed. Tap to edit.";
+    const content = "**GENERAL SETTINGS**\n**Min Position Value**: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\n**Auto Buy**: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\n**Slippage Config**: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.\n\n**BUTTONS CONFIG**\nCustomize your buy and sell buttons. Tap to edit.\n\n**TRANSACTION CONFIG**\n**MEV Protection**: Accelerates your transactions and protect against frontruns to make sure you get the best price possible.\n**Turbo**: Callisto will use MEV Protection, but if unprotected sending is faster it will use that instead.\n**Secure**: Transactions are guaranteed to be protected from MEV, but transactions may be slower.\n**Transaction Priority**: Increase your Transaction Priority to improve transaction speed. Tap to edit.";
 
     let wallet: any;
     try {
@@ -1008,7 +1021,7 @@ export const createSetAsDefaultUI = (walletAddress: string): InteractionEditRepl
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(setAsDefaultButton);
 
     return {
-        content: `Your new wallet has been added.\nWallet address: ${walletAddress}\n\nTap the "Set as default" button below to set the new wallet as your default wallet.`,
+        content: `Your new wallet has been added.\n**Wallet address**: ${walletAddress}\n\nTap the "Set as default" button below to set the new wallet as your default wallet.`,
         components: [row],
     };
 };
@@ -1045,7 +1058,7 @@ export const createRemoveWalletUI = async (userId: string): Promise<InteractionE
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
     return {
-        content: "Select a wallet to remove.\n\nWARNING: This action is irreversible!\n\nCallisto will remove the selected wallet from your account. Make sure you have exported your private key or withdrawn all funds before removing the wallet, else your funds will be lost forever!",
+        content: "Select a wallet to remove.\n\n**WARNING**: This action is irreversible!\n\nCallisto will remove the selected wallet from your account. Make sure you have exported your private key or withdrawn all funds before removing the wallet, else your funds will be lost forever!",
         components: [row],
     };
 };
@@ -1054,8 +1067,8 @@ export const createRemoveWalletUI = async (userId: string): Promise<InteractionE
 
 export const createBlinkCreationMenu = (): InteractionEditReplyOptions => {
     let content: string = "What type of Action Blink do you want to create?";
-    content += "\n\n**Token Transfer:** Can be used for donations or simply sending tokens to another wallet.";
-    content += "\n**Token Swap:** Swap any token with SOL.";
+    content += "\n\n**Token Transfer**: Can be used for donations or simply sending tokens to another wallet.";
+    content += "\n**Token Swap**: Swap any token with SOL.";
     const blinkTypes: SelectMenuComponentOptionData[] = [
         { label: "blinkTokenTransfer", value: "Token Transfer" },
         { label: "blinkTokenSwap", value: "Token Swap" },

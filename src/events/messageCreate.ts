@@ -31,6 +31,7 @@ const event = {
                 if (actionUIExists) {
                     let attachment: AttachmentBuilder | undefined;
                     if (actionUIExists.has_attachment) {
+                        // convert svgs into pngs because discord doesn't support svgs in embeds
                         const buffer: Buffer = await urlToBuffer(action.icon);
                         const imageBuffer: Buffer = await sharp(buffer).png().toBuffer();
                         attachment = new AttachmentBuilder("image.png").setFile(imageBuffer);
@@ -56,6 +57,7 @@ const event = {
                     })
                 ).json();
                 if (!actionRule) return;
+
                 // TODO: handle multiple objects inside the rules array. how does it have to be handled or processed?
                 const actionRuleObj: ActionRuleObject = actionRule.rules[0];
                 const pathPattern: string = actionRuleObj.pathPattern;

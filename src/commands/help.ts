@@ -1,12 +1,12 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, InteractionReplyOptions, SlashCommandBuilder } from "discord.js";
 import { createHelpUI } from "../lib/discord-ui";
 
 const command = {
     data: new SlashCommandBuilder()
         .setName("help")
-        .setDescription("Show more information about the Callist Bot."),
+        .setDescription("Show more information about the Callisto Bot."),
     async execute(interaction: ChatInputCommandInteraction) {
-        const helpUI: string = createHelpUI();
+        const helpUI: InteractionReplyOptions = createHelpUI();
         await interaction.reply(helpUI);
     }
 }
