@@ -683,6 +683,8 @@ export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostRe
     try {
         if (SWAP_BLINKS_MAPPING.includes(root_url)) {
             // TODO: calculate wheter user has enough SOL/Tokens to swap
+            //const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
+
             // TODO: calculate fees and subtract them (has to be done beforehand)
             // TODO: update ref fees if its a swap
         }
@@ -691,7 +693,8 @@ export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostRe
         if (!signer) return decryptError(txResponse);
 
         const swapTxBuf: Buffer = Buffer.from(blinkTx.transaction, 'base64');
-        const tx: VersionedTransaction = VersionedTransaction.deserialize(swapTxBuf);        
+        const tx: VersionedTransaction = VersionedTransaction.deserialize(swapTxBuf);
+        //console.log(tx.message.compiledInstructions);
         tx.sign([signer]);
         const signature: string | undefined = getSignature(tx);
         txResponse.tx_signature = signature;

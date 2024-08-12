@@ -648,7 +648,7 @@ export function replaceWildcards(originalUrl: string, apiPath: string, pathPatte
 
 // processes_values will only be defined when user presses a button where custom values have to be submitted
 export async function executeBlink(
-    user_id: string, blink_id: string, button_id: string, processed_values?: BlinkCustomValue[]
+    user_id: string, action_id: string, button_id: string, processed_values?: BlinkCustomValue[]
 ): Promise<BlinkResponse> {
     let wallet: any;
     let user: any;
@@ -668,7 +668,7 @@ export async function executeBlink(
     }
 
     try {
-        const actionUI: any = await ActionUI.findOne({ blink_id }).lean();
+        const actionUI: any = await ActionUI.findOne({ action_id }).lean();
         if (!actionUI) return { content: "The Blink magically disappeared. Please contact support for more information." };
 
         const button: any = actionUI.buttons.find((button: any) => Number(button.button_id) === Number(button_id));
@@ -684,7 +684,7 @@ export async function executeBlink(
 
         // if button has custom values and user didn't submit those values yet
         if (button.parameters?.length && !processed_values?.length) {
-            return { custom_values: true, blink_id, button_id, params: button.parameters };
+            return { custom_values: true, action_id, button_id, params: button.parameters };
         }
 
         // if button has custom values and user submitted them
@@ -735,7 +735,7 @@ export async function executeBlink(
                     user_id,
                     wallet_address: wallet.wallet_address,
                     function_name: "executeBlink",
-                    error: `Error in blink id ${blink_id}, button id ${button_id}: ${error}`,
+                    error: `Error in blink id ${action_id}, button id ${button_id}: ${error}`,
                 });
                 return { content: "Failed to process Blink. Please try again later." };
             }

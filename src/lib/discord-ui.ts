@@ -349,7 +349,7 @@ export const createBlinkUI = async (urls: any, action: ActionGetResponse): Promi
         rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...tempButtons));
 
         const newActionUI: any = new ActionUI({
-            blink_id: appStats.blinks_created,
+            action_id: appStats.blinks_created,
             posted_url: urls.posted_url,
             action_root_url: urls.action_root_url,
             root_url: urls.root_url,
@@ -1196,18 +1196,18 @@ export const creatChangeBlinkCustomValueModal = async (
 }
 
 export const createBlinkCustomValuesModal = async (
-    blink_id: string, button_id: string, params: TypedActionParameter[]
+    action_id: string, button_id: string, params: TypedActionParameter[]
 ): Promise<ModalBuilder | MessageCreateOptions | undefined> => {
     try {
         if (params.length > 5) {
             // NOTE: discord only allows 5 text inputs per modal, so we have to handle action UIs with more than 5 buttons differently
             // in this case we are creating an embed with buttons which will act as an modal
-            const embed: MessageCreateOptions | undefined = await createBlinkUIEmbed(blink_id, button_id, params);
+            const embed: MessageCreateOptions | undefined = await createBlinkUIEmbed(action_id, button_id, params);
             return embed;
         }
 
         const blinkCustomValuesModal: ModalBuilder = new ModalBuilder()
-            .setCustomId(`blinkCustomValues:${blink_id}:${button_id}`)
+            .setCustomId(`blinkCustomValues:${action_id}:${button_id}`)
             .setTitle(`Enter custom value${params.length > 1 ? "s" : ""}`);
 
         params.forEach((param: TypedActionParameter, i: number) => {
@@ -1708,7 +1708,7 @@ export const createSellLimitPriceModal = (): ModalBuilder => {
 /************************************************************** EMBEDS ***********************************************************/
 
 export const createBlinkUIEmbed = async (
-    blink_id: string, button_id: string, params: TypedActionParameter[]
+    action_id: string, button_id: string, params: TypedActionParameter[]
 ): Promise<MessageCreateOptions | undefined> => {
     try {
         let content: string = "";
@@ -1721,7 +1721,7 @@ export const createBlinkUIEmbed = async (
 
             const button = new ButtonBuilder()
                 // last value (index) will be used to find the correct line later, so the value for that custom value can be changed
-                .setCustomId(`changeBlinkEmbedValue:${blink_id}:${button_id}:${index}`)
+                .setCustomId(`changeBlinkEmbedValue:${action_id}:${button_id}:${index}`)
                 .setLabel(param.label ? param.label : `Custom value ${index + 1}`)
                 .setStyle(ButtonStyle.Secondary);
 
@@ -1736,7 +1736,7 @@ export const createBlinkUIEmbed = async (
         // create a send button which sends the blink transaction
         const button = new ButtonBuilder()
             // last value (index) will be used to find the correct line later, so the value for that custom value can be changed
-            .setCustomId(`changeBlinkEmbedValue:${blink_id}:${button_id}:send`)
+            .setCustomId(`changeBlinkEmbedValue:${action_id}:${button_id}:send`)
             .setLabel("Send")
             .setStyle(ButtonStyle.Secondary);
         // check if a new row needs to be created
@@ -1746,7 +1746,7 @@ export const createBlinkUIEmbed = async (
         }
         rows[rowsIndex].addComponents(button)
 
-        const actionUI: any = await ActionUI.findOne({ blink_id }).lean();
+        const actionUI: any = await ActionUI.findOne({ action_id }).lean();
 
         const embed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)

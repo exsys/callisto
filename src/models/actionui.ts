@@ -1,7 +1,7 @@
 import { Schema, model } from "mongoose";
 
 const ActionUiSchema = new Schema({
-    blink_id: {
+    action_id: {
         type: Number,
         required: true,
         unique: true,

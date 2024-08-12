@@ -36,13 +36,22 @@ const BlinkSchema = new Schema({
                 label: String,
                 parameters: {
                     type: [{
-                        name: String,
+                        name: {
+                            type: String,
+                            required: true,
+                        },
                         label: String,
                         required: Boolean,
-                    }]
+                    }],
+                    required: false,
+                    _id: false,
                 },
             }],
+            required: true,
+            _id: false,
         },
+        required: false,
+        _id: false,
     },
     error: {
         message: String,

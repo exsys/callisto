@@ -547,17 +547,17 @@ export const BUTTON_COMMANDS = {
         const modal: ModalBuilder = createSellLimitPriceModal();
         await interaction.showModal(modal);
     },
-    blinkButton: async (interaction: ButtonInteraction, blink_id?: string, button_id?: string, buttonType?: string) => {
+    blinkButton: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, buttonType?: string) => {
         try {
             if (buttonType !== "custom") {
                 // NOTE: discord doesn't allow to show a modal after a reply, and a reply has to be send within 3 seconds
                 // but this function might take more than 3 seconds to process
                 await interaction.deferReply({ ephemeral: true });
             }
-            const result: BlinkResponse = await executeBlink(interaction.user.id, blink_id!, button_id!);
+            const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!);
             if (result.custom_values) {
                 const modal: ModalBuilder | MessageCreateOptions | undefined =
-                    await createBlinkCustomValuesModal(result.blink_id!, result.button_id!, result.params!);
+                    await createBlinkCustomValuesModal(result.action_id!, result.button_id!, result.params!);
                 if (!modal) {
                     await interaction.editReply({ content: "Server error. Please try again later." });
                     return;
@@ -575,14 +575,14 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply({ content: "Server error. Please try again later." });
         }
     },
-    changeBlinkEmbedValue: async (interaction: ButtonInteraction, blink_id?: string, button_id?: string, valueIndex?: string) => {
+    changeBlinkEmbedValue: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, valueIndex?: string) => {
         const embedDescription: string | undefined = interaction.message.embeds[0].data.description;
         if (!embedDescription) {
             return await interaction.reply({ content: "Server error. Please try again later.", ephemeral: true });
         }
         if (valueIndex === "send") {
             await interaction.deferReply({ ephemeral: true });
-            const actionUI: any = await ActionUI.findOne({ blink_id }).lean();
+            const actionUI: any = await ActionUI.findOne({ action_id }).lean();
             if (!actionUI) return await interaction.editReply({ content: "Couldn't find corresponding Blink." });
             const correspondingButton: any = actionUI.buttons.find((button: any) => button.button_id == button_id);
             if (!correspondingButton) return await interaction.editReply({ content: "Couldn't find corresponding Blink." });
@@ -592,7 +592,7 @@ export const BUTTON_COMMANDS = {
 
             // order values and prepare them to send to the RPC
             const orderedBlinkValues: BlinkCustomValue[] = convertDescriptionToOrderedValues(embedDescription, actionUI, correspondingButton);
-            const result: BlinkResponse = await executeBlink(interaction.user.id, blink_id!, button_id!, orderedBlinkValues);
+            const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!, orderedBlinkValues);
             return await interaction.editReply({ content: result.content! });
         }
 
