@@ -2,6 +2,7 @@ import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import { createPreBuyUI } from "../lib/discord-ui";
 import { UIResponse } from "../types/uiResponse";
 import { checkIfValidAddress } from "../lib/solanaweb3";
+import { DEFAULT_ERROR } from "../config/errors";
 
 const command = {
     data: new SlashCommandBuilder()
@@ -24,7 +25,7 @@ const command = {
             const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress as string);
             await interaction.editReply(uiResponse.ui);
         } catch (error) {
-            await interaction.editReply("Server error. Please try again later.");
+            await interaction.editReply(DEFAULT_ERROR);
         }
     }
 }

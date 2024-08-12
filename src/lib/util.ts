@@ -10,7 +10,7 @@ import { User } from "../models/user";
 import { Wallet } from "../models/wallet";
 import bs58 from 'bs58';
 import crypto from 'crypto';
-import { ERROR_CODES } from "../config/errors";
+import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
 import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
@@ -610,17 +610,6 @@ export function isPositiveNumber(numberToCheck: number | string): boolean {
     return Number(numberToCheck) > 0;
 }
 
-export function exctractAndValidateBlinkId(message: string): string | undefined {
-    try {
-        const firstLine: string = message.split("\n")[0];
-        const blinkId: string = firstLine.split(": ")[1];
-        if (!isPositiveNumber(blinkId)) return undefined;
-        return blinkId;
-    } catch (error) {
-        return undefined;
-    }
-}
-
 // find the part of originalUrl which matches with pathPattern
 export function replaceWildcards(originalUrl: string, apiPath: string, pathPattern: string): string | undefined {
     let escapedPattern: string = pathPattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
@@ -664,7 +653,7 @@ export async function executeBlink(
             return { content: `You have no SOL balance. Load up your wallet to use Blinks.\n\nYour wallet address: ${walletAddress}` };
         }
     } catch (error) {
-        return { content: "Server error. Please try again later." };
+        return { content: DEFAULT_ERROR };
     }
 
     try {
@@ -679,7 +668,7 @@ export async function executeBlink(
                 function_name: "sendBlinkPostReq",
                 error: `Couldn't find action button. ActionUI: ${JSON.stringify(actionUI)}`
             });
-            return { content: "Server error. Please try again later." };
+            return { content: DEFAULT_ERROR };
         }
 
         // if button has custom values and user didn't submit those values yet
@@ -777,7 +766,7 @@ export async function executeBlink(
                 function_name: "executeBlink",
                 error,
             });
-            return { content: "Server error. Please try again later." };
+            return { content: DEFAULT_ERROR };
         }
     }
 }
@@ -803,12 +792,12 @@ export async function urlToBuffer(url: string): Promise<Buffer> {
 export function changeBlinkEmbedModal(
     embed: Embed | undefined, components: ActionRow<MessageActionRowComponent>[] | undefined, lineToChange: number, newValue: string
 ): MessageCreateOptions {
-    if (!embed) return { content: "Server error. Please try again later." };
-    if (!components) return { content: "Server error. Please try again later." };
+    if (!embed) return { content: DEFAULT_ERROR };
+    if (!components) return { content: DEFAULT_ERROR };
 
     let embedDescription: string | undefined = embed?.data.description;
     const lines: string[] | undefined = embedDescription?.split("\n");
-    if (!lines) return { content: "Server error. Please try again later." };
+    if (!lines) return { content: DEFAULT_ERROR };
 
     lines[lineToChange] = lines[lineToChange].split(": ")[0] + ": " + newValue;
     const joinedLines = lines.join("\n");
@@ -855,7 +844,7 @@ export async function validateCustomBlinkValues(embedDescription: string, action
         });
         return response;
     } catch (error) {
-        return "Server error. Please try again later.";
+        return DEFAULT_ERROR;
     }
 }
 

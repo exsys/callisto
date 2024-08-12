@@ -1,6 +1,7 @@
 import { ChatInputCommandInteraction, CommandInteractionOption, InteractionEditReplyOptions, SlashCommandBuilder } from "discord.js";
 import { createTokenSelectionUI } from "../lib/discord-ui";
 import { Wallet } from "../models/wallet";
+import { DEFAULT_ERROR } from "../config/errors";
 
 const command = {
     data: new SlashCommandBuilder()
@@ -13,7 +14,7 @@ const command = {
 
             const userOption: CommandInteractionOption | null = interaction.options.get("username");
             if (!userOption || !userOption.user) {
-                await interaction.editReply("Server error. Please try again later");
+                await interaction.editReply(DEFAULT_ERROR);
                 return;
             }
 
@@ -36,7 +37,7 @@ const command = {
             const ui: InteractionEditReplyOptions = await createTokenSelectionUI(interaction.user.id, userOption.user.id);
             await interaction.editReply(ui);
         } catch (error) {
-            await interaction.editReply("Server error. Please try again later.");
+            await interaction.editReply(DEFAULT_ERROR);
         }
     }
 }

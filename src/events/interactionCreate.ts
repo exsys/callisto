@@ -1,6 +1,7 @@
 import { Events } from "discord.js";
 import { BUTTON_COMMANDS, MENU_COMMANDS, MODAL_COMMANDS } from "../lib/ui-commands";
 import { saveError } from "../lib/util";
+import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
 
 const event = {
     name: Events.InteractionCreate,
@@ -54,7 +55,7 @@ const event = {
                 }
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isButton()", error });
-                await interaction.reply({ content: 'Server error. Please try again later.' });
+                await interaction.reply({ content: DEFAULT_ERROR });
             }
         } else if (interaction.isModalSubmit()) {
             const modalId = interaction.customId;
@@ -80,7 +81,7 @@ const event = {
             }
 
             if (!inputValues) {
-                await interaction.reply({ content: 'Server error. Please try again later. Error code: 0001', ephemeral: true });
+                await interaction.reply({ content: ERROR_CODES["0001"].message, ephemeral: true });
                 return;
             }
 
@@ -99,7 +100,7 @@ const event = {
                 }
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isModalSubmit()", error });
-                await interaction.reply({ content: 'Server error. Please try again later.', ephemeral: true });
+                await interaction.reply({ content: DEFAULT_ERROR, ephemeral: true });
             }
         } else if (interaction.isStringSelectMenu()) {
             const menuId = interaction.customId;
@@ -114,7 +115,7 @@ const event = {
                 await menuCommand(interaction, value);
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isStringSelectMenu()", error });
-                await interaction.reply({ content: 'Server error. Please try again later.', ephemeral: true });
+                await interaction.reply({ content: DEFAULT_ERROR, ephemeral: true });
             }
         }
     },

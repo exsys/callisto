@@ -26,7 +26,7 @@ import {
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinStats";
 import { CoinInfo } from "../types/coinInfo";
-import { ERROR_CODES } from "../config/errors";
+import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../types/txResponse";
 import { User } from "../models/user";
 import { REFCODE_MODAL_STRING } from "../config/constants";
@@ -41,12 +41,13 @@ import {
     getCoinStatsFromWallet,
     getCurrentSolPrice
 } from "./solanaweb3";
-import { Blink } from "../models/blink";
 import { ActionGetResponse, LinkedAction } from "@solana/actions";
 import { ActionUI } from "../models/actionui";
 import { AppStats } from "../models/appstats";
 import { TypedActionParameter } from "@solana/actions-spec";
 import sharp from "sharp";
+import { Blink } from "../models/blink";
+import { BLINK_TYPE_MAPPING } from "../config/blink_type_mapping";
 
 /***************************************************** UIs *****************************************************/
 
@@ -63,7 +64,7 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
         }
 
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
-        if (!wallet) return { content: "Server error. Please try again later. " };
+        if (!wallet) return { content: DEFAULT_ERROR };
 
         let content: string = "Solana's fastest Discord bot to trade any coin.";
         const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
@@ -127,19 +128,52 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
             .setLabel('Advanced')
             .setStyle(ButtonStyle.Secondary);
 
+        const blinkSettingsButton = new ButtonBuilder()
+            .setCustomId('blinkSettings')
+            .setLabel('Blinks')
+            .setStyle(ButtonStyle.Secondary);
+
+        const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, blinkSettingsButton, walletButton);
+        const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(helpButton, referButton, settingsButton, refreshButton);
+
+        return { content, components: [firstRow, secondRow] };
+    } catch (error) {
+        return { content: DEFAULT_ERROR };
+    }
+};
+
+export const createBlinkSettingsUI = async (user_id: string): Promise<InteractionEditReplyOptions> => {
+    try {
+        let content: string = "Create and change Blinks here. You can post Blinks anywhere in the web for faster transactions.";
+        const usersBlinks: any[] = await Blink.find({ user_id }).lean();
+        let disabledBlinks: number = 0;
+        usersBlinks.forEach((blink: any) => {
+            if (blink.disabled) disabledBlinks++;
+        });
+        content += `\n\n**Active Blinks**: ${usersBlinks.length - disabledBlinks}`;
+        content += `\n**Inactive Blinks**: ${disabledBlinks}`;
+
         const createBlinkButton = new ButtonBuilder()
             .setCustomId('createBlink')
             .setLabel('Create Blink')
             .setStyle(ButtonStyle.Secondary);
 
-        const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, walletButton);
-        const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(helpButton, referButton, settingsButton, refreshButton);
+        const changeBlinkButton = new ButtonBuilder()
+            .setCustomId('changeBlink')
+            .setLabel('Change Blink')
+            .setStyle(ButtonStyle.Secondary);
 
-        return { content, components: [firstRow, secondRow] };
+        const deleteBlinkButton = new ButtonBuilder()
+            .setCustomId('deleteBlink')
+            .setLabel('Delete Blink')
+            .setStyle(ButtonStyle.Secondary);
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(createBlinkButton, changeBlinkButton, deleteBlinkButton);
+        return { content, components: [row] };
     } catch (error) {
-        return { content: "Server error. Please try again later" };
+        return { content: DEFAULT_ERROR };
     }
-};
+}
 
 export const createAdvancedUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
     const content: string = "";
@@ -162,7 +196,7 @@ export const createAdvancedUI = async (userId: string): Promise<InteractionEditR
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(limitOrderButton, openLimitOrdersButton, dcaOrderButton);
         return { content, components: [row] };
     } catch (error) {
-        return { content: "Server error. Please try again later" };
+        return { content: DEFAULT_ERROR };
     }
 }
 
@@ -223,27 +257,30 @@ export const createWalletUI = async (userId: string): Promise<InteractionEditRep
     return { content, components: [firstRow, secondRow] };
 };
 
-export const createBlinkCreationUI = async (user_id: string, blink_id?: string): Promise<InteractionEditReplyOptions> => {
+export const createBlinkCreationUI = (blinkType: string): InteractionEditReplyOptions => {
     try {
-        let blinkId: string | undefined;
-        const blink: any = await Blink.findOne({ user_id, blink_id });
-        /*if (!blink) {
-            const newBlink = new Blink({
+        let content: string = `Blink type: ${BLINK_TYPE_MAPPING[blinkType]}`;
+        content += '\n\nClick the "Add Action" button to add a button to your Blink. You can preview your Blink with the "Preview" button.';
 
-            });
-            await newBlink.save();
-            // return it
-        }*/
-        let content = `Blink ID: ${blinkId}`;
+        const blinkEmbed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setTitle("title")
+            .setDescription("description")
+            .setAuthor({ name: "label" });
 
         const titleButton = new ButtonBuilder()
             .setCustomId('changeBlinkTitle')
             .setLabel('Change Title')
             .setStyle(ButtonStyle.Secondary);
 
+        const urlButton = new ButtonBuilder()
+            .setCustomId('changeBlinkUrl')
+            .setLabel('Change URL')
+            .setStyle(ButtonStyle.Secondary);
+
         const iconButton = new ButtonBuilder()
             .setCustomId('changeBlinkIcon')
-            .setLabel('Change Icon')
+            .setLabel('Change Image')
             .setStyle(ButtonStyle.Secondary);
 
         const descriptionButton = new ButtonBuilder()
@@ -258,7 +295,7 @@ export const createBlinkCreationUI = async (user_id: string, blink_id?: string):
 
         const disabledButton = new ButtonBuilder()
             .setCustomId('changeBlinkDisabled')
-            .setLabel(`${blink.disabled ? "Enable" : "Disable"}`)
+            .setLabel("Enabled")
             .setStyle(ButtonStyle.Secondary);
 
         const addActionButton = new ButtonBuilder()
@@ -266,12 +303,23 @@ export const createBlinkCreationUI = async (user_id: string, blink_id?: string):
             .setLabel("Add Action")
             .setStyle(ButtonStyle.Secondary);
 
+        const previewButton = new ButtonBuilder()
+            .setCustomId('previewBlink')
+            .setLabel("Preview")
+            .setStyle(ButtonStyle.Secondary);
+
+        const createButton = new ButtonBuilder()
+            .setCustomId('createNewBlink')
+            .setLabel("Create Blink")
+            .setStyle(ButtonStyle.Secondary);
+
         const firstRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(titleButton, descriptionButton, labelButton, iconButton, disabledButton);
-        const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(addActionButton);
-        return { content, components: [firstRow, secondRow] };
+        const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(urlButton, addActionButton, previewButton, createButton);
+        return { content, embeds: [blinkEmbed], components: [firstRow, secondRow] };
     } catch (error) {
-        return { content: "Server error. Please try again later. " };
+        console.log(error)
+        return { content: DEFAULT_ERROR };
     }
 }
 
@@ -544,7 +592,7 @@ export const createCoinInfoForLimitOrderUI = async (contract_address: string): P
             .addComponents(buyLimitPercentButton, buyLimitPriceButton, sellLimitPercentButton, sellLimitPriceButton);
         return { content, components: [row] };
     } catch (error) {
-        return { content: "Server error. Please try again later." };
+        return { content: DEFAULT_ERROR };
     }
 }
 
@@ -601,7 +649,7 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
         const coinSymbols: string[] = coinsInWallet.map((coin: CoinStats) => coin.symbol);
         const coinSymbolsDivided: string = coinSymbols.join(" | ");
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-        if (!solBalance) return { content: "Server error. Please try again later." };
+        if (!solBalance) return { content: DEFAULT_ERROR };
 
         // TODO: uiAmount might be null in some cases. handle that case
         const usdValue: string = selectedCoin.value ? selectedCoin.value.inUSD : "0";
@@ -708,7 +756,7 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
             components: [firstRow, secondRow, thirdRow]
         };
     } catch (error) {
-        return { content: "Server error. Please try again later." };
+        return { content: DEFAULT_ERROR };
     }
 };
 
@@ -725,7 +773,7 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
     }
 
     if (txResponse.error) {
-        response = txResponse.response ? txResponse.response : "Server error. Please try again later.";
+        response = txResponse.response ? txResponse.response : DEFAULT_ERROR;
     } else {
         if (token) {
             // if token exists it was a sell. since CoinStats are only set in the sellViaApi function
@@ -770,14 +818,14 @@ export const createTokenSelectionUI = async (user_id: string, recipientId: strin
         if (!wallet) return { content: ERROR_CODES["0003"].message };
 
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-        if (!solBalance) return { content: "Server error. Please try again later." };
+        if (!solBalance) return { content: DEFAULT_ERROR };
 
         let content: string = `Sending token to <@${recipientId}>\n\n**Your SOL balance**: ${solBalance}\n**Your Tokens**:\n`;
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({
             walletAddress: wallet.wallet_address,
             minPos: wallet.settings.min_position_value
         });
-        if (!coinInfos) return { content: "Server error. Please try again later." };
+        if (!coinInfos) return { content: DEFAULT_ERROR };
         const symbols: string[] = coinInfos.map((coinInfo: CoinInfo, index: number) => {
             return index === coinInfos.length - 1 ? `${coinInfo.symbol}` : `${coinInfo.symbol} | `;
         });
@@ -798,7 +846,7 @@ export const createTokenSelectionUI = async (user_id: string, recipientId: strin
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(selectTokenButton);
         return { content, components: [row] };
     } catch (error) {
-        return { content: "Server error. Please try again later." };
+        return { content: DEFAULT_ERROR };
     }
 }
 
@@ -816,7 +864,7 @@ export const createTokenInfoBeforeSendUI = async (
 
     if (contract_address === "SOL") {
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-        if (!solBalance) return { content: "Server error. Please try again later." };
+        if (!solBalance) return { content: DEFAULT_ERROR };
         const solPrice: number | null = await getCurrentSolPrice();
         const holdingsValue: number = Number((solBalance * solPrice).toFixed(2));
         content += `\n\nSolana | SOL`;
@@ -824,7 +872,7 @@ export const createTokenInfoBeforeSendUI = async (
         content += `\n**Holdings value**: $${holdingsValue}`;
     } else {
         const coinInfo: CoinStats | null = await getCoinStatsFromWallet(wallet.wallet_address, contract_address);
-        if (!coinInfo) return { content: "Server error. Please try again later." };
+        if (!coinInfo) return { content: DEFAULT_ERROR };
         content += `\n\n**${coinInfo.name}** | **${coinInfo.symbol}** | **${coinInfo.address}**`;
         content += `\n**Market Cap**: $${coinInfo.fdv} @ $${formatNumber(coinInfo.price)}`;
         content += `\n**Balance**: ${coinInfo.tokenAmount ? coinInfo.tokenAmount.uiAmount : "???"}`;
@@ -1067,12 +1115,14 @@ export const createRemoveWalletUI = async (userId: string): Promise<InteractionE
 
 export const createBlinkCreationMenu = (): InteractionEditReplyOptions => {
     let content: string = "What type of Action Blink do you want to create?";
-    content += "\n\n**Token Transfer**: Can be used for donations or simply sending tokens to another wallet.";
+    content += "\n\n**Donation**: Create a Blink to ask for tips to one of your Callisto wallets.";
     content += "\n**Token Swap**: Swap any token with SOL.";
+
     const blinkTypes: SelectMenuComponentOptionData[] = [
-        { label: "blinkTokenTransfer", value: "Token Transfer" },
-        { label: "blinkTokenSwap", value: "Token Swap" },
+        { label: "Donation", value: "blinkDonation" },
+        { label: "Token Swap", value: "blinkTokenSwap" },
     ];
+
     const options: StringSelectMenuOptionBuilder[] = blinkTypes.map((type: SelectMenuComponentOptionData) => {
         return new StringSelectMenuOptionBuilder()
             .setLabel(type.label)
@@ -1115,7 +1165,7 @@ export const createSelectCoinMenu = async (userId: string): Promise<InteractionE
     const content: string = "Select a coin to view its info's.";
     try {
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
-        if (!coinInfos) return { content: "Server error. Please try again later." };
+        if (!coinInfos) return { content: DEFAULT_ERROR };
 
         // TODO: seems like max length is 25, handle that case
         const options: StringSelectMenuOptionBuilder[] = coinInfos.map((coinInfo: CoinInfo) => {
@@ -1134,7 +1184,7 @@ export const createSelectCoinMenu = async (userId: string): Promise<InteractionE
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
         return { content, components: [row] };
     } catch (error) {
-        return { content: "Server error. Please try again later." };
+        return { content: DEFAULT_ERROR };
     }
 };
 
@@ -1142,7 +1192,7 @@ export const createSelectCoinToSendMenu = async (userId: string, msgContent: str
     const content: string = `${msgContent}\n\nSelect a coin to send.`;
     try {
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
-        if (!coinInfos) return { content: "Server error. Please try again later." };
+        if (!coinInfos) return { content: DEFAULT_ERROR };
 
         // TODO: seems like max length is 25, handle that case
         const options: StringSelectMenuOptionBuilder[] = [
@@ -1166,7 +1216,7 @@ export const createSelectCoinToSendMenu = async (userId: string, msgContent: str
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
         return { content, components: [row] };
     } catch (error) {
-        return { content: "Server error. Please try again later." };
+        return { content: DEFAULT_ERROR };
     }
 };
 

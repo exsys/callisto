@@ -41,7 +41,8 @@ import {
     createBlinkCreationMenu,
     createBlinkCreationUI,
     createBlinkCustomValuesModal,
-    creatChangeBlinkCustomValueModal
+    creatChangeBlinkCustomValueModal,
+    createBlinkSettingsUI
 } from "./discord-ui";
 import {
     buyCoin,
@@ -61,7 +62,6 @@ import {
     extractUserIdFromMessage,
     extractBalanceFromMessage,
     isPositiveNumber,
-    exctractAndValidateBlinkId,
     executeBlink,
     isNumber,
     changeBlinkEmbedModal,
@@ -69,7 +69,7 @@ import {
     convertDescriptionToOrderedValues,
 } from "./util";
 import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { ERROR_CODES } from "../config/errors";
+import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../types/txResponse";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { UIResponse } from "../types/uiResponse";
@@ -137,6 +137,11 @@ export const BUTTON_COMMANDS = {
     sellAndManage: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
+        await interaction.editReply(ui);
+    },
+    blinkSettings: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionEditReplyOptions = await createBlinkSettingsUI(interaction.user.id);
         await interaction.editReply(ui);
     },
     createBlink: async (interaction: ButtonInteraction) => {
@@ -278,7 +283,7 @@ export const BUTTON_COMMANDS = {
                 return Math.floor(new Date(b.createdAt).getTime() / 1000) - Math.floor(new Date(a.createdAt).getTime() / 1000);
             })[0]; // find the latest wallet by date
             if (!newDefaultWallet || !oldDefaultWallet) {
-                await interaction.editReply({ content: "Server error. Please try again later" });
+                await interaction.editReply({ content: DEFAULT_ERROR });
                 return;
             }
 
@@ -286,7 +291,7 @@ export const BUTTON_COMMANDS = {
             await Wallet.updateOne({ user_id: interaction.user.id, wallet_address: newDefaultWallet.wallet_address }, { is_default_wallet: true });
             await interaction.editReply({ content: "Successfully set as your default wallet!" });
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     exportPrivKeyConfirmation: async (interaction: ButtonInteraction) => {
@@ -514,7 +519,7 @@ export const BUTTON_COMMANDS = {
         }
         const amount: string = extractAmountFromMessage(interaction.message.content);
         if (!amount) {
-            await interaction.editReply({ content: "Server Error. Please try again." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
             return;
         }
 
@@ -559,7 +564,7 @@ export const BUTTON_COMMANDS = {
                 const modal: ModalBuilder | MessageCreateOptions | undefined =
                     await createBlinkCustomValuesModal(result.action_id!, result.button_id!, result.params!);
                 if (!modal) {
-                    await interaction.editReply({ content: "Server error. Please try again later." });
+                    await interaction.editReply({ content: DEFAULT_ERROR });
                     return;
                 }
 
@@ -572,13 +577,13 @@ export const BUTTON_COMMANDS = {
                 await interaction.editReply({ content: result.content! });
             }
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeBlinkEmbedValue: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, valueIndex?: string) => {
         const embedDescription: string | undefined = interaction.message.embeds[0].data.description;
         if (!embedDescription) {
-            return await interaction.reply({ content: "Server error. Please try again later.", ephemeral: true });
+            return await interaction.reply({ content: DEFAULT_ERROR, ephemeral: true });
         }
         if (valueIndex === "send") {
             await interaction.deferReply({ ephemeral: true });
@@ -603,7 +608,7 @@ export const BUTTON_COMMANDS = {
         let lineSplit: string[] = correspondingLine.split(": ");
         const modal: ModalBuilder | undefined = await creatChangeBlinkCustomValueModal(lineSplit[0], lineSplit[1], valueIndex!)
         if (!modal) {
-            return await interaction.reply({ content: "Server error. Please try again later.", ephemeral: true });
+            return await interaction.reply({ content: DEFAULT_ERROR, ephemeral: true });
         }
         await interaction.showModal(modal);
     },
@@ -620,7 +625,7 @@ export const MENU_COMMANDS = {
         const oldDefaultWallet: any = allWallets.find((wallet: any) => wallet.is_default_wallet);
         const newDefaultWallet: any = allWallets.find((wallet: any) => wallet.wallet_address === newDefault);
         if (!newDefaultWallet || !oldDefaultWallet) {
-            await interaction.editReply({ content: "Server error. Please try again later" });
+            await interaction.editReply({ content: DEFAULT_ERROR });
             return;
         }
 
@@ -631,7 +636,7 @@ export const MENU_COMMANDS = {
             const walletUi: InteractionEditReplyOptions = await createWalletUI(interaction.user.id);
             await interaction.editReply(walletUi);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     removeSelectedWallet: async (interaction: StringSelectMenuInteraction, walletToRemove: string) => {
@@ -663,7 +668,7 @@ export const MENU_COMMANDS = {
             await removeWallet.save();
             await interaction.editReply({ content: "Successfully removed wallet." });
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     selectCoin: async (interaction: StringSelectMenuInteraction, contractAddress: string) => {
@@ -679,8 +684,7 @@ export const MENU_COMMANDS = {
     },
     selectBlinkType: async (interaction: StringSelectMenuInteraction, blinkType: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const blinkId: string | undefined = exctractAndValidateBlinkId(interaction.message.content);
-        const ui: InteractionEditReplyOptions = await createBlinkCreationUI(interaction.user.id, blinkId);
+        const ui: InteractionEditReplyOptions = createBlinkCreationUI(blinkType);
         await interaction.editReply(ui);
     },
 };
@@ -696,7 +700,7 @@ export const MODAL_COMMANDS = {
             const response: MessageCreateOptions = changeBlinkEmbedModal(embed, rows, lineToChange, newValue);
             await interaction.editReply(response);
         } catch (error) {
-            await interaction.editReply("Server error. Please try again later.");
+            await interaction.editReply(DEFAULT_ERROR);
         }
     },
     blinkCustomValues: async (interaction: ModalSubmitInteraction, values: any[]) => {
@@ -709,7 +713,7 @@ export const MODAL_COMMANDS = {
             const result: BlinkResponse = await executeBlink(interaction.user.id, blinkId, buttonId, orderedBlinkValues);
             await interaction.editReply({ content: result.content! });
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     buyCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -779,7 +783,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -797,7 +801,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -808,7 +812,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeBuySlippage: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -819,7 +823,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -830,7 +834,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
 
     },
@@ -842,7 +846,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -853,7 +857,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeTransactionPriority: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -866,7 +870,7 @@ export const MODAL_COMMANDS = {
 
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -877,7 +881,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeBuyButton1: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -888,7 +892,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -899,7 +903,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeBuyButton2: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -910,7 +914,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -921,7 +925,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeBuyButton3: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -932,7 +936,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -943,7 +947,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeBuyButton4: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -954,7 +958,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -965,7 +969,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeSellButton1: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -976,7 +980,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -987,7 +991,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeSellButton2: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -998,7 +1002,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -1009,7 +1013,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeSellButton3: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -1020,7 +1024,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -1031,7 +1035,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     changeSellButton4: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -1042,7 +1046,7 @@ export const MODAL_COMMANDS = {
         }
         const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
         if (!wallet) {
-            await interaction.editReply({ content: "Server error. If this issue persists please contact Support. Error code: 0003" });
+            await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         }
 
@@ -1053,7 +1057,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: "Server error. Please try again later." });
+            await interaction.editReply({ content: DEFAULT_ERROR });
         }
     },
     sendCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -1073,9 +1077,9 @@ export const MODAL_COMMANDS = {
     sendXPercentToUser: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 3);
-        if (!contractAddress) await interaction.editReply("Server error. Please try again later.");
+        if (!contractAddress) await interaction.editReply(DEFAULT_ERROR);
         const recipientId: string = extractUserIdFromMessage(interaction.message!.content);
-        if (!recipientId) await interaction.editReply("Server error. Please try again later.");
+        if (!recipientId) await interaction.editReply(DEFAULT_ERROR);
         const recipientWallet: any = await Wallet.findOne({ user_id: recipientId, is_default_wallet: true }).lean();
         if (!recipientWallet) await interaction.editReply(ERROR_CODES["0002"].message);
 
@@ -1095,9 +1099,9 @@ export const MODAL_COMMANDS = {
     sendXAmountToUser: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 3);
-        if (!contractAddress) await interaction.editReply("Server error. Please try again later.");
+        if (!contractAddress) await interaction.editReply(DEFAULT_ERROR);
         const recipientId: string = extractUserIdFromMessage(interaction.message!.content);
-        if (!recipientId) await interaction.editReply("Server error. Please try again later.");
+        if (!recipientId) await interaction.editReply(DEFAULT_ERROR);
         const recipientWallet: any = await Wallet.findOne({ user_id: recipientId, is_default_wallet: true }).lean();
         if (!recipientWallet) await interaction.editReply(ERROR_CODES["0002"].message);
 

@@ -1,9 +1,11 @@
 import { TxResponse } from "../types/txResponse";
 
+export const DEFAULT_ERROR: string = "Server error. Please try again later";
+
 export const ERROR_CODES = {
     "0000": {
         code: "0000",
-        message: "Server error. Please try again later.",
+        message: DEFAULT_ERROR,
         context: "Generic error message. Unknown Issue or just a simple server error.",
         short: "Generic error message.",
     },
