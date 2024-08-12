@@ -739,6 +739,12 @@ export async function executeBlink(
                 });
                 return { content: "Failed to process Blink. Please try again later." };
             }
+        } else {
+            if (button.href.includes("https://")) {
+                url = button.href;
+            } else {
+                url = actionUI.action_root_url + button.href;
+            }
         }
 
         if (!url) return { content: "Couldn't process Blink URL. Please contact support for more information." };
