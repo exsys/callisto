@@ -14,6 +14,7 @@ import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
 import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
+    BLINK_DEFAULT_IMAGE,
     ERRORS_WEBHOOK,
     FEE_TOKEN_ACCOUNT,
     LEVEL1_FEE_IN_PERCENT,
@@ -49,6 +50,9 @@ import { BlinkCustomValue } from "../types/blinkCustomValue";
 import { ActionPostResponse, ACTIONS_CORS_HEADERS } from "@solana/actions";
 import { URLSearchParams } from "url";
 import { get } from "https";
+import { AppStats } from "../models/appstats";
+import { Blink } from "../models/blink";
+import { REQUIRED_SEARCH_PARAMS } from "../config/required_params_mapping";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -867,4 +871,38 @@ export function convertDescriptionToOrderedValues(embedDescription: string, acti
     });
 
     return orderedValues;
+}
+
+export async function createNewBlink(user_id: string, blink_type: string, token_address?: string): Promise<number | null> {
+    try {
+        const stats: any = await AppStats.findOne({ stats_id: 1 });
+        if (!stats) return null;
+        const user: any = await User.findOne({ user_id });
+        if (user) {
+            user.blinks_created++;
+            try {
+                await user.save();
+            } catch (error) { }
+        }
+
+        stats.blinks_created++;
+        const newBlink = new Blink({
+            user_id,
+            blink_id: stats.blinks_created,
+            blink_type,
+            icon: BLINK_DEFAULT_IMAGE,
+            required_parameters: REQUIRED_SEARCH_PARAMS[blink_type as keyof typeof REQUIRED_SEARCH_PARAMS],
+            token_address,
+        });
+
+        await newBlink.save();
+        await stats.save();
+        return Number(newBlink.blink_id);
+    } catch (error) {
+        await saveError({
+            function_name: "createNewBlink util.ts",
+            error,
+        });
+        return null;
+    }
 }

@@ -10,6 +10,10 @@ const UserSchema = new Schema({
         type: Number,
         default: 0,
     },
+    blinks_created: {
+        type: Number,
+        default: 0,
+    },
     swap_fee: {
         type: Number,
         default: 0.75, // fee in percent

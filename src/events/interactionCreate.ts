@@ -1,11 +1,14 @@
 import { Events } from "discord.js";
-import { BUTTON_COMMANDS, MENU_COMMANDS, MODAL_COMMANDS } from "../lib/ui-commands";
+import { MODAL_COMMANDS } from "../lib/modalCommands";
 import { saveError } from "../lib/util";
 import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
+import { BUTTON_COMMANDS } from "../lib/buttonCommands";
+import { MENU_COMMANDS } from "../lib/menuCommands";
 
 const event = {
     name: Events.InteractionCreate,
     async execute(interaction: any) {
+        // TODO: change this to switch statement for better readability
         if (interaction.isCommand()) {
             // TODO: find out if deferReply is needed here, because in some cases it will probably take more than 3 seconds
             const command = interaction.client.commands.get(interaction.commandName);
@@ -45,8 +48,22 @@ const event = {
             try {
                 // TODO: it seems like customId is inside interaction, check if I can just send interaction here
                 // and get the values in the buttom command with split (instead of sending all values as param)
-                if (buttonId.includes("blinkButton") || buttonId.includes("changeBlinkEmbedValue")) {
-                    const values = buttonId.split(":");
+                // split still has to be used here, but the values don't have to be sent here, interaction
+                // can be sent alone and split will be used again in the command to get the values.
+                // benefit: no if-else is needed anymore, can just use a single buttonCommand()
+
+                // TODO: make it so values is hand over as a single array instead of all values individually
+
+                if (buttonId.includes("changeUserBlink")) {
+                    const values: string[] = buttonId.split(":");
+                    const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
+                    await buttonCommand(interaction, values[1], values[2]);
+                } else if (buttonId.includes("addFixedAction") || buttonId.includes("addCustomAction")) {
+                    const values: string[] = buttonId.split(":");
+                    const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
+                    await buttonCommand(interaction, values[1]);
+                } else if (buttonId.includes("blinkButton") || buttonId.includes("changeBlinkEmbedValue")) {
+                    const values: string[] = buttonId.split(":");
                     const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
                     await buttonCommand(interaction, values[1], values[2], values[3]);
                 } else {
@@ -86,14 +103,27 @@ const event = {
             }
 
             try {
+                // TODO: make it so for blinks it just uses the values as param, instead of every single element individually
                 if (modalId.includes("blinkCustomValues")) {
+                    // for executing a blink with a button that required custom values
                     const values = modalId.split(":");
                     const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, [values[1], values[2], blinkValuesOrdered] as any[]);
-                } else if (modalId.includes("changeBlinkEmbedValue")) {
+                } else if (modalId.includes("changeUserBlink")) {
+                    // for changing the blink embed  user creates their own blink
                     const values = modalId.split(":");
                     const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
-                    await modalCommand(interaction, [values[1], inputValues[0]] as any[]);
+                    await modalCommand(interaction, [values[1], values[2], inputValues[0]]);
+                } else if (modalId.includes("changeBlinkEmbedValue")) {
+                    // for changing custom values inside the embed that is acting as a modal (to execute a blink)
+                    const values = modalId.split(":");
+                    const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
+                    await modalCommand(interaction, [values[1], inputValues[0]]);
+                } else if (modalId.includes("addFixedAction") || modalId.includes("addCustomAction")) {
+                    // for adding fixed button values to a blink
+                    const values = modalId.split(":");
+                    const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
+                    await modalCommand(interaction, [values[1], ...inputValues]);
                 } else {
                     const modalCommand = MODAL_COMMANDS[modalId as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, inputValues as string[]);

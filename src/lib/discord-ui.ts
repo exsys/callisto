@@ -14,6 +14,7 @@ import {
     MessageCreateOptions,
     AttachmentBuilder,
     InteractionReplyOptions,
+    Embed,
 } from "discord.js";
 import {
     createNewRefCode,
@@ -21,15 +22,17 @@ import {
     createOrUseRefCodeForUser,
     formatNumber,
     saveError,
-    urlToBuffer
+    urlToBuffer,
+    createNewBlink,
+    isPositiveNumber
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinStats";
 import { CoinInfo } from "../types/coinInfo";
-import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
+import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY, ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../types/txResponse";
 import { User } from "../models/user";
-import { REFCODE_MODAL_STRING } from "../config/constants";
+import { BLINK_DEFAULT_IMAGE, REFCODE_MODAL_STRING, SOL_TOKEN_ADDRESS_MAX_LENGTH, SOL_TOKEN_ADDRESS_MIN_LENGTH, SOL_WALLET_ADDRESS_MAX_LENGTH, SOL_WALLET_ADDRESS_MIN_LENGTH } from "../config/constants";
 import { UIResponse } from "../types/uiResponse";
 import {
     buyCoinViaAPI,
@@ -48,6 +51,7 @@ import { TypedActionParameter } from "@solana/actions-spec";
 import sharp from "sharp";
 import { Blink } from "../models/blink";
 import { BLINK_TYPE_MAPPING } from "../config/blink_type_mapping";
+import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
 
 /***************************************************** UIs *****************************************************/
 
@@ -141,6 +145,280 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
         return { content: DEFAULT_ERROR };
     }
 };
+
+export const changeUserBlinkEmbedUI = async (
+    user_id: string, blink_id: string, embed: Embed, fieldToChange: string, newValue: string
+): Promise<InteractionEditReplyOptions | undefined> => {
+    try {
+        const newEmbed: EmbedBuilder = EmbedBuilder.from(embed);
+        const blink: any = await Blink.findOne({ user_id, blink_id });
+        if (!blink) return undefined;
+
+        switch (fieldToChange) {
+            case "Title": {
+                newEmbed.setTitle(newValue);
+                blink.title = newValue;
+                break;
+            }
+            case "Description": {
+                newEmbed.setDescription(newValue);
+                blink.description = newValue;
+                break;
+            }
+            case "Label": {
+                newEmbed.setAuthor({ name: newValue });
+                blink.label = newValue;
+                break;
+            }
+            case "Icon": {
+                // TODO: check if image exists
+                // TODO: check if png, gif or jpg
+                newEmbed.setImage(newValue);
+                blink.icon = newValue;
+                break;
+            }
+            case "Disabled": {
+                // NOTE: the button for this field only exists in the change blink ui
+                blink.disabled = Boolean(newValue);
+                break;
+            }
+            case "Url": {
+                // NOTE: this is currently not changeable by the user
+                try {
+                    if (!newValue.includes("https://")) {
+                        newValue = `https://${newValue}`;
+                    }
+                    const newUrl: URL = new URL(newValue);
+                    newEmbed.setURL(newUrl.href);
+
+                } catch (error) {
+                    return { content: "Invalid URL." };
+                }
+                break;
+            }
+        }
+
+        await blink.save();
+        return { embeds: [newEmbed] };
+    } catch (error) {
+        await saveError({
+            function_name: "changeUserBlinkEmbedUI",
+            error,
+        });
+        return;
+    }
+}
+
+// TODO: check if I can combine addCustomActionButtonToBlinkEmbed and addFixedActionButtonToBlinkEmbed in an elegant way
+
+export const addCustomActionButtonToBlinkEmbed = async (
+    blink_id: string, buttonValues: string[]
+): Promise<InteractionReplyOptions | undefined> => {
+    try {
+        const blink: any = await Blink.findOne({ blink_id });
+        if (!blink) return;
+
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setTitle(blink.title)
+            .setURL(blink.title_url)
+            .setAuthor({ name: blink.label })
+            .setDescription(blink.description);
+
+        if (blink.icon) embed.setImage(blink.icon);
+
+        // TODO: refactor this: because 99% of values etc are the same for donation and tokenswap
+        // TODO: only allow custom button once for donation and swap
+
+        switch (blink.blink_type) {
+            case "blinkDonation": {
+                const buttonLabel: string = buttonValues[0];
+                if (!blink.links) {
+                    blink.links = {
+                        actions: [{
+                            label: buttonLabel,
+                            href: `/blinks/${blink.blink_id}?token=SOL&amount=amount`, // TODO: allow custom token
+                        }],
+                    }
+                } else {
+                    blink.links.actions.forEach((action: any) => {
+                        embed.addFields({
+                            name: action.label,
+                            value: `Amount: ${action.token_amount ? action.token_amount : "custom"}`,
+                            inline: true,
+                        });
+                    });
+
+                    blink.links.actions.push({
+                        label: buttonLabel,
+                        href: `/blinks/${blink.blink_id}?token=SOL&amount=amount`,
+                    });
+                }
+
+                // additionally add the one the user just added and store it in the db
+                embed.addFields(
+                    { name: buttonLabel, value: `Amount: custom`, inline: true },
+                );
+                await blink.save();
+                break;
+            }
+            case "blinkTokenSwap": {
+                const buttonLabel: string = buttonValues[0];
+                if (!blink.links) {
+                    blink.links = {
+                        actions: [{
+                            label: buttonLabel,
+                            href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=amount`,
+                        }],
+                    }
+                } else {
+                    // create embed fields from database values
+                    blink.links.actions.forEach((action: any) => {
+                        embed.addFields({
+                            name: action.label,
+                            value: `Amount: ${action.token_amount ? action.token_amount : "custom"}`,
+                            inline: true,
+                        });
+                    });
+
+                    // push newly added button to database
+                    blink.links.actions.push({
+                        label: buttonLabel,
+                        href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=amount`,
+                    });
+                }
+                embed.addFields(
+                    { name: buttonLabel, value: `Amount: custom`, inline: true },
+                );
+                await blink.save();
+                break;
+            }
+            case "blinkVote": {
+                // TODO: implement vote
+                break;
+            }
+            default: {
+                return DEFAULT_ERROR_REPLY;
+            }
+        }
+
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
+        return { embeds: [embed], components: buttons };
+    } catch (error) {
+        await saveError({
+            function_name: "addActionButtonToBlinkEmbed",
+            error,
+        });
+        return;
+    }
+}
+
+export const addFixedActionButtonToBlinkEmbed = async (
+    blink_id: string, buttonValues: string[]
+): Promise<InteractionReplyOptions | undefined> => {
+    try {
+        const blink: any = await Blink.findOne({ blink_id });
+        if (!blink) return;
+
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setTitle(blink.title)
+            .setURL(blink.title_url)
+            .setAuthor({ name: blink.label })
+            .setDescription(blink.description);
+
+        if (blink.icon) embed.setImage(blink.icon);
+
+        switch (blink.blink_type) {
+            case "blinkDonation": {
+                // add existing buttons (blink.links.actions) as field objects
+                const buttonLabel: string = buttonValues[0];
+                const transferAmountInSOL: string = buttonValues[1];
+                if (!isPositiveNumber(transferAmountInSOL)) return { content: "Invalid value for amount." };
+
+                if (!blink.links) {
+                    blink.links = {
+                        actions: [{
+                            label: buttonLabel,
+                            href: `/blinks/${blink.blink_id}?token=SOL&amount=${transferAmountInSOL}`, // TODO: allow custom tokens
+                            token_amount: transferAmountInSOL,
+                        }],
+                    }
+                } else {
+                    blink.links.actions.forEach((action: any) => {
+                        embed.addFields({
+                            name: action.label,
+                            value: `Amount: ${action.token_amount ? action.token_amount : "custom"}`,
+                            inline: true,
+                        });
+                    });
+
+                    blink.links.actions.push({
+                        label: buttonLabel,
+                        href: `/blinks/${blink.blink_id}?token=SOL&amount=${transferAmountInSOL}`,
+                        token_amount: transferAmountInSOL,
+                    });
+                }
+
+                // additionally add the one the user just added and store it in the db
+                embed.addFields(
+                    { name: buttonLabel, value: `Amount: ${transferAmountInSOL}`, inline: true },
+                );
+                await blink.save();
+                break;
+            }
+            case "blinkTokenSwap": {
+                const swapAmountInSOL: string = buttonValues[0];
+                if (!isPositiveNumber(swapAmountInSOL)) return { content: "Invalid value for amount." };
+
+                if (!blink.links) {
+                    blink.links = {
+                        actions: [{
+                            label: `Buy ${swapAmountInSOL} SOL`,
+                            href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=${swapAmountInSOL}`,
+                            token_amount: swapAmountInSOL,
+                        }],
+                    }
+                } else {
+                    blink.links.actions.forEach((action: any) => {
+                        embed.addFields({
+                            name: action.label,
+                            value: `Amount: ${action.token_amount ? action.token_amount : "custom"}`,
+                            inline: true,
+                        });
+                    });
+
+                    blink.links.actions.push({
+                        label: `Buy ${swapAmountInSOL} SOL`,
+                        href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=${swapAmountInSOL}`,
+                        token_amount: swapAmountInSOL,
+                    });
+                }
+                embed.addFields(
+                    { name: `Buy ${swapAmountInSOL} SOL`, value: `Amount: ${swapAmountInSOL}`, inline: true },
+                );
+                await blink.save();
+                break;
+            }
+            case "blinkVote": {
+                // TODO: implement vote
+                break;
+            }
+            default: {
+                return DEFAULT_ERROR_REPLY;
+            }
+        }
+
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
+        return { embeds: [embed], components: buttons };
+    } catch (error) {
+        await saveError({
+            function_name: "addActionButtonToBlinkEmbed",
+            error,
+        });
+        return;
+    }
+}
 
 export const createBlinkSettingsUI = async (user_id: string): Promise<InteractionEditReplyOptions> => {
     try {
@@ -257,68 +535,38 @@ export const createWalletUI = async (userId: string): Promise<InteractionEditRep
     return { content, components: [firstRow, secondRow] };
 };
 
-export const createBlinkCreationUI = (blinkType: string): InteractionEditReplyOptions => {
+export const createBlinkCreationUI = async (user_id: string, blinkType: string, tokenAddress?: string): Promise<InteractionEditReplyOptions> => {
     try {
-        let content: string = `Blink type: ${BLINK_TYPE_MAPPING[blinkType]}`;
+        const blink_id: number | null = await createNewBlink(user_id, blinkType, tokenAddress);
+        if (!blink_id) return { content: DEFAULT_ERROR };
+
+        let content: string = `Blink ID: ${blink_id}`;
+        content += `\nBlink type: ${BLINK_TYPE_MAPPING[blinkType]}`;
+        if (tokenAddress) {
+            const addressToSymbol: string | undefined = TOKEN_ADDRESS_STRICT_LIST[tokenAddress as keyof typeof TOKEN_ADDRESS_STRICT_LIST];
+            if (addressToSymbol) {
+                content += `\nToken: ${addressToSymbol}`;
+            } else {
+                content += `\nToken: ${tokenAddress}`;
+            }
+        }
         content += '\n\nClick the "Add Action" button to add a button to your Blink. You can preview your Blink with the "Preview" button.';
 
         const blinkEmbed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
             .setTitle("title")
             .setDescription("description")
-            .setAuthor({ name: "label" });
+            .setAuthor({ name: "label" })
+            .setImage(BLINK_DEFAULT_IMAGE)
+            .setURL("https://callistobot.com");
 
-        const titleButton = new ButtonBuilder()
-            .setCustomId('changeBlinkTitle')
-            .setLabel('Change Title')
-            .setStyle(ButtonStyle.Secondary);
-
-        const urlButton = new ButtonBuilder()
-            .setCustomId('changeBlinkUrl')
-            .setLabel('Change URL')
-            .setStyle(ButtonStyle.Secondary);
-
-        const iconButton = new ButtonBuilder()
-            .setCustomId('changeBlinkIcon')
-            .setLabel('Change Image')
-            .setStyle(ButtonStyle.Secondary);
-
-        const descriptionButton = new ButtonBuilder()
-            .setCustomId('changeBlinkDescription')
-            .setLabel('Change Description')
-            .setStyle(ButtonStyle.Secondary);
-
-        const labelButton = new ButtonBuilder()
-            .setCustomId('changeBlinkLabel')
-            .setLabel('Change Label')
-            .setStyle(ButtonStyle.Secondary);
-
-        const disabledButton = new ButtonBuilder()
-            .setCustomId('changeBlinkDisabled')
-            .setLabel("Enabled")
-            .setStyle(ButtonStyle.Secondary);
-
-        const addActionButton = new ButtonBuilder()
-            .setCustomId('addBlinkAction')
-            .setLabel("Add Action")
-            .setStyle(ButtonStyle.Secondary);
-
-        const previewButton = new ButtonBuilder()
-            .setCustomId('previewBlink')
-            .setLabel("Preview")
-            .setStyle(ButtonStyle.Secondary);
-
-        const createButton = new ButtonBuilder()
-            .setCustomId('createNewBlink')
-            .setLabel("Create Blink")
-            .setStyle(ButtonStyle.Secondary);
-
-        const firstRow = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(titleButton, descriptionButton, labelButton, iconButton, disabledButton);
-        const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(urlButton, addActionButton, previewButton, createButton);
-        return { content, embeds: [blinkEmbed], components: [firstRow, secondRow] };
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink_id);
+        return { content, embeds: [blinkEmbed], components: buttons };
     } catch (error) {
-        console.log(error)
+        await saveError({
+            function_name: "createBlinkCreationUI",
+            error,
+        });
         return { content: DEFAULT_ERROR };
     }
 }
@@ -344,12 +592,12 @@ export const createBlinkUI = async (urls: any, action: ActionGetResponse): Promi
         }
 
         const appStats: any = await AppStats.findOne({ stats_id: 1 });
-        appStats.blinks_created++;
+        appStats.blinks_posted++;
         let buttons: ButtonBuilder[] = [];
         let dbButtons: any[] = [];
         action.links?.actions.forEach((linkedAction: LinkedAction, index: number) => {
             // NOTE: discord only allows up to 45 chars for customId, keep that in mind
-            const customId: string = `blinkButton:${appStats.blinks_created}:${index + 1}${linkedAction.parameters?.length ? ":custom" : ""}`;
+            const customId: string = `blinkButton:${appStats.blinks_posted}:${index + 1}${linkedAction.parameters?.length ? ":custom" : ""}`;
             buttons.push(
                 new ButtonBuilder()
                     .setCustomId(customId)
@@ -368,7 +616,7 @@ export const createBlinkUI = async (urls: any, action: ActionGetResponse): Promi
 
         if (!buttons.length || !dbButtons.length) {
             // Action UIs can have no buttons, in that case store a disabled default button, else discord API throws an error
-            const customId: string = `blinkButton:${appStats.blinks_created}:${1}`;
+            const customId: string = `blinkButton:${appStats.blinks_posted}:${1}`;
             buttons.push(
                 new ButtonBuilder()
                     .setCustomId(customId)
@@ -397,7 +645,7 @@ export const createBlinkUI = async (urls: any, action: ActionGetResponse): Promi
         rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...tempButtons));
 
         const newActionUI: any = new ActionUI({
-            action_id: appStats.blinks_created,
+            action_id: appStats.blinks_posted,
             posted_url: urls.posted_url,
             action_root_url: urls.action_root_url,
             root_url: urls.root_url,
@@ -1222,10 +1470,190 @@ export const createSelectCoinToSendMenu = async (userId: string, msgContent: str
 
 /************************************************************** MODALS *****************************************************/
 
-export const creatChangeBlinkCustomValueModal = async (
+export function tokenAddressForTokenSwapBlinkModal(): ModalBuilder {
+    const modal: ModalBuilder = new ModalBuilder()
+        .setCustomId(`createTokenSwapBlink`)
+        .setTitle("Enter Token Address");
+
+    // TODO: allow symbols instead of token address
+
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+            .setCustomId('value1')
+            .setLabel("Token Address")
+            .setPlaceholder("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+            .setMinLength(SOL_TOKEN_ADDRESS_MIN_LENGTH)
+            .setMaxLength(SOL_TOKEN_ADDRESS_MAX_LENGTH)
+            .setStyle(TextInputStyle.Short)
+    );
+
+    modal.addComponents(row);
+    return modal;
+}
+
+export async function createCustomActionModal(blink_id: string): Promise<ModalBuilder | undefined> {
+    try {
+        const blink: any = await Blink.findOne({ blink_id }).lean();
+        if (!blink) return undefined;
+
+        const modal: ModalBuilder = new ModalBuilder()
+            .setCustomId(`addCustomAction:${blink_id}`)
+            .setTitle("Add button with custom value");
+
+        if (blink.blink_type === "blinkVote") {
+            // TODO: implement
+        } else {
+            // TODO: if user doesn't submit button label, use a default one (eg "Buy SOL")
+            const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('value1')
+                    .setLabel("Button Label")
+                    .setPlaceholder("label")
+                    .setStyle(TextInputStyle.Short)
+            );
+            modal.addComponents(row);
+        }
+
+        return modal;
+    } catch (error) {
+        await saveError({
+            function_name: "createCustomActionModal",
+            error,
+        });
+        return;
+    }
+}
+
+export async function createFixedActionModal(blink_id: string): Promise<ModalBuilder | undefined> {
+    try {
+        const blink: any = await Blink.findOne({ blink_id }).lean();
+        if (!blink) return undefined;
+
+        const modal: ModalBuilder = new ModalBuilder()
+            .setCustomId(`addFixedAction:${blink_id}`)
+            .setTitle("Add button with fixed value");
+
+        const rows: ActionRowBuilder<TextInputBuilder>[] = [];
+        if (blink.blink_type === "blinkDonation") {
+            const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('value1')
+                    .setLabel("Button Label")
+                    .setPlaceholder("label")
+                    .setRequired(true)
+                    .setStyle(TextInputStyle.Short)
+            );
+            const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('value2')
+                    .setLabel("Amount (in SOL)")
+                    .setPlaceholder("amount")
+                    .setRequired(true)
+                    .setStyle(TextInputStyle.Short)
+            );
+            rows.push(row1, row2);
+        }
+
+        if (blink.blink_type === "blinkTokenSwap") {
+            const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('value1')
+                    .setLabel("Amount (in SOL)")
+                    .setPlaceholder("amount")
+                    .setRequired(true)
+                    .setStyle(TextInputStyle.Short)
+            );
+            rows.push(row);
+        }
+
+        // TODO: for now only allow max 10 buttons on voting (else embed will get too big)
+        if (blink.blink_type === "blinkVote") {
+            const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('value1')
+                    .setLabel("Button Label")
+                    .setPlaceholder("label")
+                    .setRequired(true)
+                    .setStyle(TextInputStyle.Short)
+            );
+            const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('value2')
+                    .setLabel("Value")
+                    .setPlaceholder("value")
+                    .setRequired(true)
+                    .setStyle(TextInputStyle.Short)
+            );
+            rows.push(row1, row2);
+        }
+
+        modal.addComponents(rows);
+        return modal;
+    } catch (error) {
+        await saveError({
+            function_name: "createFixedActionModal",
+            error,
+        });
+        return;
+    }
+}
+
+// returns InteractionReplyOptions if user wants to add a button to their blink (pressed "Add Action")
+// returns a menu selection if user wants to remove a button
+// returns a modal to change a value of the blink (like blink title, description, etc)
+export const createChangeUserBlinkModal = async (
+    fieldToChange: string, blink_id: string
+): Promise<ModalBuilder | InteractionReplyOptions | undefined> => {
+    try {
+        const modal: ModalBuilder = new ModalBuilder().setCustomId(`changeUserBlink:${blink_id}:${fieldToChange}`);
+        const input = new TextInputBuilder()
+            .setCustomId(`value1`)
+            .setRequired(false); // TODO: check if field is required
+
+        if (fieldToChange === "AddAction") {
+            const addActionButton = new ButtonBuilder()
+                .setCustomId(`addFixedAction:${blink_id}`)
+                .setLabel('Fixed value')
+                .setStyle(ButtonStyle.Secondary);
+
+            const addCustomActionButton = new ButtonBuilder()
+                .setCustomId(`addCustomAction:${blink_id}`)
+                .setLabel('Custom value')
+                .setStyle(ButtonStyle.Secondary);
+
+            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(addActionButton, addCustomActionButton);
+            return { content: "Select a button type to add to your Blink.", components: [row], ephemeral: true };
+        } else if (fieldToChange === "RemoveAction") {
+            // TODO NEXT: show menu with button labels
+        } else {
+            modal.setTitle(`Change ${fieldToChange}`);
+            input.setLabel(`Change ${fieldToChange}`);
+            input.setPlaceholder(`${fieldToChange}`);
+        }
+
+        if (fieldToChange === "Description") {
+            input.setStyle(TextInputStyle.Paragraph);
+        } else {
+            input.setStyle(TextInputStyle.Short);
+        }
+
+        const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
+        modal.addComponents(row);
+        return modal;
+    } catch (error) {
+        await saveError({
+            function_name: "createChangeUserBlinkModal",
+            error,
+        });
+        return;
+    }
+}
+
+export const createChangeBlinkCustomValueModal = async (
     label: string, placeholder: string, lineIndex: string
 ): Promise<ModalBuilder | undefined> => {
     try {
+        // remove bold discord formatting first (eg **bold text**)
         const changeCustomValueModal: ModalBuilder = new ModalBuilder()
             .setCustomId(`changeBlinkEmbedValue:${lineIndex}`)
             .setTitle(label.replaceAll("*", ""));
@@ -1241,6 +1669,10 @@ export const creatChangeBlinkCustomValueModal = async (
         changeCustomValueModal.addComponents(row);
         return changeCustomValueModal;
     } catch (error) {
+        await saveError({
+            function_name: "createChangeBlinkCustomValueModal",
+            error,
+        });
         return;
     }
 }
@@ -1297,8 +1729,8 @@ export const createBuyModal = (): ModalBuilder => {
         .setLabel('Contract Address')
         .setPlaceholder('Enter Contract Address')
         .setRequired(true)
-        .setMinLength(32)
-        .setMaxLength(44)
+        .setMinLength(SOL_TOKEN_ADDRESS_MIN_LENGTH)
+        .setMaxLength(SOL_TOKEN_ADDRESS_MAX_LENGTH)
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(CAInput);
@@ -1316,8 +1748,8 @@ export const createLimitOrderModal = (): ModalBuilder => {
         .setLabel('Contract Address')
         .setPlaceholder('Enter Contract Address')
         .setRequired(true)
-        .setMinLength(32)
-        .setMaxLength(44)
+        .setMinLength(SOL_TOKEN_ADDRESS_MIN_LENGTH)
+        .setMaxLength(SOL_TOKEN_ADDRESS_MAX_LENGTH)
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(CAInput);
@@ -1382,8 +1814,8 @@ export const createWithdrawXSolModal = (): ModalBuilder => {
         .setLabel('Destination address')
         .setPlaceholder('Enter destination address')
         .setRequired(true)
-        .setMinLength(43)
-        .setMaxLength(44)
+        .setMinLength(SOL_WALLET_ADDRESS_MIN_LENGTH)
+        .setMaxLength(SOL_WALLET_ADDRESS_MAX_LENGTH)
         .setStyle(TextInputStyle.Short);
 
     const firstRow = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
@@ -1402,8 +1834,8 @@ export const createWithdrawAllSolModal = (): ModalBuilder => {
         .setLabel('Destination address')
         .setPlaceholder('Enter destination address')
         .setRequired(true)
-        .setMinLength(43)
-        .setMaxLength(44)
+        .setMinLength(SOL_WALLET_ADDRESS_MIN_LENGTH)
+        .setMaxLength(SOL_WALLET_ADDRESS_MAX_LENGTH)
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(withdrawAddressInput);
@@ -1563,8 +1995,8 @@ export const createSendCoinModal = (): ModalBuilder => {
         .setLabel('Destination address')
         .setPlaceholder('Enter destination address')
         .setRequired(true)
-        .setMinLength(43)
-        .setMaxLength(44)
+        .setMinLength(SOL_WALLET_ADDRESS_MIN_LENGTH)
+        .setMaxLength(SOL_WALLET_ADDRESS_MAX_LENGTH)
         .setStyle(TextInputStyle.Short);
 
     const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(amountInput);
@@ -1822,4 +2254,58 @@ export const addStartButton = (content: string): InteractionEditReplyOptions => 
         .setStyle(ButtonStyle.Secondary);
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(startButton);
     return { content, components: [row] };
+}
+
+export const createBlinkCreationButtons = (blink_id: number): ActionRowBuilder<ButtonBuilder>[] => {
+    const titleButton = new ButtonBuilder()
+        .setCustomId(`changeUserBlink:Title:${blink_id}`)
+        .setLabel('Change Title')
+        .setStyle(ButtonStyle.Secondary);
+
+    const urlButton = new ButtonBuilder()
+        .setCustomId(`changeUserBlink:Url:${blink_id}`)
+        .setLabel('Change URL')
+        .setStyle(ButtonStyle.Secondary);
+
+    const iconButton = new ButtonBuilder()
+        .setCustomId(`changeUserBlink:Icon:${blink_id}`)
+        .setLabel('Change Image')
+        .setStyle(ButtonStyle.Secondary);
+
+    const descriptionButton = new ButtonBuilder()
+        .setCustomId(`changeUserBlink:Description:${blink_id}`)
+        .setLabel('Change Description')
+        .setStyle(ButtonStyle.Secondary);
+
+    const labelButton = new ButtonBuilder()
+        .setCustomId(`changeUserBlink:Label:${blink_id}`)
+        .setLabel('Change Label')
+        .setStyle(ButtonStyle.Secondary);
+
+    const addActionButton = new ButtonBuilder()
+        .setCustomId(`changeUserBlink:AddAction:${blink_id}`)
+        .setLabel("Add Action")
+        .setStyle(ButtonStyle.Secondary);
+
+    const removeActionButton = new ButtonBuilder()
+        .setCustomId(`changeUserBlink:RemoveAction:${blink_id}`)
+        .setLabel("Remove Action")
+        .setStyle(ButtonStyle.Secondary);
+
+    const previewButton = new ButtonBuilder()
+        .setCustomId('previewBlink')
+        .setLabel("Preview")
+        .setStyle(ButtonStyle.Secondary);
+
+    const createButton = new ButtonBuilder()
+        .setCustomId('finishBlinkCreation')
+        .setLabel("Create Blink")
+        .setStyle(ButtonStyle.Secondary);
+
+    const firstRow = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(titleButton, descriptionButton, labelButton, iconButton);
+    const secondRow = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(addActionButton, removeActionButton, previewButton, createButton);
+
+    return [firstRow, secondRow];
 }

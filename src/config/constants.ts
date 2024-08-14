@@ -17,6 +17,13 @@ export const REFCODE_MODAL_STRING: string = "refcodemodal";
 export const DEFAULT_RPC_URL: string = "https://quaint-practical-liquid.solana-mainnet.quiknode.pro/de215f4d6fabf6c4bb0cb0eab8aceb79e8567a27/";
 export const ERRORS_WEBHOOK: string = "https://discord.com/api/webhooks/1267889101269368906/Lw8j5-f5KUqTLbcG_CpuXIyRWzrk7Qk36bquXHZ1uDQO1W8MIUbB3Phh50vzbutwC5Op";
 export const BLINK_URL_REGEX: RegExp = /https:\/\/[^\/\s]+\/\?action=[^&\s]+/;
+export const REF_FEE_DEBOUNCE_MAP: Map<string, boolean> = new Map<string, boolean>();
+export const DEBOUNCE_TIME: number = 8000;
+export const SOL_TOKEN_ADDRESS_MIN_LENGTH: number = 32;
+export const SOL_TOKEN_ADDRESS_MAX_LENGTH: number = 44;
+export const SOL_WALLET_ADDRESS_MIN_LENGTH: number = 43;
+export const SOL_WALLET_ADDRESS_MAX_LENGTH: number = 44;
+export const BLINK_DEFAULT_IMAGE: string = "https://www.callistobot.com/images/planet.png";
 
 // variables below are not needed for the bot but written down here for easy access to these values
 const BOT_APP_ID: string = "1247262826838622311";

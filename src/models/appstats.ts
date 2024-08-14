@@ -18,6 +18,10 @@ const AppStatsSchema = new Schema({
         type: Number,
         default: 0,
     },
+    blinks_posted: {
+        type: Number,
+        default: 0,
+    },
     blinks_created: {
         type: Number,
         default: 0,
