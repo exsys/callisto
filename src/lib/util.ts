@@ -358,7 +358,7 @@ export async function saveDbTransaction({
     }
 }
 
-export async function saveError({ user_id, contract_address, wallet_address, function_name, error }: DBError): Promise<boolean> {
+export async function saveError({ user_id, contract_address, wallet_address, function_name, error }: DBError): Promise<void> {
     try {
         const newError = new Error({
             user_id,
@@ -370,10 +370,7 @@ export async function saveError({ user_id, contract_address, wallet_address, fun
         });
 
         await newError.save();
-        return true;
-    } catch (error) {
-        return false;
-    }
+    } catch (error) { }
 }
 
 export const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));

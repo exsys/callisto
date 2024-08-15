@@ -1598,38 +1598,61 @@ export async function createFixedActionModal(blink_id: string): Promise<ModalBui
     }
 }
 
-// returns InteractionReplyOptions if user wants to add a button to their blink (pressed "Add Action")
-// returns a menu selection if user wants to remove a button
-// returns a modal to change a value of the blink (like blink title, description, etc)
-export const createChangeUserBlinkModal = async (
-    fieldToChange: string, blink_id: string
-): Promise<ModalBuilder | InteractionReplyOptions | undefined> => {
+export async function removeActionSelectionMenu(blink_id: string): Promise<InteractionEditReplyOptions> {
     try {
-        const modal: ModalBuilder = new ModalBuilder().setCustomId(`changeUserBlink:${blink_id}:${fieldToChange}`);
+        const blink: any = await Blink.findOne({ blink_id }).lean();
+        if (!blink) return { content: ERROR_CODES["0017"].message };
+
+        const blinkActions: SelectMenuComponentOptionData[] = [];
+        blink.links.actions.forEach((action: any) => {
+            blinkActions.push({ label: action.label, value: action.label });
+        });
+
+        const options: StringSelectMenuOptionBuilder[] = blinkActions.map((type: SelectMenuComponentOptionData) => {
+            return new StringSelectMenuOptionBuilder().setLabel(type.label).setValue(type.value);
+        });
+
+        const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
+            .setCustomId('removeBlinkAction')
+            .setPlaceholder('Select a button to remove')
+            .addOptions(options);
+
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+        return { content: "Select a button to remove from your Blink.", components: [row] };
+    } catch (error) {
+        await saveError({
+            function_name: "removeActionSelectionMenu",
+            error,
+        });
+        return { content: DEFAULT_ERROR };
+    }
+}
+
+export function addActionButtonTypeSelection(blink_id: string): InteractionReplyOptions {
+    const addActionButton = new ButtonBuilder()
+        .setCustomId(`addFixedAction:${blink_id}`)
+        .setLabel('Fixed value')
+        .setStyle(ButtonStyle.Secondary);
+
+    const addCustomActionButton = new ButtonBuilder()
+        .setCustomId(`addCustomAction:${blink_id}`)
+        .setLabel('Custom value')
+        .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(addActionButton, addCustomActionButton);
+    return { content: "Select a button type to add to your Blink.", components: [row], ephemeral: true };
+}
+
+export const createChangeUserBlinkModal = async (fieldToChange: string, blink_id: string): Promise<ModalBuilder | undefined> => {
+    try {
+        const modal: ModalBuilder = new ModalBuilder()
+            .setCustomId(`changeUserBlink:${blink_id}:${fieldToChange}`)
+            .setTitle(`Change ${fieldToChange}`);
         const input = new TextInputBuilder()
             .setCustomId(`value1`)
-            .setRequired(false); // TODO: check if field is required
-
-        if (fieldToChange === "AddAction") {
-            const addActionButton = new ButtonBuilder()
-                .setCustomId(`addFixedAction:${blink_id}`)
-                .setLabel('Fixed value')
-                .setStyle(ButtonStyle.Secondary);
-
-            const addCustomActionButton = new ButtonBuilder()
-                .setCustomId(`addCustomAction:${blink_id}`)
-                .setLabel('Custom value')
-                .setStyle(ButtonStyle.Secondary);
-
-            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(addActionButton, addCustomActionButton);
-            return { content: "Select a button type to add to your Blink.", components: [row], ephemeral: true };
-        } else if (fieldToChange === "RemoveAction") {
-            // TODO NEXT: show menu with button labels
-        } else {
-            modal.setTitle(`Change ${fieldToChange}`);
-            input.setLabel(`Change ${fieldToChange}`);
-            input.setPlaceholder(`${fieldToChange}`);
-        }
+            .setRequired(false) // TODO: check if field is required
+            .setLabel(`Change ${fieldToChange}`)
+            .setPlaceholder(`${fieldToChange}`);
 
         if (fieldToChange === "Description") {
             input.setStyle(TextInputStyle.Paragraph);

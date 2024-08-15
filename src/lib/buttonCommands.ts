@@ -51,6 +51,8 @@ import {
     createChangeUserBlinkModal,
     createFixedActionModal,
     createCustomActionModal,
+    addActionButtonTypeSelection,
+    removeActionSelectionMenu,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
 import { getKeypairFromEncryptedPKey, extractAndValidateCA, createWallet, exportPrivateKeyOfUser, decryptPKey, extractUserIdFromMessage, claimUnpaidRefFees, buyCoin, sellCoin, storeUnpaidRefFee, extractAmountFromMessage, sellCoinX, buyCoinX, executeBlink, validateCustomBlinkValues, convertDescriptionToOrderedValues } from "./util";
@@ -569,13 +571,26 @@ export const BUTTON_COMMANDS = {
         await interaction.showModal(modal);
     },
     changeUserBlink: async (interaction: ButtonInteraction, fieldToChange?: string, blink_id?: string) => {
-        const modal: ModalBuilder | InteractionReplyOptions | undefined = await createChangeUserBlinkModal(fieldToChange!, blink_id!);
-        if (!modal) return await interaction.reply(DEFAULT_ERROR);
-        if (modal instanceof ModalBuilder) return await interaction.showModal(modal);
-        await interaction.reply(modal);
+        switch (fieldToChange) {
+            case "AddAction": {
+                const ui: InteractionReplyOptions = addActionButtonTypeSelection(blink_id!);
+                return await interaction.reply(ui);
+            }
+            case "RemoveAction": {
+                await interaction.deferReply({ ephemeral: true });
+                const ui: InteractionEditReplyOptions = await removeActionSelectionMenu(blink_id!);
+                return await interaction.editReply(ui);
+            }
+            default: {
+                const modal: ModalBuilder | undefined = await createChangeUserBlinkModal(fieldToChange!, blink_id!);
+                if (!modal) return await interaction.reply(DEFAULT_ERROR);
+                return await interaction.showModal(modal);
+            }
+        }
     },
     previewBlink: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
+        // TODO NEXT
         await interaction.editReply("not implemented yet");
     },
     finishBlinkCreation: async (interaction: ButtonInteraction) => {

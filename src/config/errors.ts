@@ -105,6 +105,12 @@ export const ERROR_CODES = {
         message: "Server error. If the issue persists please contact support. Error code: 0016",
         context: "Failed to claim unpaid ref fees.",
         short: "Failed to claim unpaid ref fees.",
+    },
+    "0017": {
+        code: "0017",
+        message: "Couldn't find Blink. If the issue persists please contact support.",
+        context: "Couldn't find corresponding user Blink in database",
+        short: "Couldn't find user Blink.",
     }
 }
 
