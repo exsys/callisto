@@ -55,7 +55,7 @@ import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
 
 /***************************************************** UIs *****************************************************/
 
-export const createStartUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
+export async function createStartUI(userId: string): Promise<InteractionEditReplyOptions> {
     try {
         const user: any = await User.findOne({ user_id: userId }).lean();
         if (!user) {
@@ -146,9 +146,9 @@ export const createStartUI = async (userId: string): Promise<InteractionEditRepl
     }
 };
 
-export const changeUserBlinkEmbedUI = async (
+export async function changeUserBlinkEmbedUI(
     user_id: string, blink_id: string, embed: Embed, fieldToChange: string, newValue: string
-): Promise<InteractionEditReplyOptions | undefined> => {
+): Promise<InteractionEditReplyOptions | undefined> {
     try {
         const newEmbed: EmbedBuilder = EmbedBuilder.from(embed);
         const blink: any = await Blink.findOne({ user_id, blink_id });
@@ -211,9 +211,9 @@ export const changeUserBlinkEmbedUI = async (
 
 // TODO: check if I can combine addCustomActionButtonToBlinkEmbed and addFixedActionButtonToBlinkEmbed in an elegant way
 
-export const addCustomActionButtonToBlinkEmbed = async (
+export async function addCustomActionButtonToBlinkEmbed(
     blink_id: string, buttonValues: string[]
-): Promise<InteractionReplyOptions | undefined> => {
+): Promise<InteractionReplyOptions | undefined> {
     try {
         const blink: any = await Blink.findOne({ blink_id });
         if (!blink) return;
@@ -313,9 +313,9 @@ export const addCustomActionButtonToBlinkEmbed = async (
     }
 }
 
-export const addFixedActionButtonToBlinkEmbed = async (
+export async function addFixedActionButtonToBlinkEmbed(
     blink_id: string, buttonValues: string[]
-): Promise<InteractionReplyOptions | undefined> => {
+): Promise<InteractionReplyOptions | undefined> {
     try {
         const blink: any = await Blink.findOne({ blink_id });
         if (!blink) return;
@@ -420,7 +420,7 @@ export const addFixedActionButtonToBlinkEmbed = async (
     }
 }
 
-export const createBlinkSettingsUI = async (user_id: string): Promise<InteractionEditReplyOptions> => {
+export async function createBlinkSettingsUI(user_id: string): Promise<InteractionEditReplyOptions> {
     try {
         let content: string = "Create and change Blinks here. You can post Blinks anywhere in the web for faster transactions.";
         const usersBlinks: any[] = await Blink.find({ user_id }).lean();
@@ -453,7 +453,7 @@ export const createBlinkSettingsUI = async (user_id: string): Promise<Interactio
     }
 }
 
-export const createAdvancedUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
+export async function createAdvancedUI(userId: string): Promise<InteractionEditReplyOptions> {
     const content: string = "";
     try {
         const limitOrderButton = new ButtonBuilder()
@@ -478,7 +478,7 @@ export const createAdvancedUI = async (userId: string): Promise<InteractionEditR
     }
 }
 
-export const createWalletUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
+export async function createWalletUI(userId: string): Promise<InteractionEditReplyOptions> {
     const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
     if (!wallet) return { content: ERROR_CODES["0003"].message };
 
@@ -535,7 +535,7 @@ export const createWalletUI = async (userId: string): Promise<InteractionEditRep
     return { content, components: [firstRow, secondRow] };
 };
 
-export const createBlinkCreationUI = async (user_id: string, blinkType: string, tokenAddress?: string): Promise<InteractionEditReplyOptions> => {
+export async function createBlinkCreationUI(user_id: string, blinkType: string, tokenAddress?: string): Promise<InteractionEditReplyOptions> {
     try {
         const blink_id: number | null = await createNewBlink(user_id, blinkType, tokenAddress);
         if (!blink_id) return { content: DEFAULT_ERROR };
@@ -571,7 +571,7 @@ export const createBlinkCreationUI = async (user_id: string, blinkType: string, 
     }
 }
 
-export const createBlinkUI = async (urls: any, action: ActionGetResponse): Promise<MessageCreateOptions | undefined> => {
+export async function createBlinkUI(urls: any, action: ActionGetResponse): Promise<MessageCreateOptions | undefined> {
     try {
         const embed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
@@ -671,7 +671,7 @@ export const createBlinkUI = async (urls: any, action: ActionGetResponse): Promi
     }
 }
 
-export const createHelpUI = (): InteractionReplyOptions => {
+export function createHelpUI(): InteractionReplyOptions {
     let content = "Welcome to Callisto, the fastest Solana trading bot on Discord."
     content += "\n\nTo get started, use the /start command, this command will create a new Solana wallet "
     content += "for your automatically if you don't have one already."
@@ -686,7 +686,7 @@ export const createHelpUI = (): InteractionReplyOptions => {
     return { content, ephemeral: true };
 };
 
-export const createReferUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
+export async function createReferUI(userId: string): Promise<InteractionEditReplyOptions> {
     const refCodeMsg: string | null = await createOrUseRefCodeForUser(userId);
     if (!refCodeMsg) {
         return {
@@ -703,7 +703,7 @@ export const createReferUI = async (userId: string): Promise<InteractionEditRepl
     return { content: refCodeMsg, components: [row] };
 }
 
-export const createPreBuyUI = async (userId: string, contractAddress: string): Promise<UIResponse> => {
+export async function createPreBuyUI(userId: string, contractAddress: string): Promise<UIResponse> {
     let content: string = "";
     const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
     if (!wallet) return { ui: { content: "No default wallet found. Create one with the /create command." } };
@@ -795,7 +795,7 @@ export const createPreBuyUI = async (userId: string, contractAddress: string): P
     };
 };
 
-export const createCoinInfoForLimitOrderUI = async (contract_address: string): Promise<InteractionEditReplyOptions> => {
+export async function createCoinInfoForLimitOrderUI(contract_address: string): Promise<InteractionEditReplyOptions> {
     let content: string = "";
     try {
         const coinInfo: CoinStats | null = await getCoinPriceStats(contract_address);
@@ -844,9 +844,9 @@ export const createCoinInfoForLimitOrderUI = async (contract_address: string): P
     }
 }
 
-export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prevCoin, nextCoin }:
+export async function createSellAndManageUI({ userId, page, ca, successMsg, prevCoin, nextCoin }:
     { userId: string, page?: number, ca?: string, successMsg?: boolean, prevCoin?: boolean, nextCoin?: boolean }
-): Promise<InteractionEditReplyOptions> => {
+): Promise<InteractionEditReplyOptions> {
     try {
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
@@ -1008,7 +1008,7 @@ export const createSellAndManageUI = async ({ userId, page, ca, successMsg, prev
     }
 };
 
-export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean = false): UIResponse => {
+export function createAfterSwapUI(txResponse: TxResponse, storeRefFee: boolean = false): UIResponse {
     const token: CoinStats | undefined = txResponse.token_stats;
     let amount: string = "";
     let response: string = "";
@@ -1060,7 +1060,7 @@ export const createAfterSwapUI = (txResponse: TxResponse, storeRefFee: boolean =
     };
 };
 
-export const createTokenSelectionUI = async (user_id: string, recipientId: string): Promise<InteractionEditReplyOptions> => {
+export async function createTokenSelectionUI(user_id: string, recipientId: string): Promise<InteractionEditReplyOptions> {
     try {
         const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
@@ -1098,11 +1098,9 @@ export const createTokenSelectionUI = async (user_id: string, recipientId: strin
     }
 }
 
-export const createTokenInfoBeforeSendUI = async (
-    user_id: string,
-    recipientId: string,
-    contract_address: string
-): Promise<InteractionEditReplyOptions> => {
+export async function createTokenInfoBeforeSendUI(
+    user_id: string, recipientId: string, contract_address: string
+): Promise<InteractionEditReplyOptions> {
     const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
     if (!wallet) return { content: ERROR_CODES["0003"].message };
     const recipientWallet: any = await Wallet.findOne({ user_id: recipientId, is_default_wallet: true }).lean();
@@ -1141,7 +1139,7 @@ export const createTokenInfoBeforeSendUI = async (
     return { content, components: [row] };
 }
 
-export const createClaimRefFeeUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
+export async function createClaimRefFeeUI(userId: string): Promise<InteractionEditReplyOptions> {
     try {
         const user: any = await User.findOne({ user_id: userId });
         if (!user) return { content: ERROR_CODES["0000"].message };
@@ -1184,7 +1182,7 @@ export const createClaimRefFeeUI = async (userId: string): Promise<InteractionEd
     }
 }
 
-export const createSettingsUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
+export async function createSettingsUI(userId: string): Promise<InteractionEditReplyOptions> {
     const content = "**GENERAL SETTINGS**\n**Min Position Value**: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\n**Auto Buy**: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\n**Slippage Config**: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.\n\n**BUTTONS CONFIG**\nCustomize your buy and sell buttons. Tap to edit.\n\n**TRANSACTION CONFIG**\n**MEV Protection**: Accelerates your transactions and protect against frontruns to make sure you get the best price possible.\n**Turbo**: Callisto will use MEV Protection, but if unprotected sending is faster it will use that instead.\n**Secure**: Transactions are guaranteed to be protected from MEV, but transactions may be slower.\n**Transaction Priority**: Increase your Transaction Priority to improve transaction speed. Tap to edit.";
 
     let wallet: any;
@@ -1308,7 +1306,7 @@ export const createSettingsUI = async (userId: string): Promise<InteractionEditR
     };
 };
 
-export const createSetAsDefaultUI = (walletAddress: string): InteractionEditReplyOptions => {
+export function createSetAsDefaultUI(walletAddress: string): InteractionEditReplyOptions {
     const setAsDefaultButton = new ButtonBuilder()
         .setCustomId('setAsDefault')
         .setLabel('Set as default')
@@ -1322,7 +1320,7 @@ export const createSetAsDefaultUI = (walletAddress: string): InteractionEditRepl
     };
 };
 
-export const createExportPrivKeyUI = (): InteractionEditReplyOptions => {
+export function createExportPrivKeyUI(): InteractionEditReplyOptions {
     const exportButton = new ButtonBuilder()
         .setCustomId('exportPrivKey')
         .setLabel('Export')
@@ -1335,7 +1333,7 @@ export const createExportPrivKeyUI = (): InteractionEditReplyOptions => {
     };
 };
 
-export const createRemoveWalletUI = async (userId: string): Promise<InteractionEditReplyOptions> => {
+export async function createRemoveWalletUI(userId: string): Promise<InteractionEditReplyOptions> {
     const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
     if (!allWallets) return { content: "No wallets found. Create one with the /create command to get started." };
 
@@ -1361,7 +1359,7 @@ export const createRemoveWalletUI = async (userId: string): Promise<InteractionE
 
 /****************************************************** MENUS *****************************************************/
 
-export const createBlinkCreationMenu = (): InteractionEditReplyOptions => {
+export function createBlinkCreationMenu(): InteractionEditReplyOptions {
     let content: string = "What type of Action Blink do you want to create?";
     content += "\n\n**Donation**: Create a Blink to ask for tips to one of your Callisto wallets.";
     content += "\n**Token Swap**: Swap any token with SOL.";
@@ -1386,7 +1384,7 @@ export const createBlinkCreationMenu = (): InteractionEditReplyOptions => {
     return { content, components: [row] };
 }
 
-export const createChangeWalletMenu = async (userId: string): Promise<InteractionEditReplyOptions> => {
+export async function createChangeWalletMenu(userId: string): Promise<InteractionEditReplyOptions> {
     const content: string = "Select a wallet to set it as your default wallet.";
     const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
     if (!allWallets) {
@@ -1409,7 +1407,7 @@ export const createChangeWalletMenu = async (userId: string): Promise<Interactio
     return { content, components: [row] };
 };
 
-export const createSelectCoinMenu = async (userId: string): Promise<InteractionEditReplyOptions> => {
+export async function createSelectCoinMenu(userId: string): Promise<InteractionEditReplyOptions> {
     const content: string = "Select a coin to view its info's.";
     try {
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
@@ -1436,7 +1434,7 @@ export const createSelectCoinMenu = async (userId: string): Promise<InteractionE
     }
 };
 
-export const createSelectCoinToSendMenu = async (userId: string, msgContent: string): Promise<InteractionEditReplyOptions> => {
+export async function createSelectCoinToSendMenu(userId: string, msgContent: string): Promise<InteractionEditReplyOptions> {
     const content: string = `${msgContent}\n\nSelect a coin to send.`;
     try {
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
@@ -1643,7 +1641,7 @@ export function addActionButtonTypeSelection(blink_id: string): InteractionReply
     return { content: "Select a button type to add to your Blink.", components: [row], ephemeral: true };
 }
 
-export const createChangeUserBlinkModal = async (fieldToChange: string, blink_id: string): Promise<ModalBuilder | undefined> => {
+export async function createChangeUserBlinkModal(fieldToChange: string, blink_id: string): Promise<ModalBuilder | undefined> {
     try {
         const modal: ModalBuilder = new ModalBuilder()
             .setCustomId(`changeUserBlink:${blink_id}:${fieldToChange}`)
@@ -1672,9 +1670,9 @@ export const createChangeUserBlinkModal = async (fieldToChange: string, blink_id
     }
 }
 
-export const createChangeBlinkCustomValueModal = async (
+export async function createChangeBlinkCustomValueModal(
     label: string, placeholder: string, lineIndex: string
-): Promise<ModalBuilder | undefined> => {
+): Promise<ModalBuilder | undefined> {
     try {
         // remove bold discord formatting first (eg **bold text**)
         const changeCustomValueModal: ModalBuilder = new ModalBuilder()
@@ -1700,9 +1698,9 @@ export const createChangeBlinkCustomValueModal = async (
     }
 }
 
-export const createBlinkCustomValuesModal = async (
+export async function createBlinkCustomValuesModal(
     action_id: string, button_id: string, params: TypedActionParameter[]
-): Promise<ModalBuilder | MessageCreateOptions | undefined> => {
+): Promise<ModalBuilder | MessageCreateOptions | undefined> {
     try {
         if (params.length > 5) {
             // NOTE: discord only allows 5 text inputs per modal, so we have to handle action UIs with more than 5 buttons differently
@@ -1742,7 +1740,7 @@ export const createBlinkCustomValuesModal = async (
     }
 }
 
-export const createBuyModal = (): ModalBuilder => {
+export function createBuyModal(): ModalBuilder {
     const enterCAModal = new ModalBuilder()
         .setCustomId('buyCoin')
         .setTitle('Enter Contract Address');
@@ -1761,7 +1759,7 @@ export const createBuyModal = (): ModalBuilder => {
     return enterCAModal;
 };
 
-export const createLimitOrderModal = (): ModalBuilder => {
+export function createLimitOrderModal(): ModalBuilder {
     const enterCAModal = new ModalBuilder()
         .setCustomId('limitOrderInfo')
         .setTitle('Enter Contract Address');
@@ -1780,7 +1778,7 @@ export const createLimitOrderModal = (): ModalBuilder => {
     return enterCAModal;
 };
 
-export const createChangeBuyButtonModal = (buttonNumber: string): ModalBuilder => {
+export function createChangeBuyButtonModal(buttonNumber: string): ModalBuilder {
     const changeBuyButton1Modal = new ModalBuilder()
         .setCustomId(`changeBuyButton${buttonNumber}`)
         .setTitle(`Change Buy Button ${buttonNumber}`);
@@ -1799,7 +1797,7 @@ export const createChangeBuyButtonModal = (buttonNumber: string): ModalBuilder =
     return changeBuyButton1Modal;
 };
 
-export const createChangeSellButtonModal = (buttonNumber: string): ModalBuilder => {
+export function createChangeSellButtonModal(buttonNumber: string): ModalBuilder {
     const changeSellButton1Modal = new ModalBuilder()
         .setCustomId(`changeSellButton${buttonNumber}`)
         .setTitle(`Change Sell Button ${buttonNumber}`);
@@ -1818,7 +1816,7 @@ export const createChangeSellButtonModal = (buttonNumber: string): ModalBuilder 
     return changeSellButton1Modal;
 };
 
-export const createWithdrawXSolModal = (): ModalBuilder => {
+export function createWithdrawXSolModal(): ModalBuilder {
     const withdrawXSolModal = new ModalBuilder()
         .setCustomId('withdrawXSol')
         .setTitle('Withdraw X SOL');
@@ -1847,7 +1845,7 @@ export const createWithdrawXSolModal = (): ModalBuilder => {
     return withdrawXSolModal;
 };
 
-export const createWithdrawAllSolModal = (): ModalBuilder => {
+export function createWithdrawAllSolModal(): ModalBuilder {
     const withdrawXSolModal = new ModalBuilder()
         .setCustomId('withdrawAllSol')
         .setTitle('Withdraw all SOL');
@@ -1866,7 +1864,7 @@ export const createWithdrawAllSolModal = (): ModalBuilder => {
     return withdrawXSolModal;
 };
 
-export const createMinPositionValueModal = (): ModalBuilder => {
+export function createMinPositionValueModal(): ModalBuilder {
     const minPositionValueModal = new ModalBuilder()
         .setCustomId('changeMinPositionValue')
         .setTitle('Change Minimum Position Value');
@@ -1885,7 +1883,7 @@ export const createMinPositionValueModal = (): ModalBuilder => {
     return minPositionValueModal;
 };
 
-export const createAutoBuyValueModal = (): ModalBuilder => {
+export function createAutoBuyValueModal(): ModalBuilder {
     const autoBuyValueModal = new ModalBuilder()
         .setCustomId('changeAutoBuyValue')
         .setTitle('Change Auto Buy Value');
@@ -1904,7 +1902,7 @@ export const createAutoBuyValueModal = (): ModalBuilder => {
     return autoBuyValueModal;
 };
 
-export const createBuySlippageModal = (): ModalBuilder => {
+export function createBuySlippageModal(): ModalBuilder {
     const buySlippageModal = new ModalBuilder()
         .setCustomId('changeBuySlippage')
         .setTitle('Change Buy Slippage');
@@ -1923,7 +1921,7 @@ export const createBuySlippageModal = (): ModalBuilder => {
     return buySlippageModal;
 };
 
-export const createSellSlippageModal = (): ModalBuilder => {
+export function createSellSlippageModal(): ModalBuilder {
     const sellSlippageModal = new ModalBuilder()
         .setCustomId('changeSellSlippage')
         .setTitle('Change Sell Slippage');
@@ -1942,7 +1940,7 @@ export const createSellSlippageModal = (): ModalBuilder => {
     return sellSlippageModal;
 };
 
-export const createTransactionPriorityModal = (): ModalBuilder => {
+export function createTransactionPriorityModal(): ModalBuilder {
     const transactionPriorityModal = new ModalBuilder()
         .setCustomId('changeTransactionPriority')
         .setTitle('Change Transaction Priority Amount');
@@ -1961,7 +1959,7 @@ export const createTransactionPriorityModal = (): ModalBuilder => {
     return transactionPriorityModal;
 };
 
-export const createBuyXSolModal = (): ModalBuilder => {
+export function createBuyXSolModal(): ModalBuilder {
     const buyXSolModal = new ModalBuilder()
         .setCustomId('buyXSol')
         .setTitle('Buy X SOL');
@@ -1980,7 +1978,7 @@ export const createBuyXSolModal = (): ModalBuilder => {
     return buyXSolModal;
 };
 
-export const createSellXPercentModal = (): ModalBuilder => {
+export function createSellXPercentModal(): ModalBuilder {
     const sellXPercentModal = new ModalBuilder()
         .setCustomId('sellXPercent')
         .setTitle('Sell X %');
@@ -1999,7 +1997,7 @@ export const createSellXPercentModal = (): ModalBuilder => {
     return sellXPercentModal;
 };
 
-export const createSendCoinModal = (): ModalBuilder => {
+export function createSendCoinModal(): ModalBuilder {
     const sendCoinModal = new ModalBuilder()
         .setCustomId('sendCoin')
         .setTitle('Send Coin to another Wallet');
@@ -2028,7 +2026,7 @@ export const createSendCoinModal = (): ModalBuilder => {
     return sendCoinModal;
 };
 
-export const sendXPercentToUserModal = (): ModalBuilder => {
+export function sendXPercentToUserModal(): ModalBuilder {
     const sendXPercentModal = new ModalBuilder()
         .setCustomId('sendXPercentToUser')
         .setTitle('Send X percent');
@@ -2047,7 +2045,7 @@ export const sendXPercentToUserModal = (): ModalBuilder => {
     return sendXPercentModal;
 }
 
-export const sendXAmountToUserModal = (): ModalBuilder => {
+export function sendXAmountToUserModal(): ModalBuilder{
     const sendXAmountModal = new ModalBuilder()
         .setCustomId('sendXAmountToUser')
         .setTitle('Send X amount');
@@ -2066,7 +2064,7 @@ export const sendXAmountToUserModal = (): ModalBuilder => {
     return sendXAmountModal;
 }
 
-export const createRefCodeModal = (): ModalBuilder => {
+export function createRefCodeModal(): ModalBuilder {
     const refCodeModal = new ModalBuilder()
         .setCustomId('enterRefCode')
         .setTitle('Enter referral code');
@@ -2085,7 +2083,7 @@ export const createRefCodeModal = (): ModalBuilder => {
     return refCodeModal;
 }
 
-export const createBuyLimitPercentModal = (): ModalBuilder => {
+export function createBuyLimitPercentModal(): ModalBuilder {
     const buyLimitPercentModal = new ModalBuilder()
         .setCustomId('buyLimitPercentModal')
         .setTitle('Enter buy limit entry');
@@ -2123,7 +2121,7 @@ export const createBuyLimitPercentModal = (): ModalBuilder => {
     return buyLimitPercentModal;
 }
 
-export const createBuyLimitPriceModal = (): ModalBuilder => {
+export function createBuyLimitPriceModal(): ModalBuilder {
     const buyLimitPriceModal = new ModalBuilder()
         .setCustomId('buyLimitPriceModal')
         .setTitle('Enter buy limit entry');
@@ -2152,7 +2150,7 @@ export const createBuyLimitPriceModal = (): ModalBuilder => {
     return buyLimitPriceModal;
 }
 
-export const createSellLimitPercentModal = (): ModalBuilder => {
+export function createSellLimitPercentModal(): ModalBuilder {
     const sellLimitPercentModal = new ModalBuilder()
         .setCustomId('sellLimitPercentModal')
         .setTitle('Enter sell limit entry');
@@ -2181,7 +2179,7 @@ export const createSellLimitPercentModal = (): ModalBuilder => {
     return sellLimitPercentModal;
 }
 
-export const createSellLimitPriceModal = (): ModalBuilder => {
+export function createSellLimitPriceModal(): ModalBuilder {
     const sellLimitPriceModal = new ModalBuilder()
         .setCustomId('sellLimitPriceModal')
         .setTitle('Enter sell limit entry');
@@ -2212,9 +2210,9 @@ export const createSellLimitPriceModal = (): ModalBuilder => {
 
 /************************************************************** EMBEDS ***********************************************************/
 
-export const createBlinkUIEmbed = async (
+export async function createBlinkUIEmbed(
     action_id: string, button_id: string, params: TypedActionParameter[]
-): Promise<MessageCreateOptions | undefined> => {
+): Promise<MessageCreateOptions | undefined> {
     try {
         let content: string = "";
         // create a line for each custom value
@@ -2270,7 +2268,7 @@ export const createBlinkUIEmbed = async (
 
 /************************************************************** BUTTONS **********************************************************/
 
-export const addStartButton = (content: string): InteractionEditReplyOptions => {
+export function addStartButton(content: string): InteractionEditReplyOptions {
     const startButton = new ButtonBuilder()
         .setCustomId('start')
         .setLabel('Start')
@@ -2279,7 +2277,7 @@ export const addStartButton = (content: string): InteractionEditReplyOptions => 
     return { content, components: [row] };
 }
 
-export const createBlinkCreationButtons = (blink_id: number): ActionRowBuilder<ButtonBuilder>[] => {
+export function createBlinkCreationButtons(blink_id: number): ActionRowBuilder<ButtonBuilder>[] {
     const titleButton = new ButtonBuilder()
         .setCustomId(`changeUserBlink:Title:${blink_id}`)
         .setLabel('Change Title')
