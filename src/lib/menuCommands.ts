@@ -98,7 +98,8 @@ export const MENU_COMMANDS = {
         const values: string[] = buttonValues.split(":");
         const blinkId: string = values[0];
         const buttonLabel: string = values[1];
-        const ui: InteractionReplyOptions = await removeActionButtonFromBlink(blinkId, buttonLabel);
+        const buttonLabelOrder: number = Number(values[2]);
+        const ui: InteractionReplyOptions = await removeActionButtonFromBlink(blinkId, buttonLabel, buttonLabelOrder);
         await interaction.editReply(ui);
     },
 };

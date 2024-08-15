@@ -571,21 +571,25 @@ export const BUTTON_COMMANDS = {
         await interaction.showModal(modal);
     },
     changeUserBlink: async (interaction: ButtonInteraction, fieldToChange?: string, blink_id?: string) => {
-        switch (fieldToChange) {
-            case "AddAction": {
-                const ui: InteractionReplyOptions = addActionButtonTypeSelection(blink_id!);
-                return await interaction.reply(ui);
+        try {
+            switch (fieldToChange) {
+                case "AddAction": {
+                    const ui: InteractionReplyOptions = addActionButtonTypeSelection(blink_id!);
+                    return await interaction.reply(ui);
+                }
+                case "RemoveAction": {
+                    await interaction.deferReply({ ephemeral: true });
+                    const ui: InteractionEditReplyOptions = await removeActionSelectionMenu(blink_id!);
+                    return await interaction.editReply(ui);
+                }
+                default: {
+                    const modal: ModalBuilder | undefined = await createChangeUserBlinkModal(fieldToChange!, blink_id!);
+                    if (!modal) return await interaction.reply(DEFAULT_ERROR);
+                    return await interaction.showModal(modal);
+                }
             }
-            case "RemoveAction": {
-                await interaction.deferReply({ ephemeral: true });
-                const ui: InteractionEditReplyOptions = await removeActionSelectionMenu(blink_id!);
-                return await interaction.editReply(ui);
-            }
-            default: {
-                const modal: ModalBuilder | undefined = await createChangeUserBlinkModal(fieldToChange!, blink_id!);
-                if (!modal) return await interaction.reply(DEFAULT_ERROR);
-                return await interaction.showModal(modal);
-            }
+        } catch (error) {
+            await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
         }
     },
     previewBlink: async (interaction: ButtonInteraction) => {

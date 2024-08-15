@@ -619,12 +619,6 @@ export const MODAL_COMMANDS = {
                 interaction.user.id, blinkId, interaction.message.embeds[0], fieldToChange, newValue
             );
             if (!ui) return await interaction.editReply(DEFAULT_ERROR);
-
-            if (!ui.content) {
-                // if ui.content is undefined it means changeUserBlinkEmbedUI returned an error
-                ui.content = interaction.message.content;
-                ui.components = interaction.message.components;
-            }
             await interaction.editReply(ui);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR);

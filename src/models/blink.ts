@@ -64,6 +64,11 @@ const BlinkSchema = new Schema({
                         type: String,
                         required: true
                     },
+                    embed_field_value: {
+                        // NOTE: this is not from the Solana Blinks standard
+                        type: String,
+                        required: true,
+                    },
                     token_amount: {
                         // NOTE: this is not from the Solana Blinks standard
                         type: Number,

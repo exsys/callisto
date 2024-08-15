@@ -8,7 +8,6 @@ import { MENU_COMMANDS } from "../lib/menuCommands";
 const event = {
     name: Events.InteractionCreate,
     async execute(interaction: any) {
-        // TODO: change this to switch statement for better readability
         if (interaction.isCommand()) {
             // TODO: find out if deferReply is needed here, because in some cases it will probably take more than 3 seconds
             const command = interaction.client.commands.get(interaction.commandName);
@@ -71,6 +70,8 @@ const event = {
                     await buttonCommand(interaction);
                 }
             } catch (error) {
+                // NOTE: if inside a buttonCommand a deferReply or reply is used, and then this catch block is executed, 
+                // the app will crash. keep that in mind
                 await saveError({ function_name: "InteractionCreate interaction.isButton()", error });
                 await interaction.reply(DEFAULT_ERROR_REPLY);
             }
