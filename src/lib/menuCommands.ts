@@ -86,9 +86,14 @@ export const MENU_COMMANDS = {
         if (blinkType === "blinkTokenSwap") {
             const modal: ModalBuilder = tokenAddressForTokenSwapBlinkModal();
             return await interaction.showModal(modal);
-        } 
+        }
         await interaction.deferReply({ ephemeral: true });
         const ui: InteractionEditReplyOptions = await createBlinkCreationUI(interaction.user.id, blinkType);
         await interaction.editReply(ui);
+    },
+    removeBlinkAction: async (interaction: StringSelectMenuInteraction, buttonLabel: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        console.log(buttonLabel);
+        await interaction.editReply("not implemented yet");
     },
 };

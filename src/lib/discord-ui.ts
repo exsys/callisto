@@ -1605,7 +1605,7 @@ export async function removeActionSelectionMenu(blink_id: string): Promise<Inter
 
         const blinkActions: SelectMenuComponentOptionData[] = [];
         blink.links.actions.forEach((action: any) => {
-            blinkActions.push({ label: action.label, value: action.label });
+            blinkActions.push({ label: action.label, value: `${blink_id}:${action.label}` });
         });
 
         const options: StringSelectMenuOptionBuilder[] = blinkActions.map((type: SelectMenuComponentOptionData) => {
