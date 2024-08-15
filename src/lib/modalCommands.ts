@@ -24,7 +24,7 @@ import {
     changeBlinkEmbedModal,
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
+import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY, ERROR_CODES } from "../config/errors";
 import { TxResponse } from "../types/txResponse";
 import { UIResponse } from "../types/uiResponse";
 import {
@@ -142,7 +142,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeBuySlippage: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -164,7 +164,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
 
     },
@@ -187,7 +187,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeTransactionPriority: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -211,7 +211,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeBuyButton1: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -233,7 +233,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeBuyButton2: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -255,7 +255,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeBuyButton3: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -277,7 +277,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeBuyButton4: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -299,7 +299,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeSellButton1: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -321,7 +321,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeSellButton2: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -343,7 +343,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeSellButton3: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -365,7 +365,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeSellButton4: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -387,7 +387,7 @@ export const MODAL_COMMANDS = {
             const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     sendCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -590,7 +590,7 @@ export const MODAL_COMMANDS = {
             const result: BlinkResponse = await executeBlink(interaction.user.id, blinkId, buttonId, orderedBlinkValues);
             await interaction.editReply({ content: result.content! });
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeBlinkEmbedValue: async (interaction: ModalSubmitInteraction, values: any[]) => {

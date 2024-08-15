@@ -10,7 +10,7 @@ import { User } from "../models/user";
 import { Wallet } from "../models/wallet";
 import bs58 from 'bs58';
 import crypto from 'crypto';
-import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
+import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY, ERROR_CODES } from "../config/errors";
 import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
@@ -654,7 +654,7 @@ export async function executeBlink(
             return { content: `You have no SOL balance. Load up your wallet to use Blinks.\n\nYour wallet address: ${walletAddress}` };
         }
     } catch (error) {
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 
     try {
@@ -669,7 +669,7 @@ export async function executeBlink(
                 function_name: "sendBlinkPostReq",
                 error: `Couldn't find action button. ActionUI: ${JSON.stringify(actionUI)}`
             });
-            return { content: DEFAULT_ERROR };
+            return DEFAULT_ERROR_REPLY;
         }
 
         // if button has custom values and user didn't submit those values yet
@@ -767,7 +767,7 @@ export async function executeBlink(
                 function_name: "executeBlink",
                 error,
             });
-            return { content: DEFAULT_ERROR };
+            return DEFAULT_ERROR_REPLY;
         }
     }
 }
@@ -793,12 +793,12 @@ export async function urlToBuffer(url: string): Promise<Buffer> {
 export function changeBlinkEmbedModal(
     embed: Embed | undefined, components: ActionRow<MessageActionRowComponent>[] | undefined, lineToChange: number, newValue: string
 ): MessageCreateOptions {
-    if (!embed) return { content: DEFAULT_ERROR };
-    if (!components) return { content: DEFAULT_ERROR };
+    if (!embed) return DEFAULT_ERROR_REPLY;
+    if (!components) return DEFAULT_ERROR_REPLY;
 
     let embedDescription: string | undefined = embed?.data.description;
     const lines: string[] | undefined = embedDescription?.split("\n");
-    if (!lines) return { content: DEFAULT_ERROR };
+    if (!lines) return DEFAULT_ERROR_REPLY;
 
     lines[lineToChange] = lines[lineToChange].split(": ")[0] + ": " + newValue;
     const joinedLines = lines.join("\n");

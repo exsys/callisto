@@ -1,7 +1,7 @@
 import { Keypair } from "@solana/web3.js";
 import { ButtonInteraction, InteractionEditReplyOptions, InteractionReplyOptions, ModalBuilder, MessageCreateOptions } from "discord.js";
 import { DEBOUNCE_TIME, REF_FEE_DEBOUNCE_MAP, REFCODE_MODAL_STRING } from "../config/constants";
-import { ERROR_CODES, DEFAULT_ERROR, DEFAULT_ERROR_REPLY } from "../config/errors";
+import { ERROR_CODES, DEFAULT_ERROR, DEFAULT_ERROR_REPLY_EPHEM, DEFAULT_ERROR_REPLY } from "../config/errors";
 import { ActionUI } from "../models/actionui";
 import { Wallet } from "../models/wallet";
 import { BlinkCustomValue } from "../types/blinkCustomValue";
@@ -241,7 +241,7 @@ export const BUTTON_COMMANDS = {
                 return Math.floor(new Date(b.createdAt).getTime() / 1000) - Math.floor(new Date(a.createdAt).getTime() / 1000);
             })[0]; // find the latest wallet by date
             if (!newDefaultWallet || !oldDefaultWallet) {
-                await interaction.editReply({ content: DEFAULT_ERROR });
+                await interaction.editReply(DEFAULT_ERROR_REPLY);
                 return;
             }
 
@@ -249,7 +249,7 @@ export const BUTTON_COMMANDS = {
             await Wallet.updateOne({ user_id: interaction.user.id, wallet_address: newDefaultWallet.wallet_address }, { is_default_wallet: true });
             await interaction.editReply({ content: "Successfully set as your default wallet!" });
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     exportPrivKeyConfirmation: async (interaction: ButtonInteraction) => {
@@ -477,7 +477,7 @@ export const BUTTON_COMMANDS = {
         }
         const amount: string = extractAmountFromMessage(interaction.message.content);
         if (!amount) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
             return;
         }
 
@@ -522,7 +522,7 @@ export const BUTTON_COMMANDS = {
                 const modal: ModalBuilder | MessageCreateOptions | undefined =
                     await createBlinkCustomValuesModal(result.action_id!, result.button_id!, result.params!);
                 if (!modal) {
-                    await interaction.editReply({ content: DEFAULT_ERROR });
+                    await interaction.editReply(DEFAULT_ERROR_REPLY);
                     return;
                 }
 
@@ -535,13 +535,13 @@ export const BUTTON_COMMANDS = {
                 await interaction.editReply({ content: result.content! });
             }
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     changeBlinkEmbedValue: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, valueIndex?: string) => {
         const embedDescription: string | undefined = interaction.message.embeds[0].data.description;
         if (!embedDescription) {
-            return await interaction.reply({ content: DEFAULT_ERROR, ephemeral: true });
+            return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
         }
         if (valueIndex === "send") {
             await interaction.deferReply({ ephemeral: true });
@@ -566,7 +566,7 @@ export const BUTTON_COMMANDS = {
         let lineSplit: string[] = correspondingLine.split(": ");
         const modal: ModalBuilder | undefined = await createChangeBlinkCustomValueModal(lineSplit[0], lineSplit[1], valueIndex!)
         if (!modal) {
-            return await interaction.reply({ content: DEFAULT_ERROR, ephemeral: true });
+            return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
         }
         await interaction.showModal(modal);
     },
@@ -600,19 +600,19 @@ export const BUTTON_COMMANDS = {
     addFixedAction: async (interaction: ButtonInteraction, blink_id?: string) => {
         try {
             const response: ModalBuilder | undefined = await createFixedActionModal(blink_id!);
-            if (!response) return await interaction.reply(DEFAULT_ERROR_REPLY);
+            if (!response) return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             await interaction.showModal(response);
         } catch (error) {
-            await interaction.reply(DEFAULT_ERROR_REPLY);
+            await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
         }
     },
     addCustomAction: async (interaction: ButtonInteraction, blink_id?: string) => {
         try {
             const response: ModalBuilder | undefined = await createCustomActionModal(blink_id!);
-            if (!response) return await interaction.reply(DEFAULT_ERROR_REPLY);
+            if (!response) return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             await interaction.showModal(response);
         } catch (error) {
-            await interaction.reply(DEFAULT_ERROR_REPLY);
+            await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
         }
     },
 };

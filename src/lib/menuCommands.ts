@@ -1,16 +1,18 @@
 import { Wallet } from "../models/wallet";
-import { DEFAULT_ERROR } from "../config/errors";
+import { DEFAULT_ERROR_REPLY } from "../config/errors";
 import {
     StringSelectMenuInteraction,
     InteractionEditReplyOptions,
-    ModalBuilder
+    ModalBuilder,
+    InteractionReplyOptions
 } from "discord.js";
 import {
     createWalletUI,
     createSellAndManageUI,
     createTokenInfoBeforeSendUI,
     createBlinkCreationUI,
-    tokenAddressForTokenSwapBlinkModal
+    tokenAddressForTokenSwapBlinkModal,
+    removeActionButtonFromBlink
 } from "./discord-ui";
 import { extractUserIdFromMessage } from "./util";
 
@@ -25,7 +27,7 @@ export const MENU_COMMANDS = {
         const oldDefaultWallet: any = allWallets.find((wallet: any) => wallet.is_default_wallet);
         const newDefaultWallet: any = allWallets.find((wallet: any) => wallet.wallet_address === newDefault);
         if (!newDefaultWallet || !oldDefaultWallet) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
             return;
         }
 
@@ -36,7 +38,7 @@ export const MENU_COMMANDS = {
             const walletUi: InteractionEditReplyOptions = await createWalletUI(interaction.user.id);
             await interaction.editReply(walletUi);
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     removeSelectedWallet: async (interaction: StringSelectMenuInteraction, walletToRemove: string) => {
@@ -68,7 +70,7 @@ export const MENU_COMMANDS = {
             await removeWallet.save();
             await interaction.editReply({ content: "Successfully removed wallet." });
         } catch (error) {
-            await interaction.editReply({ content: DEFAULT_ERROR });
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
     },
     selectCoin: async (interaction: StringSelectMenuInteraction, contractAddress: string) => {
@@ -91,9 +93,12 @@ export const MENU_COMMANDS = {
         const ui: InteractionEditReplyOptions = await createBlinkCreationUI(interaction.user.id, blinkType);
         await interaction.editReply(ui);
     },
-    removeBlinkAction: async (interaction: StringSelectMenuInteraction, buttonLabel: string) => {
+    removeBlinkAction: async (interaction: StringSelectMenuInteraction, buttonValues: string) => {
         await interaction.deferReply({ ephemeral: true });
-        console.log(buttonLabel);
-        await interaction.editReply("not implemented yet");
+        const values: string[] = buttonValues.split(":");
+        const blinkId: string = values[0];
+        const buttonLabel: string = values[1];
+        const ui: InteractionReplyOptions = await removeActionButtonFromBlink(blinkId, buttonLabel);
+        await interaction.editReply(ui);
     },
 };

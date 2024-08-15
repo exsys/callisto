@@ -29,10 +29,22 @@ import {
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinStats";
 import { CoinInfo } from "../types/coinInfo";
-import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY, ERROR_CODES } from "../config/errors";
+import {
+    DEFAULT_ERROR,
+    DEFAULT_ERROR_REPLY,
+    DEFAULT_ERROR_REPLY_EPHEM,
+    ERROR_CODES
+} from "../config/errors";
 import { TxResponse } from "../types/txResponse";
 import { User } from "../models/user";
-import { BLINK_DEFAULT_IMAGE, REFCODE_MODAL_STRING, SOL_TOKEN_ADDRESS_MAX_LENGTH, SOL_TOKEN_ADDRESS_MIN_LENGTH, SOL_WALLET_ADDRESS_MAX_LENGTH, SOL_WALLET_ADDRESS_MIN_LENGTH } from "../config/constants";
+import {
+    BLINK_DEFAULT_IMAGE,
+    REFCODE_MODAL_STRING,
+    SOL_TOKEN_ADDRESS_MAX_LENGTH,
+    SOL_TOKEN_ADDRESS_MIN_LENGTH,
+    SOL_WALLET_ADDRESS_MAX_LENGTH,
+    SOL_WALLET_ADDRESS_MIN_LENGTH
+} from "../config/constants";
 import { UIResponse } from "../types/uiResponse";
 import {
     buyCoinViaAPI,
@@ -68,7 +80,7 @@ export async function createStartUI(userId: string): Promise<InteractionEditRepl
         }
 
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
-        if (!wallet) return { content: DEFAULT_ERROR };
+        if (!wallet) return DEFAULT_ERROR_REPLY;
 
         let content: string = "Solana's fastest Discord bot to trade any coin.";
         const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
@@ -142,7 +154,7 @@ export async function createStartUI(userId: string): Promise<InteractionEditRepl
 
         return { content, components: [firstRow, secondRow] };
     } catch (error) {
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 };
 
@@ -298,7 +310,7 @@ export async function addCustomActionButtonToBlinkEmbed(
                 break;
             }
             default: {
-                return DEFAULT_ERROR_REPLY;
+                return DEFAULT_ERROR_REPLY_EPHEM;
             }
         }
 
@@ -405,7 +417,7 @@ export async function addFixedActionButtonToBlinkEmbed(
                 break;
             }
             default: {
-                return DEFAULT_ERROR_REPLY;
+                return DEFAULT_ERROR_REPLY_EPHEM;
             }
         }
 
@@ -449,7 +461,7 @@ export async function createBlinkSettingsUI(user_id: string): Promise<Interactio
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(createBlinkButton, changeBlinkButton, deleteBlinkButton);
         return { content, components: [row] };
     } catch (error) {
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 }
 
@@ -474,7 +486,7 @@ export async function createAdvancedUI(userId: string): Promise<InteractionEditR
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(limitOrderButton, openLimitOrdersButton, dcaOrderButton);
         return { content, components: [row] };
     } catch (error) {
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 }
 
@@ -538,7 +550,7 @@ export async function createWalletUI(userId: string): Promise<InteractionEditRep
 export async function createBlinkCreationUI(user_id: string, blinkType: string, tokenAddress?: string): Promise<InteractionEditReplyOptions> {
     try {
         const blink_id: number | null = await createNewBlink(user_id, blinkType, tokenAddress);
-        if (!blink_id) return { content: DEFAULT_ERROR };
+        if (!blink_id) return DEFAULT_ERROR_REPLY;
 
         let content: string = `Blink ID: ${blink_id}`;
         content += `\nBlink type: ${BLINK_TYPE_MAPPING[blinkType]}`;
@@ -567,7 +579,7 @@ export async function createBlinkCreationUI(user_id: string, blinkType: string, 
             function_name: "createBlinkCreationUI",
             error,
         });
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 }
 
@@ -840,7 +852,7 @@ export async function createCoinInfoForLimitOrderUI(contract_address: string): P
             .addComponents(buyLimitPercentButton, buyLimitPriceButton, sellLimitPercentButton, sellLimitPriceButton);
         return { content, components: [row] };
     } catch (error) {
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 }
 
@@ -897,7 +909,7 @@ export async function createSellAndManageUI({ userId, page, ca, successMsg, prev
         const coinSymbols: string[] = coinsInWallet.map((coin: CoinStats) => coin.symbol);
         const coinSymbolsDivided: string = coinSymbols.join(" | ");
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-        if (!solBalance) return { content: DEFAULT_ERROR };
+        if (!solBalance) return DEFAULT_ERROR_REPLY;
 
         // TODO: uiAmount might be null in some cases. handle that case
         const usdValue: string = selectedCoin.value ? selectedCoin.value.inUSD : "0";
@@ -1004,7 +1016,7 @@ export async function createSellAndManageUI({ userId, page, ca, successMsg, prev
             components: [firstRow, secondRow, thirdRow]
         };
     } catch (error) {
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 };
 
@@ -1066,14 +1078,14 @@ export async function createTokenSelectionUI(user_id: string, recipientId: strin
         if (!wallet) return { content: ERROR_CODES["0003"].message };
 
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-        if (!solBalance) return { content: DEFAULT_ERROR };
+        if (!solBalance) return DEFAULT_ERROR_REPLY;
 
         let content: string = `Sending token to <@${recipientId}>\n\n**Your SOL balance**: ${solBalance}\n**Your Tokens**:\n`;
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({
             walletAddress: wallet.wallet_address,
             minPos: wallet.settings.min_position_value
         });
-        if (!coinInfos) return { content: DEFAULT_ERROR };
+        if (!coinInfos) return DEFAULT_ERROR_REPLY;
         const symbols: string[] = coinInfos.map((coinInfo: CoinInfo, index: number) => {
             return index === coinInfos.length - 1 ? `${coinInfo.symbol}` : `${coinInfo.symbol} | `;
         });
@@ -1094,7 +1106,7 @@ export async function createTokenSelectionUI(user_id: string, recipientId: strin
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(selectTokenButton);
         return { content, components: [row] };
     } catch (error) {
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 }
 
@@ -1110,7 +1122,7 @@ export async function createTokenInfoBeforeSendUI(
 
     if (contract_address === "SOL") {
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-        if (!solBalance) return { content: DEFAULT_ERROR };
+        if (!solBalance) return DEFAULT_ERROR_REPLY;
         const solPrice: number | null = await getCurrentSolPrice();
         const holdingsValue: number = Number((solBalance * solPrice).toFixed(2));
         content += `\n\nSolana | SOL`;
@@ -1118,7 +1130,7 @@ export async function createTokenInfoBeforeSendUI(
         content += `\n**Holdings value**: $${holdingsValue}`;
     } else {
         const coinInfo: CoinStats | null = await getCoinStatsFromWallet(wallet.wallet_address, contract_address);
-        if (!coinInfo) return { content: DEFAULT_ERROR };
+        if (!coinInfo) return DEFAULT_ERROR_REPLY;
         content += `\n\n**${coinInfo.name}** | **${coinInfo.symbol}** | **${coinInfo.address}**`;
         content += `\n**Market Cap**: $${coinInfo.fdv} @ $${formatNumber(coinInfo.price)}`;
         content += `\n**Balance**: ${coinInfo.tokenAmount ? coinInfo.tokenAmount.uiAmount : "???"}`;
@@ -1411,7 +1423,7 @@ export async function createSelectCoinMenu(userId: string): Promise<InteractionE
     const content: string = "Select a coin to view its info's.";
     try {
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
-        if (!coinInfos) return { content: DEFAULT_ERROR };
+        if (!coinInfos) return DEFAULT_ERROR_REPLY;
 
         // TODO: seems like max length is 25, handle that case
         const options: StringSelectMenuOptionBuilder[] = coinInfos.map((coinInfo: CoinInfo) => {
@@ -1430,7 +1442,7 @@ export async function createSelectCoinMenu(userId: string): Promise<InteractionE
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
         return { content, components: [row] };
     } catch (error) {
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 };
 
@@ -1438,7 +1450,7 @@ export async function createSelectCoinToSendMenu(userId: string, msgContent: str
     const content: string = `${msgContent}\n\nSelect a coin to send.`;
     try {
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
-        if (!coinInfos) return { content: DEFAULT_ERROR };
+        if (!coinInfos) return DEFAULT_ERROR_REPLY;
 
         // TODO: seems like max length is 25, handle that case
         const options: StringSelectMenuOptionBuilder[] = [
@@ -1462,7 +1474,7 @@ export async function createSelectCoinToSendMenu(userId: string, msgContent: str
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
         return { content, components: [row] };
     } catch (error) {
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 };
 
@@ -1596,6 +1608,13 @@ export async function createFixedActionModal(blink_id: string): Promise<ModalBui
     }
 }
 
+export async function removeActionButtonFromBlink(blink_id: string, label: string): Promise<InteractionReplyOptions> {
+    const blink: any = await Blink.findOne({ blink_id });
+    if (!blink) return DEFAULT_ERROR_REPLY;
+
+
+}
+
 export async function removeActionSelectionMenu(blink_id: string): Promise<InteractionEditReplyOptions> {
     try {
         const blink: any = await Blink.findOne({ blink_id }).lean();
@@ -1622,7 +1641,7 @@ export async function removeActionSelectionMenu(blink_id: string): Promise<Inter
             function_name: "removeActionSelectionMenu",
             error,
         });
-        return { content: DEFAULT_ERROR };
+        return DEFAULT_ERROR_REPLY;
     }
 }
 
@@ -2045,7 +2064,7 @@ export function sendXPercentToUserModal(): ModalBuilder {
     return sendXPercentModal;
 }
 
-export function sendXAmountToUserModal(): ModalBuilder{
+export function sendXAmountToUserModal(): ModalBuilder {
     const sendXAmountModal = new ModalBuilder()
         .setCustomId('sendXAmountToUser')
         .setTitle('Send X amount');

@@ -1,7 +1,7 @@
 import { Events } from "discord.js";
 import { MODAL_COMMANDS } from "../lib/modalCommands";
 import { saveError } from "../lib/util";
-import { DEFAULT_ERROR, ERROR_CODES } from "../config/errors";
+import { DEFAULT_ERROR_REPLY, DEFAULT_ERROR_REPLY_EPHEM, ERROR_CODES } from "../config/errors";
 import { BUTTON_COMMANDS } from "../lib/buttonCommands";
 import { MENU_COMMANDS } from "../lib/menuCommands";
 
@@ -72,7 +72,7 @@ const event = {
                 }
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isButton()", error });
-                await interaction.reply({ content: DEFAULT_ERROR });
+                await interaction.reply(DEFAULT_ERROR_REPLY);
             }
         } else if (interaction.isModalSubmit()) {
             const modalId = interaction.customId;
@@ -130,7 +130,7 @@ const event = {
                 }
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isModalSubmit()", error });
-                await interaction.reply({ content: DEFAULT_ERROR, ephemeral: true });
+                await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             }
         } else if (interaction.isStringSelectMenu()) {
             const menuId = interaction.customId;
@@ -145,7 +145,7 @@ const event = {
                 await menuCommand(interaction, value);
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isStringSelectMenu()", error });
-                await interaction.reply({ content: DEFAULT_ERROR, ephemeral: true });
+                await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             }
         }
     },
