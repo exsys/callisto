@@ -15,6 +15,8 @@ import {
     AttachmentBuilder,
     InteractionReplyOptions,
     Embed,
+    APIEmbed,
+    APIEmbedField,
 } from "discord.js";
 import {
     createNewRefCode,
@@ -1647,7 +1649,7 @@ export async function removeActionButtonFromBlink(blink_id: string, label: strin
 
         await blink.save();
 
-        const embed: EmbedBuilder = createEmbedFromBlink(blink);
+        const embed: EmbedBuilder = createCreationEmbedFromBlink(blink);
         const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
         const content: string = createBlinkCreationContent(blink);
 
@@ -2408,7 +2410,7 @@ export function createBlinkCreationButtons(blink_id: number): ActionRowBuilder<B
 
 /************************************************************** UTILITY **********************************************************/
 
-export function createEmbedFromBlink(blink: any): EmbedBuilder {
+export function createCreationEmbedFromBlink(blink: any): EmbedBuilder {
     const embed: EmbedBuilder = new EmbedBuilder()
         .setColor(0x4F01EB)
         .setTitle(blink.title)
@@ -2422,6 +2424,37 @@ export function createEmbedFromBlink(blink: any): EmbedBuilder {
     });
 
     return embed;
+}
+
+export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>): Promise<InteractionReplyOptions> {
+    try {
+        const uiEmbed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setTitle(embed.title!)
+            .setURL(embed.url!)
+            .setAuthor(embed.author!)
+            .setImage(embed.image!.url)
+            .setDescription(embed.description!);
+
+        const buttons: ButtonBuilder[] = [];
+        embed.fields?.forEach((field: APIEmbedField, index: number) => {
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId(`blinkPreviewButton:${index}`)
+                    .setLabel(field.name)
+                    .setStyle(ButtonStyle.Primary)
+            );
+        });
+
+        if (!embed.fields?.length) {
+            return { content: "You need to add at least 1 button to preview your Blink." };
+        }
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
+        return { content: "Preview", embeds: [uiEmbed], components: [row] };
+    } catch (error) {
+        return DEFAULT_ERROR_REPLY;
+    }
 }
 
 export function createBlinkCreationContent(blink: any): string {

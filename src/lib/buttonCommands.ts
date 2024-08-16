@@ -53,6 +53,7 @@ import {
     createCustomActionModal,
     addActionButtonTypeSelection,
     removeActionSelectionMenu,
+    createBlinkUiFromEmbed,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
 import { getKeypairFromEncryptedPKey, extractAndValidateCA, createWallet, exportPrivateKeyOfUser, decryptPKey, extractUserIdFromMessage, claimUnpaidRefFees, buyCoin, sellCoin, storeUnpaidRefFee, extractAmountFromMessage, sellCoinX, buyCoinX, executeBlink, validateCustomBlinkValues, convertDescriptionToOrderedValues } from "./util";
@@ -594,8 +595,8 @@ export const BUTTON_COMMANDS = {
     },
     previewBlink: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        // TODO NEXT
-        await interaction.editReply("not implemented yet");
+        const ui: InteractionReplyOptions = await createBlinkUiFromEmbed(interaction.message.embeds[0].data);
+        await interaction.editReply(ui);
     },
     finishBlinkCreation: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
@@ -618,5 +619,8 @@ export const BUTTON_COMMANDS = {
         } catch (error) {
             await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
         }
+    },
+    blinkPreviewButton: async (interaction: ButtonInteraction, buttonOrder?: string) => {
+        await interaction.reply({ content: "This is a preview. Buttons aren't executable in a preview.", ephemeral: true });
     },
 };

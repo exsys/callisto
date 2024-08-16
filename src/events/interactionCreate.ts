@@ -57,7 +57,7 @@ const event = {
                     const values: string[] = buttonId.split(":");
                     const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
                     await buttonCommand(interaction, values[1], values[2]);
-                } else if (buttonId.includes("addFixedAction") || buttonId.includes("addCustomAction")) {
+                } else if (buttonId.includes("addFixedAction") || buttonId.includes("addCustomAction") || buttonId.includes("blinkPreviewButton")) {
                     const values: string[] = buttonId.split(":");
                     const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
                     await buttonCommand(interaction, values[1]);
@@ -73,7 +73,7 @@ const event = {
                 // NOTE: if inside a buttonCommand a deferReply or reply is used, and then this catch block is executed, 
                 // the app will crash. keep that in mind
                 await saveError({ function_name: "InteractionCreate interaction.isButton()", error });
-                await interaction.reply(DEFAULT_ERROR_REPLY);
+                await interaction.editReply(DEFAULT_ERROR_REPLY_EPHEM);
             }
         } else if (interaction.isModalSubmit()) {
             const modalId = interaction.customId;
