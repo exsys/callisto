@@ -15,7 +15,7 @@ const BlinkSchema = new Schema({
         required: true,
     },
     is_complete: {
-        type: String,
+        type: Boolean,
         default: false,
     },
     required_parameters: {
@@ -49,8 +49,8 @@ const BlinkSchema = new Schema({
         default: "label",
     },
     disabled: {
-        type: String,
-        default: false,
+        type: Boolean,
+        default: true,
     },
     links: {
         type: {
@@ -94,13 +94,6 @@ const BlinkSchema = new Schema({
         required: false,
         _id: false,
     },
-    error: {
-        type: {
-            message: String,
-        },
-        required: false,
-        _id: false,
-    }
 });
 
 export const Blink = model("Blink", BlinkSchema, "blinks");

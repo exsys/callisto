@@ -56,7 +56,25 @@ import {
     createBlinkUiFromEmbed,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
-import { getKeypairFromEncryptedPKey, extractAndValidateCA, createWallet, exportPrivateKeyOfUser, decryptPKey, extractUserIdFromMessage, claimUnpaidRefFees, buyCoin, sellCoin, storeUnpaidRefFee, extractAmountFromMessage, sellCoinX, buyCoinX, executeBlink, validateCustomBlinkValues, convertDescriptionToOrderedValues } from "./util";
+import {
+    getKeypairFromEncryptedPKey,
+    extractAndValidateCA,
+    createWallet,
+    exportPrivateKeyOfUser,
+    decryptPKey,
+    extractUserIdFromMessage,
+    claimUnpaidRefFees,
+    buyCoin,
+    sellCoin,
+    storeUnpaidRefFee,
+    extractAmountFromMessage,
+    sellCoinX,
+    buyCoinX,
+    executeBlink,
+    validateCustomBlinkValues,
+    convertDescriptionToOrderedValues,
+    storeUserBlink
+} from "./util";
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: ButtonInteraction) => {
@@ -598,9 +616,10 @@ export const BUTTON_COMMANDS = {
         const ui: InteractionReplyOptions = await createBlinkUiFromEmbed(interaction.message.embeds[0].data);
         await interaction.editReply(ui);
     },
-    finishBlinkCreation: async (interaction: ButtonInteraction) => {
+    finishBlinkCreation: async (interaction: ButtonInteraction, blink_id?: string) => {
         await interaction.deferReply({ ephemeral: true });
-        await interaction.editReply("not implemented yet");
+        const response: InteractionReplyOptions = await storeUserBlink(blink_id!);
+        await interaction.editReply(response);
     },
     addFixedAction: async (interaction: ButtonInteraction, blink_id?: string) => {
         try {

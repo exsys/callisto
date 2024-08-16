@@ -32,6 +32,7 @@ import {
     Embed,
     EmbedBuilder,
     InteractionEditReplyOptions,
+    InteractionReplyOptions,
     MessageActionRowComponent,
     MessageCreateOptions
 } from "discord.js";
@@ -901,5 +902,23 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
             error,
         });
         return null;
+    }
+}
+
+export async function storeUserBlink(blink_id: string): Promise<InteractionReplyOptions> {
+    try {
+        const blink: any = await Blink.findOne({ blink_id });
+        if (!blink) return DEFAULT_ERROR_REPLY;
+
+        blink.is_complete = true;
+        blink.disabled = false;
+
+        await blink.save();
+        let content = "Successfully created Blink! Your Blink URL:";
+        content += `\n\nhttps://callistobot.com/api/blinks/${blink.blink_id}`;
+        return { content };
+    } catch (error) {
+        console.log(error)
+        return DEFAULT_ERROR_REPLY;
     }
 }

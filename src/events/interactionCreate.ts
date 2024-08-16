@@ -57,7 +57,12 @@ const event = {
                     const values: string[] = buttonId.split(":");
                     const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
                     await buttonCommand(interaction, values[1], values[2]);
-                } else if (buttonId.includes("addFixedAction") || buttonId.includes("addCustomAction") || buttonId.includes("blinkPreviewButton")) {
+                } else if (
+                    buttonId.includes("addFixedAction")
+                    || buttonId.includes("addCustomAction")
+                    || buttonId.includes("blinkPreviewButton")
+                    || buttonId.includes("finishBlinkCreation")
+                ) {
                     const values: string[] = buttonId.split(":");
                     const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
                     await buttonCommand(interaction, values[1]);

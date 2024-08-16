@@ -2396,7 +2396,7 @@ export function createBlinkCreationButtons(blink_id: number): ActionRowBuilder<B
         .setStyle(ButtonStyle.Secondary);
 
     const createButton = new ButtonBuilder()
-        .setCustomId('finishBlinkCreation')
+        .setCustomId(`finishBlinkCreation:${blink_id}`)
         .setLabel("Create Blink")
         .setStyle(ButtonStyle.Secondary);
 
