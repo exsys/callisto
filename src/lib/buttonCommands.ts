@@ -642,4 +642,10 @@ export const BUTTON_COMMANDS = {
     blinkPreviewButton: async (interaction: ButtonInteraction, buttonOrder?: string) => {
         await interaction.reply({ content: "This is a preview. Buttons aren't executable in a preview.", ephemeral: true });
     },
+    changeBlink: async (interaction: ButtonInteraction) => {
+        await interaction.reply({ content: "not implemented yet", ephemeral: true });
+    },
+    deleteBlink: async (interaction: ButtonInteraction) => {
+        await interaction.reply({ content: "not implemented yet", ephemeral: true });
+    },
 };
