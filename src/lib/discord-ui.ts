@@ -242,7 +242,6 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
         if (blink.icon) embed.setImage(blink.icon);
 
         // TODO: refactor this: because 99% of values etc are the same for donation and tokenswap
-        // TODO: only allow custom button once for donation and swap
 
         const customAmountString: string = "Amount: custom";
         switch (blink.blink_type) {
@@ -257,6 +256,12 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                         }],
                     }
                 } else {
+                    const customAmountButtonAlreadyExists: DBAction | null
+                        = blink.links.actions.find((action: DBAction) => action.embed_field_value === customAmountString);
+                    if (customAmountButtonAlreadyExists) {
+                        return { content: "You can add only one custom value button to Donation Blinks." };
+                    }
+
                     blink.links.actions.forEach((action: any) => {
                         embed.addFields({
                             name: action.label,
@@ -267,7 +272,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
 
                     blink.links.actions.push({
                         label: buttonLabel,
-                        href: `/blinks/${blink.blink_id}?token=SOL&amount=amount`,
+                        href: `/blinks/${blink.blink_id}?token=SOL&amount=amount`, // TODO: allow custom token
                         embed_field_value: customAmountString,
                     });
                     blink.links.actions = sortDBActions(blink.links.actions);
@@ -291,7 +296,12 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                         }],
                     }
                 } else {
-                    // create embed fields from database values
+                    const customAmountButtonAlreadyExists: DBAction | null
+                        = blink.links.actions.find((action: DBAction) => action.embed_field_value === customAmountString);
+                    if (customAmountButtonAlreadyExists) {
+                        return { content: "You can add only one custom value button to Token Swap Blinks." };
+                    }
+                    
                     blink.links.actions.forEach((action: any) => {
                         embed.addFields({
                             name: action.label,
@@ -299,8 +309,6 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                             inline: true,
                         });
                     });
-
-                    // push newly added button to database
                     blink.links.actions.push({
                         label: buttonLabel,
                         href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=amount`,
