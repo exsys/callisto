@@ -1,5 +1,5 @@
 import { Wallet } from "../models/wallet";
-import { DEFAULT_ERROR_REPLY } from "../config/errors";
+import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY } from "../config/errors";
 import {
     StringSelectMenuInteraction,
     InteractionEditReplyOptions,
@@ -10,9 +10,11 @@ import {
     createWalletUI,
     createSellAndManageUI,
     createTokenInfoBeforeSendUI,
-    createBlinkCreationUI,
+    createNewBlinkUI,
     tokenAddressForTokenSwapBlinkModal,
-    removeActionButtonFromBlink
+    removeActionButtonFromBlink,
+    createBlinkEmbedUIFromBlinkId,
+    deleteUserBlink
 } from "./discord-ui";
 import { extractUserIdFromMessage } from "./util";
 
@@ -90,16 +92,35 @@ export const MENU_COMMANDS = {
             return await interaction.showModal(modal);
         }
         await interaction.deferReply({ ephemeral: true });
-        const ui: InteractionEditReplyOptions = await createBlinkCreationUI(interaction.user.id, blinkType);
+        const ui: InteractionEditReplyOptions = await createNewBlinkUI(interaction.user.id, blinkType);
         await interaction.editReply(ui);
     },
     removeBlinkAction: async (interaction: StringSelectMenuInteraction, buttonValues: string) => {
         await interaction.deferReply({ ephemeral: true });
+        const editMode: boolean = interaction.customId.split(":")[1] === "e";
         const values: string[] = buttonValues.split(":");
         const blinkId: string = values[0];
         const buttonLabel: string = values[1];
         const buttonLabelOrder: number = Number(values[2]);
-        const ui: InteractionReplyOptions = await removeActionButtonFromBlink(blinkId, buttonLabel, buttonLabelOrder);
+        const ui: InteractionReplyOptions = await removeActionButtonFromBlink(blinkId, buttonLabel, buttonLabelOrder, editMode);
         await interaction.editReply(ui);
+    },
+    selectBlinkToEdit: async (interaction: StringSelectMenuInteraction, blinkId: string) => {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+            const blinkUI: InteractionReplyOptions = await createBlinkEmbedUIFromBlinkId(blinkId, true);
+            await interaction.editReply(blinkUI);
+        } catch (error) {
+            await interaction.editReply(DEFAULT_ERROR);
+        }
+    },
+    selectBlinkToDelete: async (interaction: StringSelectMenuInteraction, blinkId: string) => {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+            const response: InteractionReplyOptions = await deleteUserBlink(blinkId);
+            await interaction.editReply(response);
+        } catch (error) {
+            await interaction.editReply(DEFAULT_ERROR);
+        }
     },
 };

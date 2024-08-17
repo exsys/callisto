@@ -53,20 +53,28 @@ const event = {
 
                 // TODO: make it so values is hand over as a single array instead of all values individually
 
-                if (buttonId.includes("changeUserBlink")) {
-                    const values: string[] = buttonId.split(":");
-                    const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
-                    await buttonCommand(interaction, values[1], values[2]);
-                } else if (
-                    buttonId.includes("addFixedAction")
-                    || buttonId.includes("addCustomAction")
+                if (
+                    buttonId.includes("addCustomAction")
                     || buttonId.includes("blinkPreviewButton")
                     || buttonId.includes("finishBlinkCreation")
+                    || buttonId.includes("finishBlinkEdit")
+                    || buttonId.includes("disableBlink")
+                    || buttonId.includes("finishBlinkEdit")
                 ) {
                     const values: string[] = buttonId.split(":");
                     const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
                     await buttonCommand(interaction, values[1]);
-                } else if (buttonId.includes("blinkButton") || buttonId.includes("changeBlinkEmbedValue")) {
+                } else if (
+                    buttonId.includes("addFixedAction")
+                ) {
+                    const values: string[] = buttonId.split(":");
+                    const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
+                    await buttonCommand(interaction, values[1], values[2]);
+                } else if (
+                    buttonId.includes("blinkButton")
+                    || buttonId.includes("changeBlinkEmbedValue")
+                    || buttonId.includes("changeUserBlink")
+                ) {
                     const values: string[] = buttonId.split(":");
                     const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
                     await buttonCommand(interaction, values[1], values[2], values[3]);
@@ -75,7 +83,7 @@ const event = {
                     await buttonCommand(interaction);
                 }
             } catch (error) {
-                // NOTE: if inside a buttonCommand a deferReply or reply is used, and then this catch block is executed, 
+                // NOTE: if inside a buttonCommand a editReply is used, and then this catch block is executed, 
                 // the app will crash. keep that in mind
                 await saveError({ function_name: "InteractionCreate interaction.isButton()", error });
                 await interaction.editReply(DEFAULT_ERROR_REPLY_EPHEM);
@@ -119,17 +127,20 @@ const event = {
                     // for changing the blink embed  user creates their own blink
                     const values = modalId.split(":");
                     const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
-                    await modalCommand(interaction, [values[1], values[2], inputValues[0]]);
+                    await modalCommand(interaction, [values[1], values[2], values[3], inputValues[0]]);
                 } else if (modalId.includes("changeBlinkEmbedValue")) {
                     // for changing custom values inside the embed that is acting as a modal (to execute a blink)
                     const values = modalId.split(":");
                     const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, [values[1], inputValues[0]]);
-                } else if (modalId.includes("addFixedAction") || modalId.includes("addCustomAction")) {
-                    // for adding fixed button values to a blink
+                } else if (modalId.includes("addCustomAction")) {
                     const values = modalId.split(":");
                     const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, [values[1], ...inputValues]);
+                } else if (modalId.includes("addFixedAction")) {
+                    const values = modalId.split(":");
+                    const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
+                    await modalCommand(interaction, [values[1], values[2], ...inputValues]);
                 } else {
                     const modalCommand = MODAL_COMMANDS[modalId as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, inputValues as string[]);
@@ -139,7 +150,7 @@ const event = {
                 await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             }
         } else if (interaction.isStringSelectMenu()) {
-            const menuId = interaction.customId;
+            const menuId: string | undefined = interaction.customId;
             const value = interaction.values[0];
             if (!menuId) {
                 await interaction.reply({ content: 'Invalid select menu.', ephemeral: true });
@@ -147,7 +158,9 @@ const event = {
             }
 
             try {
-                const menuCommand = MENU_COMMANDS[menuId as keyof typeof MENU_COMMANDS];
+                let values: string[] = menuId.split(":");
+                // values.length > 1 means it has hidden callisto values
+                const menuCommand = MENU_COMMANDS[(values.length > 1 ? values[0] : menuId) as keyof typeof MENU_COMMANDS];
                 await menuCommand(interaction, value);
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isStringSelectMenu()", error });

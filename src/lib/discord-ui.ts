@@ -162,14 +162,14 @@ export async function createStartUI(userId: string): Promise<InteractionEditRepl
 };
 
 export async function changeUserBlinkEmbedUI(
-    user_id: string, blink_id: string, embed: Embed, fieldToChange: string, newValue: string
-): Promise<InteractionEditReplyOptions | undefined> {
+    user_id: string, blink_id: string, embed: Embed, fieldToChange: string, newValue: string, editMode: boolean = false,
+): Promise<InteractionEditReplyOptions> {
     try {
         const newEmbed: EmbedBuilder = EmbedBuilder.from(embed);
         const blink: any = await Blink.findOne({ user_id, blink_id });
-        if (!blink) return undefined;
+        if (!blink) return DEFAULT_ERROR_REPLY;
         const content: string = createBlinkCreationContent(blink);
-        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id, editMode, blink.disabled);
 
         switch (fieldToChange) {
             case "Title": {
@@ -194,9 +194,9 @@ export async function changeUserBlinkEmbedUI(
                 blink.icon = newValue;
                 break;
             }
-            case "Disabled": {
+            case "Disable": {
                 // NOTE: the button for this field only exists in the change blink ui
-                blink.disabled = Boolean(newValue);
+                blink.disabled = !blink.disabled;
                 break;
             }
             case "Url": {
@@ -222,13 +222,13 @@ export async function changeUserBlinkEmbedUI(
             function_name: "changeUserBlinkEmbedUI",
             error,
         });
-        return;
+        return DEFAULT_ERROR_REPLY;
     }
 }
 
-// TODO: check if I can combine addCustomActionButtonToBlinkEmbed and addFixedActionButtonToBlinkEmbed in an elegant way
+// TODO: check if I can combine addCustomActionButtonToBlink and addFixedActionButtonToBlink in an elegant way
 
-export async function addCustomActionButtonToBlinkEmbed(blink_id: string, buttonValues: string[]): Promise<InteractionReplyOptions | undefined> {
+export async function addCustomActionButtonToBlink(blink_id: string, buttonValues: string[]): Promise<InteractionReplyOptions | undefined> {
     try {
         const blink: any = await Blink.findOne({ blink_id });
         if (!blink) return;
@@ -327,18 +327,21 @@ export async function addCustomActionButtonToBlinkEmbed(blink_id: string, button
         return { content, embeds: [embed], components: buttons };
     } catch (error) {
         await saveError({
-            function_name: "addCustomActionButtonToBlinkEmbed",
+            function_name: "addCustomActionButtonToBlink",
             error,
         });
         return;
     }
 }
 
-export async function addFixedActionButtonToBlinkEmbed(blink_id: string, buttonValues: string[]): Promise<InteractionReplyOptions | undefined> {
+export async function addFixedActionButtonToBlink(
+    blink_id: string, buttonValues: string[], editMode: boolean = false
+): Promise<InteractionReplyOptions | undefined> {
     try {
         const blink: any = await Blink.findOne({ blink_id });
         if (!blink) return;
         const content: string = createBlinkCreationContent(blink);
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id, editMode, blink.disabled);
 
         const embed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
@@ -435,20 +438,39 @@ export async function addFixedActionButtonToBlinkEmbed(blink_id: string, buttonV
             }
         }
 
-        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
         return { content, embeds: [embed], components: buttons };
     } catch (error) {
         await saveError({
-            function_name: "addFixedActionButtonToBlinkEmbed",
+            function_name: "addFixedActionButtonToBlink",
             error,
         });
         return;
     }
 }
 
-export async function createBlinkSettingsUI(user_id: string): Promise<InteractionEditReplyOptions> {
+export async function createBlinkEmbedUIFromBlinkId(blink_id: string, editMode: boolean = false): Promise<InteractionReplyOptions> {
     try {
-        let content: string = "Create and change Blinks here. You can post Blinks anywhere in the web for faster transactions.";
+        const blink: any = await Blink.findOne({ blink_id }).lean();
+        if (!blink) return DEFAULT_ERROR_REPLY;
+
+        const content: string = createBlinkCreationContent(blink);
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(Number(blink_id), editMode, blink.disabled);
+        const embed: EmbedBuilder = createBlinkCreationEmbedFromBlink(blink);
+
+        return { content, embeds: [embed], components: buttons };
+    } catch (error) {
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
+export async function createBlinkSettingsUI(user_id: string, editModeSuccess: boolean = false): Promise<InteractionEditReplyOptions> {
+    try {
+        let content: string = "";
+        if (editModeSuccess) {
+            content += "Successfully edited Blink."
+        } else {
+            content += "Create and change Blinks here. You can post Blinks anywhere in the web for faster transactions.";
+        }
         const usersBlinks: any[] = await Blink.find({ user_id }).lean();
         let disabledBlinks: number = 0;
         usersBlinks.forEach((blink: any) => {
@@ -462,9 +484,9 @@ export async function createBlinkSettingsUI(user_id: string): Promise<Interactio
             .setLabel('Create Blink')
             .setStyle(ButtonStyle.Secondary);
 
-        const changeBlinkButton = new ButtonBuilder()
-            .setCustomId('changeBlink')
-            .setLabel('Change Blink')
+        const editBlinkButton = new ButtonBuilder()
+            .setCustomId('editBlink')
+            .setLabel('Edit Blink')
             .setStyle(ButtonStyle.Secondary);
 
         const deleteBlinkButton = new ButtonBuilder()
@@ -472,7 +494,7 @@ export async function createBlinkSettingsUI(user_id: string): Promise<Interactio
             .setLabel('Delete Blink')
             .setStyle(ButtonStyle.Secondary);
 
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(createBlinkButton, changeBlinkButton, deleteBlinkButton);
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(createBlinkButton, editBlinkButton, deleteBlinkButton);
         return { content, components: [row] };
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
@@ -561,7 +583,7 @@ export async function createWalletUI(userId: string): Promise<InteractionEditRep
     return { content, components: [firstRow, secondRow] };
 };
 
-export async function createBlinkCreationUI(user_id: string, blinkType: string, tokenAddress?: string): Promise<InteractionEditReplyOptions> {
+export async function createNewBlinkUI(user_id: string, blinkType: string, tokenAddress?: string): Promise<InteractionEditReplyOptions> {
     try {
         const blink_id: number | null = await createNewBlink(user_id, blinkType, tokenAddress);
         if (!blink_id) return DEFAULT_ERROR_REPLY;
@@ -589,7 +611,7 @@ export async function createBlinkCreationUI(user_id: string, blinkType: string, 
         return { content, embeds: [blinkEmbed], components: buttons };
     } catch (error) {
         await saveError({
-            function_name: "createBlinkCreationUI",
+            function_name: "createNewBlink",
             error,
         });
         return DEFAULT_ERROR_REPLY;
@@ -1384,6 +1406,30 @@ export async function createRemoveWalletUI(userId: string): Promise<InteractionE
 
 /****************************************************** MENUS *****************************************************/
 
+export async function selectBlinkMenu(user_id: string, deleteBlink: boolean = false): Promise<InteractionEditReplyOptions> {
+    try {
+        const allBlinksOfUser: any[] = await Blink.find({ user_id });
+        if (!allBlinksOfUser || !allBlinksOfUser.length) return { content: "You don't have any Blinks yet. Create one first." };
+
+        const content = `Select the Blink you want to ${deleteBlink ? "delete" : "edit"}.`;
+
+        const options: StringSelectMenuOptionBuilder[] = allBlinksOfUser.map((blink: any) => {
+            return new StringSelectMenuOptionBuilder()
+                .setLabel(blink.title)
+                .setValue(blink.blink_id);
+        });
+        const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
+            .setCustomId(`${deleteBlink ? "selectBlinkToDelete" : "selectBlinkToEdit"}`)
+            .setPlaceholder(`Select a Blink to ${deleteBlink ? "delete" : "edit"}.`)
+            .addOptions(options);
+
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+        return { content, components: [row] };
+    } catch (error) {
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
 export function createBlinkCreationMenu(): InteractionEditReplyOptions {
     let content: string = "What type of Action Blink do you want to create?";
     content += "\n\n**Donation**: Create a Blink to ask for tips to one of your Callisto wallets.";
@@ -1547,13 +1593,13 @@ export async function createCustomActionModal(blink_id: string): Promise<ModalBu
     }
 }
 
-export async function createFixedActionModal(blink_id: string): Promise<ModalBuilder | undefined> {
+export async function createFixedActionModal(blink_id: string, editMode: boolean = false): Promise<ModalBuilder | undefined> {
     try {
         const blink: any = await Blink.findOne({ blink_id }).lean();
         if (!blink) return undefined;
 
         const modal: ModalBuilder = new ModalBuilder()
-            .setCustomId(`addFixedAction:${blink_id}`)
+            .setCustomId(`addFixedAction:${blink_id}${editMode ? ":e" : ""}`)
             .setTitle("Add button with fixed value");
 
         const rows: ActionRowBuilder<TextInputBuilder>[] = [];
@@ -1622,7 +1668,9 @@ export async function createFixedActionModal(blink_id: string): Promise<ModalBui
 }
 
 // order is needed in case there are duplicate orders
-export async function removeActionButtonFromBlink(blink_id: string, label: string, order: number): Promise<InteractionReplyOptions> {
+export async function removeActionButtonFromBlink(
+    blink_id: string, label: string, order: number, editMode: boolean = false,
+): Promise<InteractionReplyOptions> {
     try {
         const blink: any = await Blink.findOne({ blink_id });
         if (!blink) return { content: ERROR_CODES["0017"].message };
@@ -1649,8 +1697,8 @@ export async function removeActionButtonFromBlink(blink_id: string, label: strin
 
         await blink.save();
 
-        const embed: EmbedBuilder = createCreationEmbedFromBlink(blink);
-        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
+        const embed: EmbedBuilder = createBlinkCreationEmbedFromBlink(blink);
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id, editMode, blink.disabled);
         const content: string = createBlinkCreationContent(blink);
 
         return { content, embeds: [embed], components: buttons };
@@ -1663,7 +1711,7 @@ export async function removeActionButtonFromBlink(blink_id: string, label: strin
     }
 }
 
-export async function removeActionSelectionMenu(blink_id: string): Promise<InteractionEditReplyOptions> {
+export async function removeActionSelectionMenu(blink_id: string, editMode: boolean = false): Promise<InteractionEditReplyOptions> {
     try {
         const blink: any = await Blink.findOne({ blink_id }).lean();
         if (!blink) return { content: ERROR_CODES["0017"].message };
@@ -1688,7 +1736,7 @@ export async function removeActionSelectionMenu(blink_id: string): Promise<Inter
         });
 
         const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
-            .setCustomId('removeBlinkAction')
+            .setCustomId(`removeBlinkAction${editMode ? ":e" : ""}`)
             .setPlaceholder('Select a button to remove')
             .addOptions(options);
 
@@ -1703,14 +1751,14 @@ export async function removeActionSelectionMenu(blink_id: string): Promise<Inter
     }
 }
 
-export function addActionButtonTypeSelection(blink_id: string): InteractionReplyOptions {
+export function addActionButtonTypeSelection(blink_id: string, editMode: boolean = false): InteractionReplyOptions {
     const addActionButton = new ButtonBuilder()
-        .setCustomId(`addFixedAction:${blink_id}`)
+        .setCustomId(`addFixedAction:${blink_id}${editMode ? ":e" : ""}`)
         .setLabel('Fixed value')
         .setStyle(ButtonStyle.Secondary);
 
     const addCustomActionButton = new ButtonBuilder()
-        .setCustomId(`addCustomAction:${blink_id}`)
+        .setCustomId(`addCustomAction:${blink_id}${editMode ? ":e" : ""}`)
         .setLabel('Custom value')
         .setStyle(ButtonStyle.Secondary);
 
@@ -1718,10 +1766,12 @@ export function addActionButtonTypeSelection(blink_id: string): InteractionReply
     return { content: "Select a button type to add to your Blink.", components: [row], ephemeral: true };
 }
 
-export async function createChangeUserBlinkModal(fieldToChange: string, blink_id: string): Promise<ModalBuilder | undefined> {
+export async function createChangeUserBlinkModal(
+    fieldToChange: string, blink_id: string, editMode: boolean = false
+): Promise<ModalBuilder | undefined> {
     try {
         const modal: ModalBuilder = new ModalBuilder()
-            .setCustomId(`changeUserBlink:${blink_id}:${fieldToChange}`)
+            .setCustomId(`changeUserBlink:${blink_id}:${fieldToChange}${editMode ? ":e" : ""}`)
             .setTitle(`Change ${fieldToChange}`);
         const input = new TextInputBuilder()
             .setCustomId(`value1`)
@@ -1782,7 +1832,7 @@ export async function createBlinkCustomValuesModal(
         if (params.length > 5) {
             // NOTE: discord only allows 5 text inputs per modal, so we have to handle action UIs with more than 5 buttons differently
             // in this case we are creating an embed with buttons which will act as an modal
-            const embed: MessageCreateOptions | undefined = await createBlinkUIEmbed(action_id, button_id, params);
+            const embed: MessageCreateOptions | undefined = await blinkCustomValuesModalAsEmbed(action_id, button_id, params);
             return embed;
         }
 
@@ -2287,7 +2337,7 @@ export function createSellLimitPriceModal(): ModalBuilder {
 
 /************************************************************** EMBEDS ***********************************************************/
 
-export async function createBlinkUIEmbed(
+export async function blinkCustomValuesModalAsEmbed(
     action_id: string, button_id: string, params: TypedActionParameter[]
 ): Promise<MessageCreateOptions | undefined> {
     try {
@@ -2354,39 +2404,41 @@ export function addStartButton(content: string): InteractionEditReplyOptions {
     return { content, components: [row] };
 }
 
-export function createBlinkCreationButtons(blink_id: number): ActionRowBuilder<ButtonBuilder>[] {
+export function createBlinkCreationButtons(
+    blink_id: number, editMode: boolean = false, blinkDisabled: boolean = false
+): ActionRowBuilder<ButtonBuilder>[] {
     const titleButton = new ButtonBuilder()
-        .setCustomId(`changeUserBlink:Title:${blink_id}`)
+        .setCustomId(`changeUserBlink:Title:${blink_id}${editMode ? ":e" : ""}`)
         .setLabel('Change Title')
         .setStyle(ButtonStyle.Secondary);
 
     const urlButton = new ButtonBuilder()
-        .setCustomId(`changeUserBlink:Url:${blink_id}`)
+        .setCustomId(`changeUserBlink:Url:${blink_id}${editMode ? ":e" : ""}`)
         .setLabel('Change URL')
         .setStyle(ButtonStyle.Secondary);
 
     const iconButton = new ButtonBuilder()
-        .setCustomId(`changeUserBlink:Icon:${blink_id}`)
+        .setCustomId(`changeUserBlink:Icon:${blink_id}${editMode ? ":e" : ""}`)
         .setLabel('Change Image')
         .setStyle(ButtonStyle.Secondary);
 
     const descriptionButton = new ButtonBuilder()
-        .setCustomId(`changeUserBlink:Description:${blink_id}`)
+        .setCustomId(`changeUserBlink:Description:${blink_id}${editMode ? ":e" : ""}`)
         .setLabel('Change Description')
         .setStyle(ButtonStyle.Secondary);
 
     const labelButton = new ButtonBuilder()
-        .setCustomId(`changeUserBlink:Label:${blink_id}`)
+        .setCustomId(`changeUserBlink:Label:${blink_id}${editMode ? ":e" : ""}`)
         .setLabel('Change Label')
         .setStyle(ButtonStyle.Secondary);
 
     const addActionButton = new ButtonBuilder()
-        .setCustomId(`changeUserBlink:AddAction:${blink_id}`)
+        .setCustomId(`changeUserBlink:AddAction:${blink_id}${editMode ? ":e" : ""}`)
         .setLabel("Add Action")
         .setStyle(ButtonStyle.Secondary);
 
     const removeActionButton = new ButtonBuilder()
-        .setCustomId(`changeUserBlink:RemoveAction:${blink_id}`)
+        .setCustomId(`changeUserBlink:RemoveAction:${blink_id}${editMode ? ":e" : ""}`)
         .setLabel("Remove Action")
         .setStyle(ButtonStyle.Secondary);
 
@@ -2398,19 +2450,97 @@ export function createBlinkCreationButtons(blink_id: number): ActionRowBuilder<B
     const createButton = new ButtonBuilder()
         .setCustomId(`finishBlinkCreation:${blink_id}`)
         .setLabel("Create Blink")
-        .setStyle(ButtonStyle.Secondary);
+        .setStyle(ButtonStyle.Primary);
 
-    const firstRow = new ActionRowBuilder<ButtonBuilder>()
+    const editButton = new ButtonBuilder()
+        .setCustomId(`finishBlinkEdit:${blink_id}`)
+        .setLabel("Edit Blink")
+        .setStyle(ButtonStyle.Primary);
+
+    const disableButton = new ButtonBuilder()
+        .setCustomId(`disableBlink:${blink_id}`)
+        .setLabel(`${blinkDisabled ? "Disabled" : "Enabled"}`)
+        .setStyle(blinkDisabled ? ButtonStyle.Danger : ButtonStyle.Success);
+
+    const row1 = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(labelButton, titleButton, descriptionButton, iconButton);
-    const secondRow = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(addActionButton, removeActionButton, previewButton, createButton);
 
-    return [firstRow, secondRow];
+    let row2;
+    if (editMode) {
+        row2 = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(addActionButton, removeActionButton, previewButton, disableButton, editButton);
+    } else {
+        row2 = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(addActionButton, removeActionButton, previewButton, createButton);
+    }
+
+    return [row1, row2];
 }
 
 /************************************************************** UTILITY **********************************************************/
 
-export function createCreationEmbedFromBlink(blink: any): EmbedBuilder {
+export async function storeUserBlink(blink_id: string): Promise<InteractionReplyOptions> {
+    try {
+        const blink: any = await Blink.findOne({ blink_id });
+        if (!blink) return DEFAULT_ERROR_REPLY;
+
+        blink.is_complete = true;
+        blink.disabled = false;
+
+        await blink.save();
+        let content = "Successfully created Blink! Your Blink URL:";
+        content += `\n\nhttps://callistobot.com/api/blinks/${blink.blink_id}`;
+        return { content };
+    } catch (error) {
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
+export async function deleteUserBlink(blink_id: string): Promise<InteractionReplyOptions> {
+    try {
+        const blink: any = await Blink.findOneAndDelete({ blink_id });
+        if (!blink) return { content: "Failed to delete Blink. If the issue persists please contact support." };
+        return { content: "Successfully deleted Blink." };
+    } catch (error) {
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
+export async function checkAndUpdateBlink(blink_id: string): Promise<InteractionReplyOptions | null> {
+    try {
+        const blink: any = await Blink.findOne({ blink_id });
+        if (blink && !blink.links?.actions.length) {
+            return { content: "You need to add at least 1 action button." };
+        }
+
+        if (!blink.is_complete) {
+            blink.is_complete = true;
+            await blink.save();
+        }
+
+        return null;
+    } catch (error) {
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
+export async function disableBlink(blink_id: string): Promise<InteractionReplyOptions> {
+    try {
+        const blink: any = await Blink.findOne({ blink_id });
+        if (!blink) return DEFAULT_ERROR_REPLY;
+
+        blink.disabled = !blink.disabled;
+        await blink.save();
+        const content: string = createBlinkCreationContent(blink);
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(Number(blink_id), true, blink.disabled);
+        const embed: EmbedBuilder = createBlinkCreationEmbedFromBlink(blink);
+        return { content, embeds: [embed], components: buttons };
+    } catch (error) {
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
+export function createBlinkCreationEmbedFromBlink(blink: any): EmbedBuilder {
     const embed: EmbedBuilder = new EmbedBuilder()
         .setColor(0x4F01EB)
         .setTitle(blink.title)
@@ -2419,7 +2549,7 @@ export function createCreationEmbedFromBlink(blink: any): EmbedBuilder {
         .setImage(blink.icon)
         .setDescription(blink.description);
 
-    blink.links.actions.forEach((action: any) => {
+    blink.links?.actions.forEach((action: any) => {
         embed.addFields({ name: action.label, value: action.embed_field_value, inline: true });
     });
 

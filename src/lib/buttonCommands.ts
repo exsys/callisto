@@ -1,7 +1,22 @@
 import { Keypair } from "@solana/web3.js";
-import { ButtonInteraction, InteractionEditReplyOptions, InteractionReplyOptions, ModalBuilder, MessageCreateOptions } from "discord.js";
-import { DEBOUNCE_TIME, REF_FEE_DEBOUNCE_MAP, REFCODE_MODAL_STRING } from "../config/constants";
-import { ERROR_CODES, DEFAULT_ERROR, DEFAULT_ERROR_REPLY_EPHEM, DEFAULT_ERROR_REPLY } from "../config/errors";
+import {
+    ButtonInteraction,
+    InteractionEditReplyOptions,
+    InteractionReplyOptions,
+    ModalBuilder,
+    MessageCreateOptions
+} from "discord.js";
+import {
+    DEBOUNCE_TIME,
+    REF_FEE_DEBOUNCE_MAP,
+    REFCODE_MODAL_STRING
+} from "../config/constants";
+import {
+    ERROR_CODES,
+    DEFAULT_ERROR,
+    DEFAULT_ERROR_REPLY_EPHEM,
+    DEFAULT_ERROR_REPLY
+} from "../config/errors";
 import { ActionUI } from "../models/actionui";
 import { Wallet } from "../models/wallet";
 import { BlinkCustomValue } from "../types/blinkCustomValue";
@@ -54,6 +69,10 @@ import {
     addActionButtonTypeSelection,
     removeActionSelectionMenu,
     createBlinkUiFromEmbed,
+    selectBlinkMenu,
+    disableBlink,
+    checkAndUpdateBlink,
+    storeUserBlink,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
 import {
@@ -72,8 +91,7 @@ import {
     buyCoinX,
     executeBlink,
     validateCustomBlinkValues,
-    convertDescriptionToOrderedValues,
-    storeUserBlink
+    convertDescriptionToOrderedValues
 } from "./util";
 
 export const BUTTON_COMMANDS = {
@@ -114,16 +132,6 @@ export const BUTTON_COMMANDS = {
     sellAndManage: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
-        await interaction.editReply(ui);
-    },
-    blinkSettings: async (interaction: ButtonInteraction) => {
-        await interaction.deferReply({ ephemeral: true });
-        const ui: InteractionEditReplyOptions = await createBlinkSettingsUI(interaction.user.id);
-        await interaction.editReply(ui);
-    },
-    createBlink: async (interaction: ButtonInteraction) => {
-        await interaction.deferReply({ ephemeral: true });
-        const ui: InteractionEditReplyOptions = createBlinkCreationMenu();
         await interaction.editReply(ui);
     },
     limitOrder: async (interaction: ButtonInteraction) => {
@@ -529,7 +537,18 @@ export const BUTTON_COMMANDS = {
         const modal: ModalBuilder = createSellLimitPriceModal();
         await interaction.showModal(modal);
     },
+    blinkSettings: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionEditReplyOptions = await createBlinkSettingsUI(interaction.user.id);
+        await interaction.editReply(ui);
+    },
+    createBlink: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionEditReplyOptions = createBlinkCreationMenu();
+        await interaction.editReply(ui);
+    },
     blinkButton: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, buttonType?: string) => {
+        // this is the function that will be executed whenever a user clicks on a button from a blink UI
         try {
             if (buttonType !== "custom") {
                 // NOTE: discord doesn't allow to show a modal after a reply, and a reply has to be send within 3 seconds
@@ -589,20 +608,21 @@ export const BUTTON_COMMANDS = {
         }
         await interaction.showModal(modal);
     },
-    changeUserBlink: async (interaction: ButtonInteraction, fieldToChange?: string, blink_id?: string) => {
+    changeUserBlink: async (interaction: ButtonInteraction, fieldToChange?: string, blink_id?: string, editMode?: string) => {
         try {
+            const isEditMode: boolean = editMode === "e";
             switch (fieldToChange) {
                 case "AddAction": {
-                    const ui: InteractionReplyOptions = addActionButtonTypeSelection(blink_id!);
+                    const ui: InteractionReplyOptions = addActionButtonTypeSelection(blink_id!, isEditMode);
                     return await interaction.reply(ui);
                 }
                 case "RemoveAction": {
                     await interaction.deferReply({ ephemeral: true });
-                    const ui: InteractionEditReplyOptions = await removeActionSelectionMenu(blink_id!);
+                    const ui: InteractionEditReplyOptions = await removeActionSelectionMenu(blink_id!, isEditMode);
                     return await interaction.editReply(ui);
                 }
                 default: {
-                    const modal: ModalBuilder | undefined = await createChangeUserBlinkModal(fieldToChange!, blink_id!);
+                    const modal: ModalBuilder | undefined = await createChangeUserBlinkModal(fieldToChange!, blink_id!, isEditMode);
                     if (!modal) return await interaction.reply(DEFAULT_ERROR);
                     return await interaction.showModal(modal);
                 }
@@ -621,9 +641,10 @@ export const BUTTON_COMMANDS = {
         const response: InteractionReplyOptions = await storeUserBlink(blink_id!);
         await interaction.editReply(response);
     },
-    addFixedAction: async (interaction: ButtonInteraction, blink_id?: string) => {
+    addFixedAction: async (interaction: ButtonInteraction, blink_id?: string, editMode?: string) => {
         try {
-            const response: ModalBuilder | undefined = await createFixedActionModal(blink_id!);
+            const isEditMode: boolean = editMode === "e";
+            const response: ModalBuilder | undefined = await createFixedActionModal(blink_id!, isEditMode);
             if (!response) return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             await interaction.showModal(response);
         } catch (error) {
@@ -642,10 +663,34 @@ export const BUTTON_COMMANDS = {
     blinkPreviewButton: async (interaction: ButtonInteraction, buttonOrder?: string) => {
         await interaction.reply({ content: "This is a preview. Buttons aren't executable in a preview.", ephemeral: true });
     },
-    changeBlink: async (interaction: ButtonInteraction) => {
-        await interaction.reply({ content: "not implemented yet", ephemeral: true });
+    editBlink: async (interaction: ButtonInteraction) => {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+            const ui: InteractionEditReplyOptions = await selectBlinkMenu(interaction.user.id);
+            await interaction.editReply(ui);
+        } catch (error) {
+            await interaction.editReply(DEFAULT_ERROR);
+        }
     },
     deleteBlink: async (interaction: ButtonInteraction) => {
-        await interaction.reply({ content: "not implemented yet", ephemeral: true });
+        try {
+            await interaction.deferReply({ ephemeral: true });
+            const ui: InteractionEditReplyOptions = await selectBlinkMenu(interaction.user.id, true);
+            await interaction.editReply(ui);
+        } catch (error) {
+            await interaction.editReply(DEFAULT_ERROR);
+        }
     },
+    finishBlinkEdit: async (interaction: ButtonInteraction, blink_id?: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        const updateHasErrors: InteractionReplyOptions | null = await checkAndUpdateBlink(blink_id!);
+        if (updateHasErrors) return await interaction.editReply(updateHasErrors);
+        const ui: InteractionEditReplyOptions = await createBlinkSettingsUI(interaction.user.id, true);
+        await interaction.editReply(ui);
+    },
+    disableBlink: async (interaction: ButtonInteraction, blinkId?: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionReplyOptions = await disableBlink(blinkId!);
+        await interaction.editReply(ui);
+    }
 };

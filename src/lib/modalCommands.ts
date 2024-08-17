@@ -5,9 +5,9 @@ import {
     createStartUI,
     createCoinInfoForLimitOrderUI,
     changeUserBlinkEmbedUI,
-    addFixedActionButtonToBlinkEmbed,
-    addCustomActionButtonToBlinkEmbed,
-    createBlinkCreationUI,
+    addFixedActionButtonToBlink,
+    addCustomActionButtonToBlink,
+    createNewBlinkUI,
 } from "./discord-ui";
 import {
     buyCoinX,
@@ -561,8 +561,9 @@ export const MODAL_COMMANDS = {
     addFixedAction: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const blinkId: string = values[0];
-        const buttonValues: string[] = values.slice(1);
-        const ui: InteractionReplyOptions | undefined = await addFixedActionButtonToBlinkEmbed(blinkId, buttonValues);
+        const editMode: boolean = values[1] === "e"
+        const buttonValues: string[] = values.slice(2);
+        const ui: InteractionReplyOptions | undefined = await addFixedActionButtonToBlink(blinkId, buttonValues, editMode);
         if (!ui) return await interaction.editReply(DEFAULT_ERROR);
         await interaction.editReply(ui);
     },
@@ -570,14 +571,14 @@ export const MODAL_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const blinkId: string = values[0];
         const buttonValues: string[] = values.slice(1);
-        const ui: InteractionReplyOptions | undefined = await addCustomActionButtonToBlinkEmbed(blinkId, buttonValues);
+        const ui: InteractionReplyOptions | undefined = await addCustomActionButtonToBlink(blinkId, buttonValues);
         if (!ui) return await interaction.editReply(DEFAULT_ERROR);
         await interaction.editReply(ui);
     },
     createTokenSwapBlink: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const tokenAddress: string = values[0];
-        const ui: InteractionEditReplyOptions = await createBlinkCreationUI(interaction.user.id, "blinkTokenSwap", tokenAddress);
+        const ui: InteractionEditReplyOptions = await createNewBlinkUI(interaction.user.id, "blinkTokenSwap", tokenAddress);
         await interaction.editReply(ui);
     },
     blinkCustomValues: async (interaction: ModalSubmitInteraction, values: any[]) => {
@@ -614,11 +615,11 @@ export const MODAL_COMMANDS = {
 
             const blinkId: string = values[0];
             const fieldToChange: string = values[1];
-            const newValue: string = values[2];
-            const ui: InteractionEditReplyOptions | undefined = await changeUserBlinkEmbedUI(
-                interaction.user.id, blinkId, interaction.message.embeds[0], fieldToChange, newValue
+            const editMode: boolean = values[2] === "e";
+            const newValue: string = values[3];
+            const ui: InteractionEditReplyOptions = await changeUserBlinkEmbedUI(
+                interaction.user.id, blinkId, interaction.message.embeds[0], fieldToChange, newValue, editMode
             );
-            if (!ui) return await interaction.editReply(DEFAULT_ERROR);
             await interaction.editReply(ui);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR);
