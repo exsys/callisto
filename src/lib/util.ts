@@ -930,3 +930,46 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
         return null;
     }
 }
+
+export async function checkIfUrlReturnsImage(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+        const img: HTMLImageElement = new Image();
+
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+
+        // Start loading the image
+        img.src = url;
+    });
+}
+
+export async function getImageFormat(url: string): Promise<string | null> {
+    try {
+        const response = await fetch(url, { method: 'HEAD' });
+        const contentType = response.headers.get('Content-Type');
+        if (contentType) {
+            // NOTE: Content-Type might include additional information like charset
+            return contentType.split('/').pop() || null;
+        }
+        return null;
+    } catch (error) {
+        return null;
+    }
+}
+
+export async function checkImageAndFormat(url: string): Promise<string | null> {
+    try {
+        const response: Response = await fetch(url);
+        // Check if the response is an image
+        const contentType: string | null = response.headers.get('Content-Type');
+        if (contentType && contentType.startsWith('image/')) {
+            // Extract the image format from Content-Type if any
+            return contentType.split('/').pop() || null;
+        }
+        
+        return null; // Either it's not an image or content type is not available
+    } catch (error) {
+        console.log(error)
+        return null;
+    }
+}

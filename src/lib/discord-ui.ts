@@ -27,7 +27,8 @@ import {
     saveError,
     urlToBuffer,
     createNewBlink,
-    isPositiveNumber
+    isPositiveNumber,
+    checkImageAndFormat
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinStats";
@@ -190,8 +191,19 @@ export async function changeUserBlinkEmbedUI(
                 break;
             }
             case "Icon": {
-                // TODO: check if image exists
-                // TODO: check if png, gif or jpg
+                const imageFormat: string | null = await checkImageAndFormat(newValue);
+                if (!imageFormat) {
+                    return { content: "Couldn't retrieve image. Please use another URL." };
+                }
+
+                if (imageFormat === "svg+xml" || imageFormat === "svg") {
+                    // TODO: convert svg to png
+                }
+
+                if (imageFormat !== "jpeg" && imageFormat !== "jpg" && imageFormat !== "png" && imageFormat !== "gif") {
+                    return { content: "Only jpg, png and gif images are currently supported." };
+                }
+
                 newEmbed.setImage(newValue);
                 blink.icon = newValue;
                 break;
@@ -301,7 +313,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                     if (customAmountButtonAlreadyExists) {
                         return { content: "You can add only one custom value button to Token Swap Blinks." };
                     }
-                    
+
                     blink.links.actions.forEach((action: any) => {
                         embed.addFields({
                             name: action.label,
