@@ -2636,7 +2636,8 @@ export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>): Promise
             .setImage(embed.image!.url)
             .setDescription(embed.description!);
 
-        const buttons: ButtonBuilder[] = [];
+        const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+        let buttons: ButtonBuilder[] = [];
         embed.fields?.forEach((field: APIEmbedField, index: number) => {
             buttons.push(
                 new ButtonBuilder()
@@ -2644,14 +2645,18 @@ export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>): Promise
                     .setLabel(field.name)
                     .setStyle(ButtonStyle.Primary)
             );
+
+            // discord api limit: can only add 5 buttons per row
+            if ((index + 1) % 5 === 0) {
+                rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
+                buttons = [];
+            }
         });
 
-        if (!embed.fields?.length) {
-            return { content: "You need to add at least 1 button to preview your Blink." };
-        }
+        rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons));
 
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
-        return { content: "Preview", embeds: [uiEmbed], components: [row] };
+        if (!embed.fields?.length) return { content: "You need to add at least 1 button to preview your Blink." };
+        return { content: "Preview", embeds: [uiEmbed], components: rows };
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
     }
