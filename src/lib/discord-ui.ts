@@ -17,6 +17,7 @@ import {
     Embed,
     APIEmbed,
     APIEmbedField,
+    EmbedField,
 } from "discord.js";
 import {
     createNewRefCode,
@@ -66,6 +67,7 @@ import sharp from "sharp";
 import { Blink } from "../models/blink";
 import { BLINK_TYPE_MAPPING } from "../config/blink_type_mapping";
 import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
+import { DBAction } from "../types/dbAction";
 
 /***************************************************** UIs *****************************************************/
 
@@ -268,6 +270,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                         href: `/blinks/${blink.blink_id}?token=SOL&amount=amount`,
                         embed_field_value: customAmountString,
                     });
+                    blink.links.actions = sortDBActions(blink.links.actions);
                 }
 
                 // additionally add the one the user just added and store it in the db
@@ -303,6 +306,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                         href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=amount`,
                         embed_field_value: customAmountString,
                     });
+                    blink.links.actions = sortDBActions(blink.links.actions);
                 }
                 embed.addFields(
                     { name: buttonLabel, value: customAmountString, inline: true },
@@ -366,26 +370,17 @@ export async function addFixedActionButtonToBlink(
                         }],
                     }
                 } else {
-                    blink.links.actions.forEach((action: any) => {
-                        embed.addFields({
-                            name: action.label,
-                            value: action.embed_field_value,
-                            inline: true,
-                        });
-                    });
-
                     blink.links.actions.push({
                         label: buttonLabel,
                         href: `/blinks/${blink.blink_id}?token=SOL&amount=${transferAmountInSOL}`,
                         token_amount: transferAmountInSOL,
                         embed_field_value: amountString
                     });
+                    blink.links.actions = sortDBActions(blink.links.actions);
                 }
 
-                // additionally add the one the user just added and store it in the db
-                embed.addFields(
-                    { name: buttonLabel, value: amountString, inline: true },
-                );
+                const sortedFields: EmbedField[] = sortEmbedFields(blink.links.actions);
+                embed.addFields(sortedFields);
                 await blink.save();
                 break;
             }
@@ -404,24 +399,17 @@ export async function addFixedActionButtonToBlink(
                         }],
                     }
                 } else {
-                    blink.links.actions.forEach((action: any) => {
-                        embed.addFields({
-                            name: action.label,
-                            value: action.embed_field_value,
-                            inline: true,
-                        });
-                    });
-
                     blink.links.actions.push({
                         label: `Buy ${swapAmountInSOL} SOL`,
                         href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=${swapAmountInSOL}`,
                         token_amount: swapAmountInSOL,
                         embed_field_value: amountString,
                     });
+                    blink.links.actions = sortDBActions(blink.links.actions);
                 }
-                embed.addFields(
-                    { name: `Buy ${swapAmountInSOL} SOL`, value: amountString, inline: true },
-                );
+
+                const sortedFields: EmbedField[] = sortEmbedFields(blink.links.actions);
+                embed.addFields(sortedFields);
                 await blink.save();
                 break;
             }
@@ -2483,6 +2471,34 @@ export function createBlinkCreationButtons(
 }
 
 /************************************************************** UTILITY **********************************************************/
+
+export function sortDBActions(actions: DBAction[]): DBAction[] {
+    return actions.sort((a: DBAction, b: DBAction) => {
+        if (a.token_amount === undefined) return 1;
+        if (b.token_amount === undefined) return -1;
+        if (a.token_amount < b.token_amount) return -1;
+        if (a.token_amount > b.token_amount) return 1;
+        return 0;
+    });
+}
+
+export function sortEmbedFields(actions: DBAction[]): EmbedField[] {
+    const actionsOrdered: DBAction[] = actions.sort((a: DBAction, b: DBAction) => {
+        if (a.token_amount === undefined) return 1;
+        if (b.token_amount === undefined) return -1;
+        if (a.token_amount < b.token_amount) return -1;
+        if (a.token_amount > b.token_amount) return 1;
+        return 0;
+    });
+
+    return actionsOrdered.map((action: DBAction) => {
+        return {
+            name: action.label,
+            value: action.embed_field_value,
+            inline: true,
+        };
+    });
+}
 
 export async function storeUserBlink(blink_id: string): Promise<InteractionReplyOptions> {
     try {
