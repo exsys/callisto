@@ -1,5 +1,5 @@
 import { Wallet } from "../models/wallet";
-import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY } from "../config/errors";
+import { DEFAULT_ERROR_REPLY } from "../config/errors";
 import {
     StringSelectMenuInteraction,
     InteractionEditReplyOptions,
@@ -106,21 +106,17 @@ export const MENU_COMMANDS = {
         await interaction.editReply(ui);
     },
     selectBlinkToEdit: async (interaction: StringSelectMenuInteraction, blinkId: string) => {
-        try {
-            await interaction.deferReply({ ephemeral: true });
-            const blinkUI: InteractionReplyOptions = await createBlinkEmbedUIFromBlinkId(blinkId, true);
-            await interaction.editReply(blinkUI);
-        } catch (error) {
-            await interaction.editReply(DEFAULT_ERROR);
-        }
+        await interaction.deferReply({ ephemeral: true });
+        const blinkUI: InteractionReplyOptions = await createBlinkEmbedUIFromBlinkId(blinkId, true);
+        await interaction.editReply(blinkUI);
     },
     selectBlinkToDelete: async (interaction: StringSelectMenuInteraction, blinkId: string) => {
-        try {
-            await interaction.deferReply({ ephemeral: true });
-            const response: InteractionReplyOptions = await deleteUserBlink(blinkId);
-            await interaction.editReply(response);
-        } catch (error) {
-            await interaction.editReply(DEFAULT_ERROR);
-        }
+        await interaction.deferReply({ ephemeral: true });
+        const response: InteractionReplyOptions = await deleteUserBlink(blinkId);
+        await interaction.editReply(response);
+    },
+    selectBlinkToShowUrl: async (interaction: StringSelectMenuInteraction, blinkId: string) => {
+        const content: string = `https://api.callistobot.com/blinks/${blinkId}`;
+        await interaction.reply({ content, ephemeral: true });
     },
 };

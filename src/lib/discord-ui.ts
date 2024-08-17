@@ -498,7 +498,13 @@ export async function createBlinkSettingsUI(user_id: string, editModeSuccess: bo
             .setLabel('Delete Blink')
             .setStyle(ButtonStyle.Secondary);
 
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(createBlinkButton, editBlinkButton, deleteBlinkButton);
+        const showblinkUrlButton = new ButtonBuilder()
+            .setCustomId('showBlinkUrl')
+            .setLabel('Show Blink URL')
+            .setStyle(ButtonStyle.Secondary);
+
+        const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(createBlinkButton, editBlinkButton, deleteBlinkButton, showblinkUrlButton);
         return { content, components: [row] };
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
@@ -1419,12 +1425,35 @@ export async function createRemoveWalletUI(userId: string): Promise<InteractionE
 
 /****************************************************** MENUS *****************************************************/
 
-export async function selectBlinkMenu(user_id: string, deleteBlink: boolean = false): Promise<InteractionEditReplyOptions> {
+export async function selectBlinkMenu(user_id: string, actionType: string): Promise<InteractionEditReplyOptions> {
     try {
         const allBlinksOfUser: any[] = await Blink.find({ user_id });
         if (!allBlinksOfUser || !allBlinksOfUser.length) return { content: "You don't have any Blinks yet. Create one first." };
 
-        const content = `Select the Blink you want to ${deleteBlink ? "delete" : "edit"}.`;
+        let customId: string | undefined;
+        let content: string | undefined;
+        switch (actionType) {
+            case "edit": {
+                customId = "selectBlinkToEdit";
+                content = "Select the Blink you want to edit.";
+                break;
+            }
+            case "delete": {
+                customId = "selectBlinkToDelete";
+                content = "Select the Blink you want to delete.";
+                break;
+            }
+            case "url": {
+                customId = "selectBlinkToShowUrl";
+                content = "Select a Blink to show the URL.";
+                break;
+            }
+            default: {
+                customId = "selectBlinkToEdit";
+                content = "Select the Blink you want to edit.";
+                break;
+            }
+        }
 
         const options: StringSelectMenuOptionBuilder[] = allBlinksOfUser.map((blink: any) => {
             return new StringSelectMenuOptionBuilder()
@@ -1432,8 +1461,8 @@ export async function selectBlinkMenu(user_id: string, deleteBlink: boolean = fa
                 .setValue(blink.blink_id);
         });
         const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
-            .setCustomId(`${deleteBlink ? "selectBlinkToDelete" : "selectBlinkToEdit"}`)
-            .setPlaceholder(`Select a Blink to ${deleteBlink ? "delete" : "edit"}.`)
+            .setCustomId(customId)
+            .setPlaceholder("Select a Blink")
             .addOptions(options);
 
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);

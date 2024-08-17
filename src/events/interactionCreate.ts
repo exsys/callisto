@@ -58,8 +58,9 @@ const event = {
             } catch (error) {
                 // NOTE: if inside a buttonCommand a editReply is used, and then this catch block is executed, 
                 // the app will crash. keep that in mind
+                console.log(error);
                 await saveError({ function_name: "InteractionCreate interaction.isButton()", error });
-                await interaction.editReply(DEFAULT_ERROR_REPLY_EPHEM);
+                await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             }
         } else if (interaction.isModalSubmit()) {
             const modalId = interaction.customId;

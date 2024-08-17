@@ -966,10 +966,9 @@ export async function checkImageAndFormat(url: string): Promise<string | null> {
             // Extract the image format from Content-Type if any
             return contentType.split('/').pop() || null;
         }
-        
+
         return null; // Either it's not an image or content type is not available
     } catch (error) {
-        console.log(error)
         return null;
     }
 }

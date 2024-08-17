@@ -666,7 +666,7 @@ export const BUTTON_COMMANDS = {
     editBlink: async (interaction: ButtonInteraction) => {
         try {
             await interaction.deferReply({ ephemeral: true });
-            const ui: InteractionEditReplyOptions = await selectBlinkMenu(interaction.user.id);
+            const ui: InteractionEditReplyOptions = await selectBlinkMenu(interaction.user.id, "edit");
             await interaction.editReply(ui);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR);
@@ -675,7 +675,7 @@ export const BUTTON_COMMANDS = {
     deleteBlink: async (interaction: ButtonInteraction) => {
         try {
             await interaction.deferReply({ ephemeral: true });
-            const ui: InteractionEditReplyOptions = await selectBlinkMenu(interaction.user.id, true);
+            const ui: InteractionEditReplyOptions = await selectBlinkMenu(interaction.user.id, "delete");
             await interaction.editReply(ui);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR);
@@ -692,5 +692,10 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const ui: InteractionReplyOptions = await disableBlink(blinkId!);
         await interaction.editReply(ui);
-    }
+    },
+    showBlinkUrl: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const menu: InteractionEditReplyOptions = await selectBlinkMenu(interaction.user.id, "url");
+        await interaction.editReply(menu);
+    },
 };
