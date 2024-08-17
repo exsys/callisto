@@ -26,7 +26,7 @@ const event = {
                 });
 
                 if (!userIsAdmin) {
-                    await interaction.reply({ content: "Stop right there! This command is only for Moderators!", ephemeral: true });
+                    await interaction.reply({ content: "This command can be executed only by Admins.", ephemeral: true });
                     return;
                 }
             }
@@ -45,39 +45,12 @@ const event = {
             }
 
             try {
-                // TODO: it seems like customId is inside interaction, check if I can just send interaction here
-                // and get the values in the buttom command with split (instead of sending all values as param)
-                // split still has to be used here, but the values don't have to be sent here, interaction
-                // can be sent alone and split will be used again in the command to get the values.
-                // benefit: no if-else is needed anymore, can just use a single buttonCommand()
-
-                // TODO: make it so values is hand over as a single array instead of all values individually
-
-                if (
-                    buttonId.includes("addCustomAction")
-                    || buttonId.includes("blinkPreviewButton")
-                    || buttonId.includes("finishBlinkCreation")
-                    || buttonId.includes("finishBlinkEdit")
-                    || buttonId.includes("disableBlink")
-                    || buttonId.includes("finishBlinkEdit")
-                ) {
-                    const values: string[] = buttonId.split(":");
+                // TODO: make it so no values are hand over as params at all. 
+                // use interaction.customId.split(":") inside each buttonCommand to get the values
+                const values: string[] = buttonId.split(":");
+                if (values.length > 1) {
                     const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
-                    await buttonCommand(interaction, values[1]);
-                } else if (
-                    buttonId.includes("addFixedAction")
-                ) {
-                    const values: string[] = buttonId.split(":");
-                    const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
-                    await buttonCommand(interaction, values[1], values[2]);
-                } else if (
-                    buttonId.includes("blinkButton")
-                    || buttonId.includes("changeBlinkEmbedValue")
-                    || buttonId.includes("changeUserBlink")
-                ) {
-                    const values: string[] = buttonId.split(":");
-                    const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];
-                    await buttonCommand(interaction, values[1], values[2], values[3]);
+                    await buttonCommand(interaction, ...values.slice(1));
                 } else {
                     const buttonCommand = BUTTON_COMMANDS[buttonId as keyof typeof BUTTON_COMMANDS];
                     await buttonCommand(interaction);
@@ -98,7 +71,7 @@ const event = {
             let inputValues: string[] = [];
             const blinkValuesOrdered: any[] = [];
             // NOTE: max rows per modal is 5 (discord limit), and it's possible to have optional fields between required fields
-            // so it's possible that for example value4 is undefined but value5 is defined
+            // so it's possible that, for example, value4 is undefined but value5 is defined
             for (let i = 1; i <= 5; i++) {
                 try {
                     inputValues.push(interaction.fields.getTextInputValue(`value${i}`));
@@ -117,33 +90,15 @@ const event = {
             }
 
             try {
-                // TODO: make it so for blinks it just uses the values as param, instead of every single element individually
+                const values: string[] = modalId.split(":");
                 if (modalId.includes("blinkCustomValues")) {
-                    // for executing a blink with a button that required custom values
-                    const values = modalId.split(":");
+                    // for executing a blink with a button that requires custom values
                     const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, [values[1], values[2], blinkValuesOrdered] as any[]);
-                } else if (modalId.includes("changeUserBlink")) {
-                    // for changing the blink embed  user creates their own blink
-                    const values = modalId.split(":");
-                    const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
-                    await modalCommand(interaction, [values[1], values[2], values[3], inputValues[0]]);
-                } else if (modalId.includes("changeBlinkEmbedValue")) {
-                    // for changing custom values inside the embed that is acting as a modal (to execute a blink)
-                    const values = modalId.split(":");
-                    const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
-                    await modalCommand(interaction, [values[1], inputValues[0]]);
-                } else if (modalId.includes("addCustomAction")) {
-                    const values = modalId.split(":");
-                    const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
-                    await modalCommand(interaction, [values[1], ...inputValues]);
-                } else if (modalId.includes("addFixedAction")) {
-                    const values = modalId.split(":");
-                    const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
-                    await modalCommand(interaction, [values[1], values[2], ...inputValues]);
                 } else {
-                    const modalCommand = MODAL_COMMANDS[modalId as keyof typeof MODAL_COMMANDS];
-                    await modalCommand(interaction, inputValues as string[]);
+                    const allValues: string[] = [...values.slice(1), ...inputValues];
+                    const modalCommand = MODAL_COMMANDS[(values.length > 1 ? values[0] : modalId) as keyof typeof MODAL_COMMANDS];
+                    await modalCommand(interaction, allValues);
                 }
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isModalSubmit()", error });
@@ -159,7 +114,6 @@ const event = {
 
             try {
                 let values: string[] = menuId.split(":");
-                // values.length > 1 means it has hidden callisto values
                 const menuCommand = MENU_COMMANDS[(values.length > 1 ? values[0] : menuId) as keyof typeof MENU_COMMANDS];
                 await menuCommand(interaction, value);
             } catch (error) {

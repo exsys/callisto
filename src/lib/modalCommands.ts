@@ -561,8 +561,8 @@ export const MODAL_COMMANDS = {
     addFixedAction: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const blinkId: string = values[0];
-        const editMode: boolean = values[1] === "e"
-        const buttonValues: string[] = values.slice(2);
+        const editMode: boolean = values[1] === "e";
+        const buttonValues: string[] = editMode ? values.slice(2) : values.slice(1);
         const ui: InteractionReplyOptions | undefined = await addFixedActionButtonToBlink(blinkId, buttonValues, editMode);
         if (!ui) return await interaction.editReply(DEFAULT_ERROR);
         await interaction.editReply(ui);
@@ -616,7 +616,7 @@ export const MODAL_COMMANDS = {
             const blinkId: string = values[0];
             const fieldToChange: string = values[1];
             const editMode: boolean = values[2] === "e";
-            const newValue: string = values[3];
+            const newValue: string = editMode ? values[3] : values[2];
             const ui: InteractionEditReplyOptions = await changeUserBlinkEmbedUI(
                 interaction.user.id, blinkId, interaction.message.embeds[0], fieldToChange, newValue, editMode
             );

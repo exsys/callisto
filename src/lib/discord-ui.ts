@@ -194,11 +194,6 @@ export async function changeUserBlinkEmbedUI(
                 blink.icon = newValue;
                 break;
             }
-            case "Disable": {
-                // NOTE: the button for this field only exists in the change blink ui
-                blink.disabled = !blink.disabled;
-                break;
-            }
             case "Url": {
                 // NOTE: this is currently not changeable by the user
                 try {
@@ -218,6 +213,7 @@ export async function changeUserBlinkEmbedUI(
         await blink.save();
         return { content, embeds: [newEmbed], components: buttons };
     } catch (error) {
+        //console.log(error);
         await saveError({
             function_name: "changeUserBlinkEmbedUI",
             error,
