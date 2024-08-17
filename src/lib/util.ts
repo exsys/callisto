@@ -871,7 +871,7 @@ export function convertDescriptionToOrderedValues(embedDescription: string, acti
     return orderedValues;
 }
 
-export async function createNewBlink(user_id: string, blink_type: string, token_address?: string): Promise<number | null> {
+export async function createNewBlink(user_id: string, blink_type: string, token_address?: string): Promise<any | null> {
     try {
         const stats: any = await AppStats.findOne({ stats_id: 1 });
         if (!stats) return null;
@@ -884,7 +884,7 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
         }
 
         stats.blinks_created++;
-        const newBlink = new Blink({
+        const newBlink: any = new Blink({
             user_id,
             blink_id: stats.blinks_created,
             blink_type,
@@ -893,9 +893,35 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
             token_address,
         });
 
+        if (blink_type === "blinkDonation") {
+            newBlink.links = {
+                actions: [
+                    { href: `/blinks/${newBlink.blink_id}?token=SOL&amount=0.1`, label: "Tip 0.1 SOL", embed_field_value: "Amount: 0.1", token_amount: 0.1 },
+                    { href: `/blinks/${newBlink.blink_id}?token=SOL&amount=0.5`, label: "Tip 0.5 SOL", embed_field_value: "Amount: 0.5", token_amount: 0.5 },
+                    { href: `/blinks/${newBlink.blink_id}?token=SOL&amount=1`, label: "Tip 1 SOL", embed_field_value: "Amount: 1", token_amount: 1 },
+                    { href: `/blinks/${newBlink.blink_id}?token=SOL&amount=amount`, label: "Custom amount", embed_field_value: "Amount: custom" },
+                ]
+            }
+        }
+
+        if (blink_type === "blinkTokenSwap") {
+            newBlink.links = {
+                actions: [
+                    { href: `/blinks/${newBlink.blink_id}?token=${newBlink.token_address}&amount=0.1`, label: "Buy 0.1 SOL", embed_field_value: "Amount: 0.1", token_amount: 0.1 },
+                    { href: `/blinks/${newBlink.blink_id}?token=${newBlink.token_address}&amount=0.5`, label: "Buy 0.5 SOL", embed_field_value: "Amount: 0.5", token_amount: 0.5 },
+                    { href: `/blinks/${newBlink.blink_id}?token=${newBlink.token_address}&amount=1`, label: "Buy 1 SOL", embed_field_value: "Amount: 1", token_amount: 1 },
+                    { href: `/blinks/${newBlink.blink_id}?token=${newBlink.token_address}&amount=amount`, label: "Buy custom amount", embed_field_value: "Amount: custom" },
+                ]
+            }
+        }
+
+        if (blink_type === "blinkVote") {
+            // TODO: implement
+        }
+
         await newBlink.save();
         await stats.save();
-        return Number(newBlink.blink_id);
+        return newBlink;
     } catch (error) {
         await saveError({
             function_name: "createNewBlink util.ts",

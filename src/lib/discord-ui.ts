@@ -581,10 +581,10 @@ export async function createWalletUI(userId: string): Promise<InteractionEditRep
 
 export async function createNewBlinkUI(user_id: string, blinkType: string, tokenAddress?: string): Promise<InteractionEditReplyOptions> {
     try {
-        const blink_id: number | null = await createNewBlink(user_id, blinkType, tokenAddress);
-        if (!blink_id) return DEFAULT_ERROR_REPLY;
+        const blink: any | null = await createNewBlink(user_id, blinkType, tokenAddress);
+        if (!blink) return DEFAULT_ERROR_REPLY;
 
-        let content: string = `Blink ID: ${blink_id}`;
+        let content: string = `Blink ID: ${blink.blink_id}`;
         content += `\nBlink type: ${BLINK_TYPE_MAPPING[blinkType]}`;
         if (tokenAddress) {
             const addressToSymbol: string | undefined = TOKEN_ADDRESS_STRICT_LIST[tokenAddress as keyof typeof TOKEN_ADDRESS_STRICT_LIST];
@@ -595,15 +595,24 @@ export async function createNewBlinkUI(user_id: string, blinkType: string, token
             }
         }
 
+        const embedFields: APIEmbedField[] = blink.links.actions.map((action: any) => {
+            return {
+                name: action.label,
+                value: action.embed_field_value,
+                inline: true,
+            }
+        })
+
         const blinkEmbed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
             .setTitle("title")
             .setDescription("description")
             .setAuthor({ name: "label" })
             .setImage(BLINK_DEFAULT_IMAGE)
+            .setFields(embedFields)
             .setURL("https://callistobot.com");
 
-        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink_id);
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
         return { content, embeds: [blinkEmbed], components: buttons };
     } catch (error) {
         await saveError({
