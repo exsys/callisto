@@ -547,7 +547,7 @@ export const BUTTON_COMMANDS = {
         const ui: InteractionEditReplyOptions = createBlinkCreationMenu();
         await interaction.editReply(ui);
     },
-    blinkButton: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, buttonType?: string) => {
+    executeBlinkButton: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, buttonType?: string) => {
         // this is the function that will be executed whenever a user clicks on a button from a blink UI
         try {
             if (buttonType !== "custom") {

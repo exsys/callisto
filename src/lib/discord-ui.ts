@@ -663,7 +663,7 @@ export async function createBlinkUI(urls: any, action: ActionGetResponse): Promi
         let dbButtons: any[] = [];
         action.links?.actions.forEach((linkedAction: LinkedAction, index: number) => {
             // NOTE: discord only allows up to 45 chars for customId, keep that in mind
-            const customId: string = `blinkButton:${appStats.blinks_posted}:${index + 1}${linkedAction.parameters?.length ? ":custom" : ""}`;
+            const customId: string = `executeBlinkButton:${appStats.blinks_posted}:${index + 1}${linkedAction.parameters?.length ? ":custom" : ""}`;
             buttons.push(
                 new ButtonBuilder()
                     .setCustomId(customId)
@@ -682,7 +682,7 @@ export async function createBlinkUI(urls: any, action: ActionGetResponse): Promi
 
         if (!buttons.length || !dbButtons.length) {
             // Action UIs can have no buttons, in that case store a disabled default button, else discord API throws an error
-            const customId: string = `blinkButton:${appStats.blinks_posted}:${1}`;
+            const customId: string = `executeBlinkButton:${appStats.blinks_posted}:${1}`;
             buttons.push(
                 new ButtonBuilder()
                     .setCustomId(customId)
