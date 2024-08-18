@@ -10,6 +10,11 @@ const BlinkSchema = new Schema({
         type: String,
         required: true,
     },
+    wallet_address: {
+        // the receiving wallet for donations
+        type: String,
+        required: false,
+    },
     blink_type: {
         type: String,
         required: true,
