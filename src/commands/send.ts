@@ -30,7 +30,7 @@ const command = {
 
             const recipientWallet: any = await Wallet.findOne({ user_id: userOption.user.id, is_default_wallet: true }).lean();
             if (!recipientWallet) {
-                await interaction.editReply("The given user doesn't have a Callisto wallet.");
+                await interaction.editReply("The given user doesn't have a Callisto wallet yet.");
                 return;
             }
 

@@ -835,27 +835,19 @@ export async function createBlinkUI(urls: any, action: ActionGetResponse): Promi
 }
 
 export function createHelpUI(): InteractionReplyOptions {
-    let content = "Welcome to Callisto, the fastest Solana trading bot on Discord."
-    content += "\n\nTo get started, use the /start command, this command will create a new Solana wallet "
-    content += "for your automatically if you don't have one already."
-    content += "\n\nOnce you have a wallet, you can use the Buy button to buy a coin."
-    content += "\n\nTo sell a coin, use the Sell & Manage button."
-    content += "\n\nTo view your wallet, tap the Wallet button."
-    content += "\n\nTo view and change your settings, tap the Settings button. "
-    content += "Here you can change different settings like priority fee and slippage."
-    content += "\n\nTo refer friends, tap the Refer Friends button."
-    content += "\n\nWith the Refresh button you can refresh your Account Balance."
-    content += "\n\nFor more information, visit our website at https://callistobot.com";
+    let content = "Welcome to Callisto, the fastest Solana trading bot on Discord.";
+    content += "\n\nTo get started, use the **/start** command, this command will create a new Solana wallet automatically if you don't have one already.";
+    content += " You will see different buttons after using the /start command. From there you will be able to navigate through Callisto.";
+    content += "\n\nUse the **Buy** button to enter a contract address and buy any Solana coin. Alternatively you can also use the **/buy** command to buy a coin.";
+    content += " You can view and manage all your open positions with the **Sell & Manage** button or with the **/positions** command.";
+    content += "\n\nCallisto allows you to easily send SOL to other Discord users with a Callisto wallet. Use the **/send** command and select a coin to send to them.";
+    content += "\n\nFor more information on the other features check out the /start command or visit our website at https://callistobot.com";
     return { content, ephemeral: true };
 };
 
 export async function createReferUI(userId: string): Promise<InteractionEditReplyOptions> {
     const refCodeMsg: string | null = await createOrUseRefCodeForUser(userId);
-    if (!refCodeMsg) {
-        return {
-            content: ERROR_CODES["0000"].message
-        }
-    }
+    if (!refCodeMsg) return { content: ERROR_CODES["0000"].message };
 
     const claimFeesButton = new ButtonBuilder()
         .setCustomId("showRefFees")
@@ -950,12 +942,7 @@ export async function createPreBuyUI(userId: string, contractAddress: string): P
         .addComponents(buyButton1Button, buyButton2Button, buyButton3Button, buyButton4Button, buyButtonX);
     const thirdRow = new ActionRowBuilder<ButtonBuilder>().addComponents(refreshButton);
 
-    return {
-        ui: {
-            content,
-            components: [firstRow, secondRow, thirdRow]
-        }
-    };
+    return { ui: { content, components: [firstRow, secondRow, thirdRow] } };
 };
 
 export async function createCoinInfoForLimitOrderUI(contract_address: string): Promise<InteractionEditReplyOptions> {
@@ -1167,10 +1154,7 @@ export async function createSellAndManageUI({ userId, page, ca, successMsg, prev
             components: [firstRow, secondRow, thirdRow]
         };
     } catch (error) {
-        await saveError({
-            function_name: "createSellAndManageUI",
-            error
-        });
+        await saveError({ function_name: "createSellAndManageUI", error });
         return DEFAULT_ERROR_REPLY;
     }
 };
@@ -1219,10 +1203,7 @@ export function createAfterSwapUI(txResponse: TxResponse, storeRefFee: boolean =
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
     return {
         transaction: txResponse,
-        ui: {
-            content: response,
-            components: [row]
-        },
+        ui: { content: response, components: [row] },
         store_ref_fee: storeRefFee,
     };
 };
@@ -1231,7 +1212,6 @@ export async function createTokenSelectionUI(user_id: string, recipientId: strin
     try {
         const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
-
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         if (!solBalance) return DEFAULT_ERROR_REPLY;
 
@@ -1251,7 +1231,7 @@ export async function createTokenSelectionUI(user_id: string, recipientId: strin
                 content += symbol;
             });
         }
-        content += '\n\nTo send a token press the "Select Token" button below and select a token to send.';
+        content += '\n\nTo send a token press the **Select Token** button below and select a token to send.';
 
         const selectTokenButton = new ButtonBuilder()
             .setCustomId("selectTokenToSend")
@@ -1306,9 +1286,9 @@ export async function createTokenInfoBeforeSendUI(
     return { content, components: [row] };
 }
 
-export async function createClaimRefFeeUI(userId: string): Promise<InteractionEditReplyOptions> {
+export async function createClaimRefFeeUI(user_id: string): Promise<InteractionEditReplyOptions> {
     try {
-        const user: any = await User.findOne({ user_id: userId });
+        const user: any = await User.findOne({ user_id });
         if (!user) return { content: ERROR_CODES["0000"].message };
 
         let userRefCode: string = user.ref_code;
@@ -1350,8 +1330,6 @@ export async function createClaimRefFeeUI(userId: string): Promise<InteractionEd
 }
 
 export async function createSettingsUI(userId: string): Promise<InteractionEditReplyOptions> {
-    const content = "**GENERAL SETTINGS**\n**Min Position Value**: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\n**Auto Buy**: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\n**Slippage Config**: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.\n\n**BUTTONS CONFIG**\nCustomize your buy and sell buttons. Tap to edit.\n\n**TRANSACTION CONFIG**\n**MEV Protection**: Accelerates your transactions and protect against frontruns to make sure you get the best price possible.\n**Turbo**: Callisto will use MEV Protection, but if unprotected sending is faster it will use that instead.\n**Secure**: Transactions are guaranteed to be protected from MEV, but transactions may be slower.\n**Transaction Priority**: Increase your Transaction Priority to improve transaction speed. Tap to edit.";
-
     let wallet: any;
     try {
         wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
@@ -1359,7 +1337,8 @@ export async function createSettingsUI(userId: string): Promise<InteractionEditR
     } catch (error) {
         return { content: ERROR_CODES["0000"].message };
     }
-    const autobuyValue = wallet.settings.auto_buy_value;
+    const autobuyValue: number = wallet.settings.auto_buy_value;
+    const content: string = "**GENERAL SETTINGS**\n**Min Position Value**: Minimum position value to show in portfolio. Will hide tokens below this threshhold. Tap to edit.\n**Auto Buy**: Immediately buy when pasting token address. Tap to edit. Changing it to 0 disables Auto Buy.\n**Slippage Config**: Customize your slippage settings for buys and sells. If the price of a coin will change by more than the set amount while waiting for the transaction to finish the transaction will be cancelled. Tap to edit.\n\n**BUTTONS CONFIG**\nCustomize your buy and sell buttons. Tap to edit.\n\n**TRANSACTION CONFIG**\n**MEV Protection**: Accelerates your transactions and protect against frontruns to make sure you get the best price possible.\n**Turbo**: Callisto will use MEV Protection, but if unprotected sending is faster it will use that instead.\n**Secure**: Transactions are guaranteed to be protected from MEV, but transactions may be slower.\n**Transaction Priority**: Increase your Transaction Priority to improve transaction speed. Tap to edit.";
 
     // general settings
     const generalSettingsButton = new ButtonBuilder()
@@ -1467,10 +1446,7 @@ export async function createSettingsUI(userId: string): Promise<InteractionEditR
     const fourthRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(transactionConfigButton, mevProtectionButton, gasLimitButton);
 
-    return {
-        content,
-        components: [firstRow, secondRow, thirdRow, fourthRow]
-    };
+    return { content, components: [firstRow, secondRow, thirdRow, fourthRow] };
 };
 
 export function createSetAsDefaultUI(walletAddress: string): InteractionEditReplyOptions {
@@ -1480,11 +1456,9 @@ export function createSetAsDefaultUI(walletAddress: string): InteractionEditRepl
         .setStyle(ButtonStyle.Secondary);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(setAsDefaultButton);
+    const content: string = `Your new wallet has been added.\n**Wallet address**: ${walletAddress}\n\nTap the "Set as default" button below to set the new wallet as your default wallet.`
 
-    return {
-        content: `Your new wallet has been added.\n**Wallet address**: ${walletAddress}\n\nTap the "Set as default" button below to set the new wallet as your default wallet.`,
-        components: [row],
-    };
+    return { content, components: [row] };
 };
 
 export function createExportPrivKeyUI(): InteractionEditReplyOptions {
@@ -1494,16 +1468,13 @@ export function createExportPrivKeyUI(): InteractionEditReplyOptions {
         .setStyle(ButtonStyle.Secondary);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(exportButton);
-    return {
-        content: "Exporting your private key will allow you to access your wallet from other applications. Make sure you are in a secure environment before exporting your private key.\n\nDo not share your private key with anyone. Callisto cannot guarantee the safety of your funds if you expose your private key.\n\nTap the Export button below to export your private key.",
-        components: [row],
-    };
+    const content: string = "Exporting your private key will allow you to access your wallet from other applications. Make sure you are in a secure environment before exporting your private key.\n\nDo not share your private key with anyone. Callisto cannot guarantee the safety of your funds if you expose your private key.\n\nTap the Export button below to export your private key."
+    return { content, components: [row] };
 };
 
 export async function createRemoveWalletUI(userId: string): Promise<InteractionEditReplyOptions> {
     const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
     if (!allWallets) return { content: "No wallets found. Create one with the /create command to get started." };
-
 
     const options = allWallets.map((wallet: any) => {
         return new StringSelectMenuOptionBuilder()
@@ -1517,11 +1488,9 @@ export async function createRemoveWalletUI(userId: string): Promise<InteractionE
         .addOptions(options);
 
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+    const content: string = "Select a wallet to remove.\n\n**WARNING**: This action is irreversible!\n\nCallisto will remove the selected wallet from your account. Make sure you have exported your private key or withdrawn all funds before removing the wallet, else your funds will be lost forever!";
 
-    return {
-        content: "Select a wallet to remove.\n\n**WARNING**: This action is irreversible!\n\nCallisto will remove the selected wallet from your account. Make sure you have exported your private key or withdrawn all funds before removing the wallet, else your funds will be lost forever!",
-        components: [row],
-    };
+    return { content, components: [row] };
 };
 
 /****************************************************** MENUS *****************************************************/
@@ -1602,9 +1571,7 @@ export function createBlinkCreationMenu(): InteractionEditReplyOptions {
 export async function createChangeWalletMenu(userId: string): Promise<InteractionEditReplyOptions> {
     const content: string = "Select a wallet to set it as your default wallet.";
     const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
-    if (!allWallets) {
-        return { content: "No wallets found. Create one with the /create command to get started." };
-    }
+    if (!allWallets) return { content: "No wallets found. Create one with the /create command to get started." };
 
     // TODO: seems like max length is 25, handle that case
     const options: StringSelectMenuOptionBuilder[] = allWallets.map((wallet: any) => {
@@ -1742,10 +1709,7 @@ export async function createCustomActionModal(blink_id: string): Promise<ModalBu
         modal.addComponents(rows);
         return modal;
     } catch (error) {
-        await saveError({
-            function_name: "createCustomActionModal",
-            error,
-        });
+        await saveError({ function_name: "createCustomActionModal", error });
         return;
     }
 }
@@ -1812,10 +1776,7 @@ export async function createFixedActionModal(
         modal.addComponents(rows);
         return modal;
     } catch (error) {
-        await saveError({
-            function_name: "createFixedActionModal",
-            error,
-        });
+        await saveError({ function_name: "createFixedActionModal", error });
         return;
     }
 }
@@ -1855,10 +1816,7 @@ export async function removeActionButtonFromBlink(
 
         return { content, embeds: [embed], components: buttons };
     } catch (error) {
-        await saveError({
-            function_name: "removeActionButtonFromBlink",
-            error,
-        });
+        await saveError({ function_name: "removeActionButtonFromBlink", error });
         return DEFAULT_ERROR_REPLY;
     }
 }
@@ -1895,10 +1853,7 @@ export async function removeActionSelectionMenu(blink_id: string, editMode: bool
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
         return { content: "Select a button to remove from your Blink.", components: [row] };
     } catch (error) {
-        await saveError({
-            function_name: "removeActionSelectionMenu",
-            error,
-        });
+        await saveError({ function_name: "removeActionSelectionMenu", error });
         return DEFAULT_ERROR_REPLY;
     }
 }
@@ -1941,10 +1896,7 @@ export async function createChangeUserBlinkModal(
         modal.addComponents(row);
         return modal;
     } catch (error) {
-        await saveError({
-            function_name: "createChangeUserBlinkModal",
-            error,
-        });
+        await saveError({ function_name: "createChangeUserBlinkModal", error });
         return;
     }
 }
@@ -1969,10 +1921,7 @@ export async function createChangeBlinkCustomValueModal(
         changeCustomValueModal.addComponents(row);
         return changeCustomValueModal;
     } catch (error) {
-        await saveError({
-            function_name: "createChangeBlinkCustomValueModal",
-            error,
-        });
+        await saveError({ function_name: "createChangeBlinkCustomValueModal", error });
         return;
     }
 }
@@ -2011,10 +1960,7 @@ export async function createBlinkCustomValuesModal(
 
         return blinkCustomValuesModal;
     } catch (error) {
-        await saveError({
-            function_name: "createBlinkCustomValuesModal",
-            error,
-        });
+        await saveError({ function_name: "createBlinkCustomValuesModal", error });
         return;
     }
 }
