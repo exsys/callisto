@@ -633,7 +633,8 @@ export const BUTTON_COMMANDS = {
     },
     previewBlink: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: InteractionReplyOptions = await createBlinkUiFromEmbed(interaction.message.embeds[0].data);
+        const blinkType: string = interaction.message.content.split("\n")[1].split(": ")[1];
+        const ui: InteractionReplyOptions = await createBlinkUiFromEmbed(interaction.message.embeds[0].data, blinkType);
         await interaction.editReply(ui);
     },
     finishBlinkCreation: async (interaction: ButtonInteraction, blink_id?: string) => {
@@ -643,19 +644,23 @@ export const BUTTON_COMMANDS = {
     },
     addFixedAction: async (interaction: ButtonInteraction, blink_id?: string, editMode?: string) => {
         try {
+            // TODO: this could potentially cause the app to crash if DB query takes more than 3 seconds. test it.
             const isEditMode: boolean = editMode === "e";
-            const response: ModalBuilder | undefined = await createFixedActionModal(blink_id!, isEditMode);
+            const response: ModalBuilder | InteractionReplyOptions | undefined = await createFixedActionModal(blink_id!, isEditMode);
             if (!response) return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
-            await interaction.showModal(response);
+            if (response instanceof ModalBuilder) return await interaction.showModal(response);
+            return await interaction.reply(response as InteractionReplyOptions);
         } catch (error) {
             await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
         }
     },
     addCustomAction: async (interaction: ButtonInteraction, blink_id?: string) => {
         try {
-            const response: ModalBuilder | undefined = await createCustomActionModal(blink_id!);
+            // TODO: this could potentially cause the app to crash if DB query takes more than 3 seconds. test it.
+            const response: ModalBuilder | InteractionReplyOptions | undefined = await createCustomActionModal(blink_id!);
             if (!response) return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
-            await interaction.showModal(response);
+            if (response instanceof ModalBuilder) return await interaction.showModal(response);
+            await interaction.reply(response);
         } catch (error) {
             await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
         }

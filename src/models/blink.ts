@@ -24,7 +24,7 @@ const BlinkSchema = new Schema({
         required: false,
     },
     token_address: {
-        // NOTE: this is not from the Solana Blinks standard
+        // if not defined SOL will be used
         type: String,
         required: false,
     },

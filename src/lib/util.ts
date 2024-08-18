@@ -915,10 +915,6 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
             }
         }
 
-        if (blink_type === "blinkVote") {
-            // TODO: implement
-        }
-
         await newBlink.save();
         await stats.save();
         return newBlink;

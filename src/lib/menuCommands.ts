@@ -116,7 +116,7 @@ export const MENU_COMMANDS = {
         await interaction.editReply(response);
     },
     selectBlinkToShowUrl: async (interaction: StringSelectMenuInteraction, blinkId: string) => {
-        const content: string = `https://api.callistobot.com/blinks/${blinkId}`;
+        const content: string = `https://callistobot.com/blinks/${blinkId}`;
         await interaction.reply({ content, ephemeral: true });
     },
 };

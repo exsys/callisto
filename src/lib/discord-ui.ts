@@ -263,13 +263,18 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                     blink.links = {
                         actions: [{
                             label: buttonLabel,
-                            href: `/blinks/${blink.blink_id}?token=SOL&amount=amount`, // TODO: allow custom token
+                            href: `/blinks/${blink.blink_id}?amount=amount`,
                             embed_field_value: customAmountString,
+                            parameters: [{
+                                name: "amount",
+                                label: buttonLabel,
+                                required: true,
+                            }],
                         }],
                     }
                 } else {
                     const customAmountButtonAlreadyExists: DBAction | null
-                        = blink.links.actions.find((action: DBAction) => action.embed_field_value === customAmountString);
+                        = blink.links.actions.find((action: DBAction) => action.parameters?.length !== 0);
                     if (customAmountButtonAlreadyExists) {
                         return { content: "You can add only one custom value button to Donation Blinks." };
                     }
@@ -284,8 +289,13 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
 
                     blink.links.actions.push({
                         label: buttonLabel,
-                        href: `/blinks/${blink.blink_id}?token=SOL&amount=amount`, // TODO: allow custom token
+                        href: `/blinks/${blink.blink_id}?amount=amount`,
                         embed_field_value: customAmountString,
+                        parameters: [{
+                            name: "amount",
+                            label: buttonLabel,
+                            required: true,
+                        }],
                     });
                     blink.links.actions = sortDBActions(blink.links.actions);
                 }
@@ -294,7 +304,6 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                 embed.addFields(
                     { name: buttonLabel, value: customAmountString, inline: true },
                 );
-                await blink.save();
                 break;
             }
             case "blinkTokenSwap": {
@@ -303,13 +312,18 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                     blink.links = {
                         actions: [{
                             label: buttonLabel,
-                            href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=amount`,
+                            href: `/blinks/${blink.blink_id}?amount=amount`,
                             embed_field_value: customAmountString,
+                            parameters: [{
+                                name: "amount",
+                                label: buttonLabel,
+                                required: true,
+                            }],
                         }],
                     }
                 } else {
                     const customAmountButtonAlreadyExists: DBAction | null
-                        = blink.links.actions.find((action: DBAction) => action.embed_field_value === customAmountString);
+                        = blink.links.actions.find((action: DBAction) => action.parameters?.length !== 0);
                     if (customAmountButtonAlreadyExists) {
                         return { content: "You can add only one custom value button to Token Swap Blinks." };
                     }
@@ -323,19 +337,66 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                     });
                     blink.links.actions.push({
                         label: buttonLabel,
-                        href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=amount`,
+                        href: `/blinks/${blink.blink_id}?amount=amount`,
                         embed_field_value: customAmountString,
+                        parameters: [{
+                            name: "amount",
+                            label: buttonLabel,
+                            required: true,
+                        }],
                     });
                     blink.links.actions = sortDBActions(blink.links.actions);
                 }
                 embed.addFields(
                     { name: buttonLabel, value: customAmountString, inline: true },
                 );
-                await blink.save();
                 break;
             }
             case "blinkVote": {
-                // TODO: implement vote
+                const buttonLabel: string = buttonValues[0];
+                const buttonValue: string = buttonLabel.split(" ").join(" ");
+                if (!blink.links) {
+                    blink.links = {
+                        actions: [{
+                            label: buttonValue,
+                            href: `/blinks/${blink.blink_id}?choice=choice`,
+                            embed_field_value: buttonLabel,
+                            parameters: [{
+                                name: "choice",
+                                label: buttonLabel,
+                                required: true,
+                            }],
+                        }],
+                    }
+                } else {
+                    const customAmountButtonAlreadyExists: DBAction | null
+                        = blink.links.actions.find((action: DBAction) => action.parameters?.length !== 0);
+                    if (customAmountButtonAlreadyExists) {
+                        return { content: "You can add only one custom value button to vote Blinks." };
+                    }
+
+                    blink.links.actions.forEach((action: any, index: number) => {
+                        embed.addFields({
+                            name: `Choice ${index + 1}`,
+                            value: action.embed_field_value,
+                            inline: true,
+                        });
+                    });
+                    blink.links.actions.push({
+                        label: buttonValue,
+                        href: `/blinks/${blink.blink_id}?choice=choice`,
+                        embed_field_value: buttonLabel,
+                        parameters: [{
+                            name: "choice",
+                            label: buttonLabel,
+                            required: true,
+                        }],
+                    });
+                }
+
+                embed.addFields(
+                    { name: `Choice ${blink.links.actions.length} (custom)`, value: buttonLabel, inline: true },
+                );
                 break;
             }
             default: {
@@ -343,6 +404,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
             }
         }
 
+        await blink.save();
         const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
         return { content, embeds: [embed], components: buttons };
     } catch (error) {
@@ -384,7 +446,7 @@ export async function addFixedActionButtonToBlink(
                     blink.links = {
                         actions: [{
                             label: buttonLabel,
-                            href: `/blinks/${blink.blink_id}?token=SOL&amount=${transferAmountInSOL}`, // TODO: allow custom tokens
+                            href: `/blinks/${blink.blink_id}?amount=${transferAmountInSOL}`, // TODO: allow custom tokens
                             embed_field_value: amountString,
                             token_amount: transferAmountInSOL,
                         }],
@@ -392,7 +454,7 @@ export async function addFixedActionButtonToBlink(
                 } else {
                     blink.links.actions.push({
                         label: buttonLabel,
-                        href: `/blinks/${blink.blink_id}?token=SOL&amount=${transferAmountInSOL}`,
+                        href: `/blinks/${blink.blink_id}?amount=${transferAmountInSOL}`,
                         token_amount: transferAmountInSOL,
                         embed_field_value: amountString
                     });
@@ -401,7 +463,6 @@ export async function addFixedActionButtonToBlink(
 
                 const sortedFields: EmbedField[] = sortEmbedFields(blink.links.actions);
                 embed.addFields(sortedFields);
-                await blink.save();
                 break;
             }
             case "blinkTokenSwap": {
@@ -413,7 +474,7 @@ export async function addFixedActionButtonToBlink(
                     blink.links = {
                         actions: [{
                             label: `Buy ${swapAmountInSOL} SOL`,
-                            href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=${swapAmountInSOL}`,
+                            href: `/blinks/${blink.blink_id}?amount=${swapAmountInSOL}`,
                             token_amount: swapAmountInSOL,
                             embed_field_value: amountString,
                         }],
@@ -421,7 +482,7 @@ export async function addFixedActionButtonToBlink(
                 } else {
                     blink.links.actions.push({
                         label: `Buy ${swapAmountInSOL} SOL`,
-                        href: `/blinks/${blink.blink_id}?token=${blink.token_address}&amount=${swapAmountInSOL}`,
+                        href: `/blinks/${blink.blink_id}?amount=${swapAmountInSOL}`,
                         token_amount: swapAmountInSOL,
                         embed_field_value: amountString,
                     });
@@ -430,11 +491,43 @@ export async function addFixedActionButtonToBlink(
 
                 const sortedFields: EmbedField[] = sortEmbedFields(blink.links.actions);
                 embed.addFields(sortedFields);
-                await blink.save();
                 break;
             }
             case "blinkVote": {
-                // TODO: implement vote
+                const buttonLabel: string = buttonValues[0];
+                const buttonValue: string = buttonLabel.split(" ").join(" ");
+                if (!blink.links) {
+                    blink.links = {
+                        actions: [{
+                            label: buttonValue,
+                            href: `/blinks/${blink.blink_id}?choice=${buttonValue}`,
+                            embed_field_value: buttonLabel,
+                        }],
+                    }
+                } else {
+                    const customAmountButtonAlreadyExists: DBAction | null
+                        = blink.links.actions.find((action: DBAction) => action.embed_field_value === buttonLabel);
+                    if (customAmountButtonAlreadyExists) {
+                        return { content: "You can add only one custom value button to vote Blinks." };
+                    }
+
+                    blink.links.actions.forEach((action: any, index: number) => {
+                        embed.addFields({
+                            name: `Choice ${index + 1}${action.parameters?.length === 0 ? "" : " (custom)"}`,
+                            value: action.embed_field_value,
+                            inline: true,
+                        });
+                    });
+                    blink.links.actions.push({
+                        label: buttonValue,
+                        href: `/blinks/${blink.blink_id}?choice=${buttonValue}`,
+                        embed_field_value: buttonLabel,
+                    });
+                }
+
+                embed.addFields(
+                    { name: `Choice ${blink.links.actions.length}`, value: buttonLabel, inline: true },
+                );
                 break;
             }
             default: {
@@ -442,6 +535,7 @@ export async function addFixedActionButtonToBlink(
             }
         }
 
+        await blink.save();
         return { content, embeds: [embed], components: buttons };
     } catch (error) {
         await saveError({
@@ -609,13 +703,13 @@ export async function createNewBlinkUI(user_id: string, blinkType: string, token
             }
         }
 
-        const embedFields: APIEmbedField[] = blink.links.actions.map((action: any) => {
+        const embedFields: APIEmbedField[] = blink.links?.actions.map((action: any) => {
             return {
                 name: action.label,
                 value: action.embed_field_value,
                 inline: true,
             }
-        })
+        });
 
         const blinkEmbed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
@@ -623,8 +717,11 @@ export async function createNewBlinkUI(user_id: string, blinkType: string, token
             .setDescription("description")
             .setAuthor({ name: "label" })
             .setImage(BLINK_DEFAULT_IMAGE)
-            .setFields(embedFields)
             .setURL("https://callistobot.com");
+
+        if (embedFields && embedFields.length) {
+            blinkEmbed.setFields(embedFields);
+        }
 
         const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
         return { content, embeds: [blinkEmbed], components: buttons };
@@ -1480,6 +1577,7 @@ export function createBlinkCreationMenu(): InteractionEditReplyOptions {
     const blinkTypes: SelectMenuComponentOptionData[] = [
         { label: "Donation", value: "blinkDonation" },
         { label: "Token Swap", value: "blinkTokenSwap" },
+        { label: "Vote", value: "blinkVote" },
     ];
 
     const options: StringSelectMenuOptionBuilder[] = blinkTypes.map((type: SelectMenuComponentOptionData) => {
@@ -1602,17 +1700,29 @@ export function tokenAddressForTokenSwapBlinkModal(): ModalBuilder {
     return modal;
 }
 
-export async function createCustomActionModal(blink_id: string): Promise<ModalBuilder | undefined> {
+export async function createCustomActionModal(blink_id: string): Promise<ModalBuilder | InteractionReplyOptions | undefined> {
     try {
         const blink: any = await Blink.findOne({ blink_id }).lean();
         if (!blink) return undefined;
+        if (blink.links?.actions.length >= 10) {
+            return { content: "Max limit of 10 buttons reached.", ephemeral: true };
+        }
 
         const modal: ModalBuilder = new ModalBuilder()
             .setCustomId(`addCustomAction:${blink_id}`)
             .setTitle("Add button with custom value");
+        const rows: ActionRowBuilder<TextInputBuilder>[] = [];
 
         if (blink.blink_type === "blinkVote") {
-            // TODO: implement
+            const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
+                new TextInputBuilder()
+                    .setCustomId('value1')
+                    .setLabel("Choice (Button Label)")
+                    .setPlaceholder("choice")
+                    .setRequired(true)
+                    .setStyle(TextInputStyle.Short)
+            );
+            rows.push(row);
         } else {
             // TODO: if user doesn't submit button label, use a default one (eg "Buy SOL")
             const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
@@ -1622,9 +1732,10 @@ export async function createCustomActionModal(blink_id: string): Promise<ModalBu
                     .setPlaceholder("label")
                     .setStyle(TextInputStyle.Short)
             );
-            modal.addComponents(row);
+            rows.push(row);
         }
 
+        modal.addComponents(rows);
         return modal;
     } catch (error) {
         await saveError({
@@ -1635,10 +1746,15 @@ export async function createCustomActionModal(blink_id: string): Promise<ModalBu
     }
 }
 
-export async function createFixedActionModal(blink_id: string, editMode: boolean = false): Promise<ModalBuilder | undefined> {
+export async function createFixedActionModal(
+    blink_id: string, editMode: boolean = false
+): Promise<ModalBuilder | InteractionReplyOptions | undefined> {
     try {
         const blink: any = await Blink.findOne({ blink_id }).lean();
         if (!blink) return undefined;
+        if (blink.links?.actions.length >= 10) {
+            return { content: "Max limit of 10 buttons reached.", ephemeral: true };
+        }
 
         const modal: ModalBuilder = new ModalBuilder()
             .setCustomId(`addFixedAction:${blink_id}${editMode ? ":e" : ""}`)
@@ -1677,25 +1793,16 @@ export async function createFixedActionModal(blink_id: string, editMode: boolean
             rows.push(row);
         }
 
-        // TODO: for now only allow max 10 buttons on voting (else embed will get too big)
         if (blink.blink_type === "blinkVote") {
             const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(
                 new TextInputBuilder()
                     .setCustomId('value1')
-                    .setLabel("Button Label")
-                    .setPlaceholder("label")
+                    .setLabel("Choice (Button Label)")
+                    .setPlaceholder("choice")
                     .setRequired(true)
                     .setStyle(TextInputStyle.Short)
             );
-            const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(
-                new TextInputBuilder()
-                    .setCustomId('value2')
-                    .setLabel("Value")
-                    .setPlaceholder("value")
-                    .setRequired(true)
-                    .setStyle(TextInputStyle.Short)
-            );
-            rows.push(row1, row2);
+            rows.push(row1);
         }
 
         modal.addComponents(rows);
@@ -1709,7 +1816,6 @@ export async function createFixedActionModal(blink_id: string, editMode: boolean
     }
 }
 
-// order is needed in case there are duplicate orders
 export async function removeActionButtonFromBlink(
     blink_id: string, label: string, order: number, editMode: boolean = false,
 ): Promise<InteractionReplyOptions> {
@@ -2559,7 +2665,7 @@ export async function storeUserBlink(blink_id: string): Promise<InteractionReply
 
         await blink.save();
         let content = "Successfully created Blink! Your Blink URL:";
-        content += `\n\nhttps://callistobot.com/api/blinks/${blink.blink_id}`;
+        content += `\n\nhttps://callistobot.com/blinks/${blink.blink_id}`;
         return { content };
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
@@ -2619,14 +2725,21 @@ export function createBlinkCreationEmbedFromBlink(blink: any): EmbedBuilder {
         .setImage(blink.icon)
         .setDescription(blink.description);
 
-    blink.links?.actions.forEach((action: any) => {
-        embed.addFields({ name: action.label, value: action.embed_field_value, inline: true });
-    });
+    // TODO: consider adding "(custom)" to all field labels, not just for vote blinks
+    if (blink.blink_type === "blinkVote") {
+        blink.links?.actions.forEach((action: any) => {
+            embed.addFields({ name: `${action.label}${action.parameters?.length ? " (custom)" : ""}`, value: action.embed_field_value, inline: true });
+        });
+    } else {
+        blink.links?.actions.forEach((action: any) => {
+            embed.addFields({ name: action.label, value: action.embed_field_value, inline: true });
+        });
+    }
 
     return embed;
 }
 
-export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>): Promise<InteractionReplyOptions> {
+export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>, blinkType: string): Promise<InteractionReplyOptions> {
     try {
         const uiEmbed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
@@ -2642,7 +2755,7 @@ export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>): Promise
             buttons.push(
                 new ButtonBuilder()
                     .setCustomId(`blinkPreviewButton:${index}`)
-                    .setLabel(field.name)
+                    .setLabel(`${blinkType === "Vote" ? field.value : field.name}`)
                     .setStyle(ButtonStyle.Primary)
             );
 
@@ -2653,7 +2766,7 @@ export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>): Promise
             }
         });
 
-        rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons));
+        if (buttons.length) rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons));
 
         if (!embed.fields?.length) return { content: "You need to add at least 1 button to preview your Blink." };
         return { content: "Preview", embeds: [uiEmbed], components: rows };

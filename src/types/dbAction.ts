@@ -7,5 +7,5 @@ export interface DBAction {
         name: string,
         label?: string,
         required?: boolean,
-    }
+    }[],
 }
