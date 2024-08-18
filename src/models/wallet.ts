@@ -29,7 +29,7 @@ const WalletSchema = new Schema({
         unique: true,
     },
     swap_fee: {
-        type: Number,
+        type: Number, // in percent. 0.75 = 0.75%
         required: true,
     },
     total_transactions: {

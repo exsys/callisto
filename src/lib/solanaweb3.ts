@@ -675,51 +675,14 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
     }
 }
 
-export async function executeBlinkTransaction(
-    wallet: any, blinkTx: ActionPostResponse, root_url: string, swapAmount?: number, baseToken?: string,
-): Promise<TxResponse> {
+export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostResponse): Promise<TxResponse> {
     const conn: Connection = getConnection();
     const txResponse: TxResponse = {
         user_id: wallet.user_id,
         wallet_address: wallet.wallet_address,
         tx_type: "execute_blink",
-        token_amount: swapAmount,
-        contract_address: baseToken,
-    }
+    };
     try {
-        // TODO: check if there's another way to find out whether the blink is a swap
-        if (swapAmount) {
-            // check if wallet has enough balance to execute this blink action
-            if (baseToken === WRAPPED_SOL_ADDRESS) {
-                // case of SOL
-                const solBalanceInDecimal: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-                if (solBalanceInDecimal && solBalanceInDecimal < swapAmount) {
-                    return insufficientBalanceError(txResponse);
-                }
-            } else {
-                // case of a SPL token
-                if (baseToken) {
-                    const coinStats: CoinStats | null = await getCoinStatsFromWallet(wallet.wallet_address, baseToken);
-                    if (coinStats?.tokenAmount && coinStats.tokenAmount.uiAmount && coinStats.tokenAmount.uiAmount < swapAmount) {
-                        return insufficientBalanceError(txResponse);
-                    }
-                }
-            }
-
-            // TODO: calculate swap fee and add as instruction to transaction below
-            // TODO: check, calculate and store ref fee
-            try {
-                
-            } catch (error) {
-                // NOTE: let user execute blink even if there was an error in this try-catch block.
-                // they are lucky and have to pay no swap fee's if this error block is executed
-                await saveError({
-                    function_name: "executeBlinkTransaction: if(swapAmount)",
-                    error
-                });
-            }
-        }
-
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) return decryptError(txResponse);
 

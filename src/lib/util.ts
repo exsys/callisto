@@ -10,7 +10,11 @@ import { User } from "../models/user";
 import { Wallet } from "../models/wallet";
 import bs58 from 'bs58';
 import crypto from 'crypto';
-import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY, ERROR_CODES } from "../config/errors";
+import {
+    DEFAULT_ERROR,
+    DEFAULT_ERROR_REPLY,
+    ERROR_CODES
+} from "../config/errors";
 import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
@@ -32,7 +36,6 @@ import {
     Embed,
     EmbedBuilder,
     InteractionEditReplyOptions,
-    InteractionReplyOptions,
     MessageActionRowComponent,
     MessageCreateOptions
 } from "discord.js";
@@ -54,7 +57,6 @@ import { get } from "https";
 import { AppStats } from "../models/appstats";
 import { Blink } from "../models/blink";
 import { REQUIRED_SEARCH_PARAMS } from "../config/required_params_mapping";
-import { SWAP_BLINKS_MAPPING } from "../config/swap_blinks_mapping";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -747,12 +749,56 @@ export async function executeBlink(
 
         if (!url) return { content: "Couldn't process Blink URL. Please contact support for more information." };
         // store the swap amount in case of a swap so the callisto fee's can be properly deducted
-        let swapAmount: number | undefined;
+        /*let swapAmount: number | undefined;
         let baseToken: string | undefined;
+
+        // TODO: check if there's another way to find out whether the blink is a swap
+        // TODO: current problem with adding swap fee to jupiter swap blinks: no way to add fee's to token sells
+        // with the sellViaAPI it's through the feeAccount, but that's not available in blinks
         if (SWAP_BLINKS_MAPPING.includes(actionUI.root_url) && actionValue) {
-            swapAmount = Number(actionValue);
-            baseToken = url.split("/")[5];
-        }
+            // this block checks wallet balance, subtracts swap fee from swap amount and create instruction for it & stores ref fee
+
+            // TODO: replace amount in url with swapAmountAfterFees
+            // TODO: create instruction to send swap fee
+            // TODO: store ref fee
+
+            try {
+                // TODO: überlegen wie es für tokens gemacht werden muss (es muss ja tortzdem zB 100% geselled werden)
+                // example for url.split("/"): [ 'https:', '', 'worker.jup.ag', 'blinks', 'swap', '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr', 'So11111111111111111111111111111111111111112', '0.5' ]
+                swapAmount = Number(actionValue);
+                baseToken = url.split("/")[5];
+                const swapFee: number = swapAmount * (wallet.swap_fee / 100);
+                const swapAmountAfterFees: number = swapAmount - swapFee;
+                const urlSplit = url.split("/");
+                urlSplit[7] = String(swapAmountAfterFees);
+                url = urlSplit.join();
+                console.log(url)
+
+                // check if wallet has enough balance to execute this blink action
+                if (baseToken === WRAPPED_SOL_ADDRESS) {
+                    // case of SOL
+                    const solBalanceInDecimal: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
+                    if (solBalanceInDecimal && solBalanceInDecimal < swapAmount) {
+                        return { content: "Insufficient balance. Please check your balance and try again." };
+                    }
+                } else {
+                    // case of SPL token
+                    if (baseToken) {
+                        const coinStats: CoinStats | null = await getCoinStatsFromWallet(wallet.wallet_address, baseToken);
+                        if (coinStats?.tokenAmount && coinStats.tokenAmount.uiAmount && coinStats.tokenAmount.uiAmount < swapAmount) {
+                            return { content: "Insufficient balance. Please check your balance and try again." };
+                        }
+                    }
+                }
+            } catch (error) {
+                // NOTE: let user execute blink even if there was an error in this try-catch block.
+                // they are lucky and have to pay no swap fee's if this error block is executed
+                await saveError({
+                    function_name: "executeBlink if(swapAmount)",
+                    error
+                });
+            }
+        }*/
 
         // TODO: retry few times if fetch fails
         const blinkTx: ActionPostResponse = await (
@@ -766,11 +812,10 @@ export async function executeBlink(
         ).json();
 
         if (blinkTx.transaction) {
-            const result: TxResponse = await executeBlinkTransaction(wallet, blinkTx, actionUI.root_url, swapAmount, baseToken);
+            const result: TxResponse = await executeBlinkTransaction(wallet, blinkTx);
             await saveDbTransaction(result);
             return { content: result.response };
         } else {
-            // TODO: proper error handling
             return { content: `Blink provider returned an error: ${blinkTx.message}` };
         }
     } catch (error) {
