@@ -54,6 +54,7 @@ import { get } from "https";
 import { AppStats } from "../models/appstats";
 import { Blink } from "../models/blink";
 import { REQUIRED_SEARCH_PARAMS } from "../config/required_params_mapping";
+import { SWAP_BLINKS_MAPPING } from "../config/swap_blinks_mapping";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -680,7 +681,9 @@ export async function executeBlink(
 
         // if button has custom values and user submitted them
         let url: string | undefined;
+        let actionValue: string | undefined;
         if (button.parameters?.length && processed_values?.length) {
+            // NOTE: this block will only be executed if a custom value button is pressed
             try {
                 let actionLink: URL;
                 if (button.href.includes("https://")) {
@@ -699,6 +702,7 @@ export async function executeBlink(
                         });
                         if (!correspondingValue) return { content: "Failed to process Blink. Please try again later." };
                         searchParams.set(key, correspondingValue.value);
+                        actionValue = correspondingValue.value;
                         index++;
                     }
 
@@ -711,6 +715,7 @@ export async function executeBlink(
                             return value.index === index;
                         });
                         if (!correspondingValue) return { content: "Failed to process Blink. Please try again later." };
+                        actionValue = correspondingValue.value;
                         const regex: RegExp = new RegExp(`{${paramName}}`, 'g');
                         button.href = button.href.replace(regex, correspondingValue.value);
                     });
@@ -736,10 +741,20 @@ export async function executeBlink(
             } else {
                 url = actionUI.action_root_url + button.href;
             }
+            // NOTE: only applicable to jupiter, also if jupiter decides to change url schema this has to be adjusted too
+            actionValue = url?.split("/")[7];
         }
 
         if (!url) return { content: "Couldn't process Blink URL. Please contact support for more information." };
+        // store the swap amount in case of a swap so the callisto fee's can be properly deducted
+        let swapAmount: number | undefined;
+        let baseToken: string | undefined;
+        if (SWAP_BLINKS_MAPPING.includes(actionUI.root_url) && actionValue) {
+            swapAmount = Number(actionValue);
+            baseToken = url.split("/")[5];
+        }
 
+        // TODO: retry few times if fetch fails
         const blinkTx: ActionPostResponse = await (
             await fetch(url, {
                 method: "POST",
@@ -751,7 +766,7 @@ export async function executeBlink(
         ).json();
 
         if (blinkTx.transaction) {
-            const result: TxResponse = await executeBlinkTransaction(wallet, blinkTx, actionUI.root_url);
+            const result: TxResponse = await executeBlinkTransaction(wallet, blinkTx, actionUI.root_url, swapAmount, baseToken);
             await saveDbTransaction(result);
             return { content: result.response };
         } else {

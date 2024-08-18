@@ -1,6 +1,6 @@
 import { TxResponse } from "../types/txResponse";
 
-export const DEFAULT_ERROR: string = "Server error. Please try again later";
+export const DEFAULT_ERROR: string = "Server error. Please try again later.";
 export const DEFAULT_ERROR_REPLY = { content: DEFAULT_ERROR };
 export const DEFAULT_ERROR_REPLY_EPHEM = { content: DEFAULT_ERROR, ephemeral: true };
 

@@ -555,6 +555,9 @@ export const BUTTON_COMMANDS = {
                 // but this function might take more than 3 seconds to process
                 await interaction.deferReply({ ephemeral: true });
             }
+
+            // this will execute the blink if all values are processed. if custom values are needed and not submitted yet,
+            // this function will return with custom_values, so they can be submitted first
             const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!);
             if (result.custom_values) {
                 const modal: ModalBuilder | MessageCreateOptions | undefined =

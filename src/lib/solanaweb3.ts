@@ -88,15 +88,16 @@ import { ActionPostResponse } from "@solana/actions";
 const connection: Connection = new Connection(DEFAULT_RPC_URL);
 const BPS_PER_PERCENT: number = 100;
 const CU_TOKEN_TRANSFER: number = 27695;
-const CU_SOL_TRANSFER: number = 300;
+const CU_SOL_TRANSFER: number = 450;
 const RENT_FEE: number = 2000000;
-const GAS_FEE_FOR_SOL_TRANSFER: number = 5000;
+const GAS_FEE_FOR_SOL_TRANSFER: number = 10000;
 
 export function createNewWallet() {
     const solanaWallet = Keypair.generate();
     return solanaWallet;
 }
 
+// TODO: add Compute Unit instruction to all transfer transactions
 export async function transferAllSol(user_id: string, recipientAddress: string): Promise<TxResponse> {
     const txResponse: TxResponse = {
         user_id,
@@ -428,6 +429,7 @@ export async function buyCoinViaAPI(user_id: string, contract_address: string, a
         const txPrio: number = wallet.settings.tx_priority_value;
         if (!isPositiveNumber(amountToSwap)) return invalidNumberError(txResponse);
         if (Number(amountToSwap) <= 0) return invalidAmountError(txResponse);
+        // TODO: add default swap gas fee to the check below
         if (balanceInLamports < Number(amountToSwap) * LAMPORTS_PER_SOL + txPrio) {
             return insufficientBalanceError({ ...txResponse, include_retry_button: true });
         }
@@ -673,20 +675,49 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
     }
 }
 
-export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostResponse, root_url: string): Promise<TxResponse> {
+export async function executeBlinkTransaction(
+    wallet: any, blinkTx: ActionPostResponse, root_url: string, swapAmount?: number, baseToken?: string,
+): Promise<TxResponse> {
     const conn: Connection = getConnection();
     const txResponse: TxResponse = {
         user_id: wallet.user_id,
         wallet_address: wallet.wallet_address,
         tx_type: "execute_blink",
+        token_amount: swapAmount,
+        contract_address: baseToken,
     }
     try {
-        if (SWAP_BLINKS_MAPPING.includes(root_url)) {
-            // TODO: calculate wheter user has enough SOL/Tokens to swap
-            //const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
+        // TODO: check if there's another way to find out whether the blink is a swap
+        if (swapAmount) {
+            // check if wallet has enough balance to execute this blink action
+            if (baseToken === WRAPPED_SOL_ADDRESS) {
+                // case of SOL
+                const solBalanceInDecimal: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
+                if (solBalanceInDecimal && solBalanceInDecimal < swapAmount) {
+                    return insufficientBalanceError(txResponse);
+                }
+            } else {
+                // case of a SPL token
+                if (baseToken) {
+                    const coinStats: CoinStats | null = await getCoinStatsFromWallet(wallet.wallet_address, baseToken);
+                    if (coinStats?.tokenAmount && coinStats.tokenAmount.uiAmount && coinStats.tokenAmount.uiAmount < swapAmount) {
+                        return insufficientBalanceError(txResponse);
+                    }
+                }
+            }
 
-            // TODO: calculate fees and subtract them (has to be done beforehand)
-            // TODO: update ref fees if its a swap
+            // TODO: calculate swap fee and add as instruction to transaction below
+            // TODO: check, calculate and store ref fee
+            try {
+                
+            } catch (error) {
+                // NOTE: let user execute blink even if there was an error in this try-catch block.
+                // they are lucky and have to pay no swap fee's if this error block is executed
+                await saveError({
+                    function_name: "executeBlinkTransaction: if(swapAmount)",
+                    error
+                });
+            }
         }
 
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
@@ -694,7 +725,6 @@ export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostRe
 
         const swapTxBuf: Buffer = Buffer.from(blinkTx.transaction, 'base64');
         const tx: VersionedTransaction = VersionedTransaction.deserialize(swapTxBuf);
-        //console.log(tx.message.compiledInstructions);
         tx.sign([signer]);
         const signature: string | undefined = getSignature(tx);
         txResponse.tx_signature = signature;
@@ -712,7 +742,6 @@ export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostRe
         if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
 
         txResponse.success = true;
-        // TODO: handle case where only message was signed and no actual transaction happened
         txResponse.response = `Blink successfully executed: https://solscan.io/tx/${signature}`;
         if (blinkTx.message) {
             txResponse.response += `\n\n${blinkTx.message}`;

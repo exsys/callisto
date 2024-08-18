@@ -1167,6 +1167,10 @@ export async function createSellAndManageUI({ userId, page, ca, successMsg, prev
             components: [firstRow, secondRow, thirdRow]
         };
     } catch (error) {
+        await saveError({
+            function_name: "createSellAndManageUI",
+            error
+        });
         return DEFAULT_ERROR_REPLY;
     }
 };
