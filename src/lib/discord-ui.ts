@@ -155,7 +155,7 @@ export async function createStartUI(userId: string): Promise<InteractionEditRepl
             .setLabel('Blinks')
             .setStyle(ButtonStyle.Secondary);
 
-        const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, blinkSettingsButton, walletButton);
+        const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, walletButton);
         const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(helpButton, referButton, settingsButton, refreshButton);
 
         return { content, components: [firstRow, secondRow] };

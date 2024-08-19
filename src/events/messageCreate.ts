@@ -11,10 +11,11 @@ const event = {
     name: Events.MessageCreate,
     async execute(message: Message) {
         if (!message.content) return;
+        return; // TODO: remove once blinks are live
 
         // TODO: this will do a GET request for every url that gets send in chat, this might be ressource intensive, do some tests for that
 
-        try {
+        /*try {
             const url: URL = new URL(message.content);
             if (url.protocol !== "https:") return;
             const isBlinkUrl: boolean = BLINK_URL_REGEX.test(url.href);
@@ -98,7 +99,7 @@ const event = {
                     await message.reply(actionUI);
                 }
             }
-        } catch (error) { }
+        } catch (error) { }*/
     },
 }
 
