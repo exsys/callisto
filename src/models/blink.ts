@@ -24,7 +24,7 @@ const BlinkSchema = new Schema({
         default: false,
     },
     required_parameters: {
-        // values that will be submitted inside the url search params eg /:id?amount=amount
+        // values that have to be submitted inside the url search params eg /:id?amount=amount
         type: [String],
         required: false,
     },

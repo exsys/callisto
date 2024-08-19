@@ -291,7 +291,7 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply({ content: ERROR_CODES["0003"].message });
             return;
         } else {
-            await interaction.editReply({ content: `Your private key:\n${decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.` });
+            await interaction.editReply({ content: `Your private key:\n${await decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.` });
         }
     },
     showRefFees: async (interaction: ButtonInteraction) => {

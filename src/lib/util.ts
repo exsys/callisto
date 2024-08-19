@@ -308,7 +308,7 @@ export async function sellCoinX(userId: string, msgContent: string, amountInPerc
 
 export async function exportPrivateKeyOfUser(userId: string): Promise<any | null> {
     try {
-        const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
+        const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
         if (!wallet) return null;
         wallet.key_exported = true;
         await wallet.save();
