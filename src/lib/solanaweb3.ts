@@ -74,7 +74,6 @@ import { TxResponse } from "../types/txResponse";
 import { PROMO_REF_MAPPING } from "../config/promo_ref_mapping";
 import { CoinPriceQuote } from "../types/coinPriceQuote";
 import { ParsedProgramAccountWrittenOut } from "../types/parsedProgramAccount";
-import { SWAP_BLINKS_MAPPING } from "../config/swap_blinks_mapping";
 import { ActionPostResponse } from "@solana/actions";
 
 
