@@ -9,7 +9,7 @@ export const TOKEN_PROGRAM: PublicKey = new PublicKey("TokenkegQfeZyiNwAJbNbGKPF
 export const ASSOCIATED_TOKEN_PROGRAM: PublicKey = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 export const BASE_SWAP_FEE: number = 0.75;
 export const FEE_REDUCTION_WITH_REF_CODE: number = 0.1; // 0.1 = 10%
-export const FEE_REDUCTION_PERIOD: number = 2592000; // 2592000 = 30 days
+export const FEE_REDUCTION_PERIOD: number = 2592000000; // 2592000000 ms = 2592000 sec = 30 days
 export const LEVEL1_FEE_IN_PERCENT: number = 10;
 export const LEVEL2_FEE_IN_PERCENT: number = 20;
 export const LEVEL3_FEE_IN_PERCENT: number = 30;
