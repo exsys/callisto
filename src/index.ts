@@ -8,9 +8,7 @@ const isDevelopment = process.env.NODE_ENV === "development";
 const client: any = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.MessageContent,
     ],
