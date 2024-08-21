@@ -24,7 +24,8 @@ import {
     LEVEL1_FEE_IN_PERCENT,
     LEVEL2_FEE_IN_PERCENT,
     LEVEL3_FEE_IN_PERCENT,
-    REFCODE_MODAL_STRING
+    REFCODE_MODAL_STRING,
+    WRAPPED_SOL_ADDRESS
 } from "../config/constants";
 import { TxResponse } from "../types/txResponse";
 import { UIResponse } from "../types/uiResponse";
@@ -46,7 +47,10 @@ import {
     getTransactionInfo,
     payRefFees,
     createNewWallet,
-    executeBlinkTransaction
+    executeBlinkTransaction,
+    getCoinInfo,
+    getBalanceOfWalletInDecimal,
+    getCoinStatsFromWallet
 } from "./solanaweb3";
 import { ActionUI } from "../models/actionui";
 import { BlinkResponse } from "../types/blinkResponse";
@@ -57,6 +61,10 @@ import { get } from "https";
 import { AppStats } from "../models/appstats";
 import { Blink } from "../models/blink";
 import { REQUIRED_SEARCH_PARAMS } from "../config/required_params_mapping";
+import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
+import { CoinInfo } from "../types/coinInfo";
+import { SWAP_BLINKS_MAPPING } from "../config/swap_blinks_mapping";
+import { CoinStats } from "../types/coinStats";
 
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -749,15 +757,15 @@ export async function executeBlink(
 
         if (!url) return { content: "Couldn't process Blink URL. Please contact support for more information." };
         // store the swap amount in case of a swap so the callisto fee's can be properly deducted
-        /*let swapAmount: number | undefined;
+        let swapAmount: number | undefined;
         let baseToken: string | undefined;
 
-        // TODO: check if there's another way to find out whether the blink is a swap
+        // TODO: do SOL balance check on all transactions where SOL is needed
+
         // TODO: current problem with adding swap fee to jupiter swap blinks: no way to add fee's to token sells
         // with the sellViaAPI it's through the feeAccount, but that's not available in blinks
         if (SWAP_BLINKS_MAPPING.includes(actionUI.root_url) && actionValue) {
-            // this block checks wallet balance, subtracts swap fee from swap amount and create instruction for it & stores ref fee
-
+            // TODO: check if there's another way to find out whether the blink is a swap
             // TODO: replace amount in url with swapAmountAfterFees
             // TODO: create instruction to send swap fee
             // TODO: store ref fee
@@ -766,13 +774,12 @@ export async function executeBlink(
                 // TODO: überlegen wie es für tokens gemacht werden muss (es muss ja tortzdem zB 100% geselled werden)
                 // example for url.split("/"): [ 'https:', '', 'worker.jup.ag', 'blinks', 'swap', '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr', 'So11111111111111111111111111111111111111112', '0.5' ]
                 swapAmount = Number(actionValue);
-                baseToken = url.split("/")[5];
+                /*baseToken = url.split("/")[5];
                 const swapFee: number = swapAmount * (wallet.swap_fee / 100);
                 const swapAmountAfterFees: number = swapAmount - swapFee;
                 const urlSplit = url.split("/");
                 urlSplit[7] = String(swapAmountAfterFees);
-                url = urlSplit.join();
-                console.log(url)
+                url = urlSplit.join();*/
 
                 // check if wallet has enough balance to execute this blink action
                 if (baseToken === WRAPPED_SOL_ADDRESS) {
@@ -798,7 +805,7 @@ export async function executeBlink(
                     error
                 });
             }
-        }*/
+        }
 
         // TODO: retry few times if fetch fails
         const blinkTx: ActionPostResponse = await (
@@ -931,6 +938,8 @@ export function convertDescriptionToOrderedValues(embedDescription: string, acti
     return orderedValues;
 }
 
+// return type is typeof Blink (db model)
+// TODO: create proper ts type for Blink and also return error message instead of null
 export async function createNewBlink(user_id: string, blink_type: string, token_address?: string): Promise<any | null> {
     try {
         const stats: any = await AppStats.findOne({ stats_id: 1 });
@@ -954,12 +963,31 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
         });
 
         if (blink_type === "blinkDonation") {
+            let tokenSymbol: string | undefined;
+            const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+            if (!wallet) return null;
+            newBlink.wallet_address = wallet.wallet_address;
+            if (token_address) {
+                // get token symbol from dexscreener if it's not in strict list, and use token address if dexscreener fails
+                tokenSymbol = TOKEN_ADDRESS_STRICT_LIST[token_address as keyof typeof TOKEN_ADDRESS_STRICT_LIST];
+                if (!tokenSymbol) {
+                    const coinInfo: CoinInfo | null = await getCoinInfo(token_address!);
+                    if (coinInfo) tokenSymbol = coinInfo.symbol;
+                }
+                if (!tokenSymbol) tokenSymbol = token_address;
+            } else {
+                tokenSymbol = "SOL";
+            }
             newBlink.links = {
                 actions: [
-                    { href: `/blinks/${newBlink.blink_id}?token=SOL&amount=0.1`, label: "Tip 0.1 SOL", embed_field_value: "Amount: 0.1", token_amount: 0.1 },
-                    { href: `/blinks/${newBlink.blink_id}?token=SOL&amount=0.5`, label: "Tip 0.5 SOL", embed_field_value: "Amount: 0.5", token_amount: 0.5 },
-                    { href: `/blinks/${newBlink.blink_id}?token=SOL&amount=1`, label: "Tip 1 SOL", embed_field_value: "Amount: 1", token_amount: 1 },
-                    { href: `/blinks/${newBlink.blink_id}?token=SOL&amount=amount`, label: "Custom amount", embed_field_value: "Amount: custom" },
+                    { href: `/blinks/${newBlink.blink_id}?amount=0.1`, label: `Tip 0.1 ${tokenSymbol}`, embed_field_value: "Amount: 0.1", token_amount: 0.1 },
+                    { href: `/blinks/${newBlink.blink_id}?amount=0.5`, label: `Tip 0.5 ${tokenSymbol}`, embed_field_value: "Amount: 0.5", token_amount: 0.5 },
+                    { href: `/blinks/${newBlink.blink_id}?amount=1`, label: `Tip 1 ${tokenSymbol}`, embed_field_value: "Amount: 1", token_amount: 1 },
+                    {
+                        href: `/blinks/${newBlink.blink_id}?amount=amount`, label: "Custom amount", embed_field_value: "Amount: custom", parameters: [
+                            { name: "amount", label: "Tip custom amount", required: true },
+                        ]
+                    },
                 ]
             }
         }
@@ -967,10 +995,14 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
         if (blink_type === "blinkTokenSwap") {
             newBlink.links = {
                 actions: [
-                    { href: `/blinks/${newBlink.blink_id}?token=${newBlink.token_address}&amount=0.1`, label: "Buy 0.1 SOL", embed_field_value: "Amount: 0.1", token_amount: 0.1 },
-                    { href: `/blinks/${newBlink.blink_id}?token=${newBlink.token_address}&amount=0.5`, label: "Buy 0.5 SOL", embed_field_value: "Amount: 0.5", token_amount: 0.5 },
-                    { href: `/blinks/${newBlink.blink_id}?token=${newBlink.token_address}&amount=1`, label: "Buy 1 SOL", embed_field_value: "Amount: 1", token_amount: 1 },
-                    { href: `/blinks/${newBlink.blink_id}?token=${newBlink.token_address}&amount=amount`, label: "Buy custom amount", embed_field_value: "Amount: custom" },
+                    { href: `/blinks/${newBlink.blink_id}?amount=0.1`, label: "Buy 0.1 SOL", embed_field_value: "Amount: 0.1", token_amount: 0.1 },
+                    { href: `/blinks/${newBlink.blink_id}?amount=0.5`, label: "Buy 0.5 SOL", embed_field_value: "Amount: 0.5", token_amount: 0.5 },
+                    { href: `/blinks/${newBlink.blink_id}?amount=1`, label: "Buy 1 SOL", embed_field_value: "Amount: 1", token_amount: 1 },
+                    {
+                        href: `/blinks/${newBlink.blink_id}?amount=amount`, label: "Buy custom amount", embed_field_value: "Amount: custom", parameters: [
+                            { name: "amount", label: "Buy custom amount", required: true },
+                        ]
+                    },
                 ]
             }
         }

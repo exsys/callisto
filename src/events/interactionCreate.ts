@@ -97,6 +97,7 @@ const event = {
                     const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, [values[1], values[2], blinkValuesOrdered] as any[]);
                 } else {
+                    // allValues order: 1: values from split(":"), 2: inputValues
                     const allValues: string[] = [...values.slice(1), ...inputValues];
                     const modalCommand = MODAL_COMMANDS[(values.length > 1 ? values[0] : modalId) as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, allValues);

@@ -11,7 +11,7 @@ const event = {
     name: Events.MessageCreate,
     async execute(message: Message) {
         if (!message.content) return;
-        return; // TODO: remove once blinks are live
+        return;
 
         // TODO: this will do a GET request for every url that gets send in chat, this might be ressource intensive, do some tests for that
 

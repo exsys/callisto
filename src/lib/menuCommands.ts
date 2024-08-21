@@ -11,10 +11,10 @@ import {
     createSellAndManageUI,
     createTokenInfoBeforeSendUI,
     createNewBlinkUI,
-    tokenAddressForTokenSwapBlinkModal,
     removeActionButtonFromBlink,
     createBlinkEmbedUIFromBlinkId,
-    deleteUserBlink
+    deleteUserBlink,
+    tokenAddressForBlinkModal
 } from "./discord-ui";
 import { extractUserIdFromMessage } from "./util";
 
@@ -87,8 +87,8 @@ export const MENU_COMMANDS = {
         await interaction.editReply(ui);
     },
     selectBlinkType: async (interaction: StringSelectMenuInteraction, blinkType: string) => {
-        if (blinkType === "blinkTokenSwap") {
-            const modal: ModalBuilder = tokenAddressForTokenSwapBlinkModal();
+        if (blinkType === "blinkTokenSwap" || blinkType === "blinkDonation") {
+            const modal: ModalBuilder = tokenAddressForBlinkModal(blinkType);
             return await interaction.showModal(modal);
         }
         await interaction.deferReply({ ephemeral: true });

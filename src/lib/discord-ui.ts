@@ -695,6 +695,7 @@ export async function createNewBlinkUI(user_id: string, blinkType: string, token
         let content: string = `Blink ID: ${blink.blink_id}`;
         content += `\nBlink type: ${BLINK_TYPE_MAPPING[blinkType]}`;
         if (tokenAddress) {
+            // this only replaces the embed content with the token symbol, not the database value
             const addressToSymbol: string | undefined = TOKEN_ADDRESS_STRICT_LIST[tokenAddress as keyof typeof TOKEN_ADDRESS_STRICT_LIST];
             if (addressToSymbol) {
                 content += `\nToken: ${addressToSymbol}`;
@@ -1650,21 +1651,26 @@ export async function createSelectCoinToSendMenu(userId: string, msgContent: str
 
 /************************************************************** MODALS *****************************************************/
 
-export function tokenAddressForTokenSwapBlinkModal(): ModalBuilder {
+export function tokenAddressForBlinkModal(blinkType: string): ModalBuilder {
     const modal: ModalBuilder = new ModalBuilder()
-        .setCustomId(`createTokenSwapBlink`)
+        .setCustomId(`createBlinkWithAddress:${blinkType}`)
         .setTitle("Enter Token Address");
 
     // TODO: allow symbols instead of token address
 
+    let label: string = `Token Address`;
+    if (blinkType === "blinkDonation") label += " (empty for SOL)";
+    const tokenAddressInputIsRequired: boolean = blinkType === "blinkDonation" ? false : true; // so SOL token swaps cant be created (buying SOL). there is no system to determine what base token would be used.
+
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
         new TextInputBuilder()
             .setCustomId('value1')
-            .setLabel("Token Address")
+            .setLabel("Token Address (empty for SOL)")
             .setPlaceholder("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
             .setMinLength(SOL_TOKEN_ADDRESS_MIN_LENGTH)
             .setMaxLength(SOL_TOKEN_ADDRESS_MAX_LENGTH)
             .setStyle(TextInputStyle.Short)
+            .setRequired(tokenAddressInputIsRequired)
     );
 
     modal.addComponents(row);

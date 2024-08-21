@@ -575,10 +575,11 @@ export const MODAL_COMMANDS = {
         if (!ui) return await interaction.editReply(DEFAULT_ERROR);
         await interaction.editReply(ui);
     },
-    createTokenSwapBlink: async (interaction: ModalSubmitInteraction, values: string[]) => {
+    createBlinkWithAddress: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const tokenAddress: string = values[0];
-        const ui: InteractionEditReplyOptions = await createNewBlinkUI(interaction.user.id, "blinkTokenSwap", tokenAddress);
+        const blinkType: string = values[0];
+        const tokenAddress: string = values[1];
+        const ui: InteractionEditReplyOptions = await createNewBlinkUI(interaction.user.id, blinkType, tokenAddress);
         await interaction.editReply(ui);
     },
     blinkCustomValues: async (interaction: ModalSubmitInteraction, values: any[]) => {

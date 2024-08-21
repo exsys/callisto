@@ -1,5 +1,5 @@
 export interface SwapTx {
-    swapTransaction?: string;
+    swapTransaction?: string; // encoded transaction in base64
     lastValidBlockHeight?: number;
     prioritizationFeeLamports?: number;
     errorCode?: string;
