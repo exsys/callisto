@@ -6,4 +6,5 @@ export interface BlinkResponse {
     action_id?: string;
     button_id?: string;
     params?: TypedActionParameter[];
+    success?: boolean;
 }

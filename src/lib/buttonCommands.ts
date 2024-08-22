@@ -73,6 +73,7 @@ import {
     disableBlink,
     checkAndUpdateBlink,
     storeUserBlink,
+    executeBlinkSuccessMessage,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
 import {
@@ -163,7 +164,7 @@ export const BUTTON_COMMANDS = {
     },
     refreshCoinInfo: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message.content, 1);
         if (!contractAddress) {
             await interaction.editReply({ content: ERROR_CODES["0006"].message });
             return;
@@ -173,7 +174,7 @@ export const BUTTON_COMMANDS = {
     },
     refreshManageInfo: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message.content, 4);
         if (!contractAddress) {
             await interaction.editReply({ content: ERROR_CODES["0006"].message });
             return;
@@ -461,26 +462,6 @@ export const BUTTON_COMMANDS = {
         const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
         await interaction.editReply(sellUI);
     },
-    previousCoin: async (interaction: ButtonInteraction) => {
-        await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
-        if (!contractAddress) {
-            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
-            return;
-        }
-        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress, prevCoin: true });
-        await interaction.editReply(sellUI);
-    },
-    nextCoin: async (interaction: ButtonInteraction) => {
-        await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
-        if (!contractAddress) {
-            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
-            return;
-        }
-        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress, nextCoin: true });
-        await interaction.editReply(sellUI);
-    },
     lastCoin: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: -1 });
@@ -497,7 +478,7 @@ export const BUTTON_COMMANDS = {
     },
     retryLastSwap: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string = await extractAndValidateCA(interaction.message.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message.content, 0);
         if (!contractAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
             return;
@@ -573,7 +554,12 @@ export const BUTTON_COMMANDS = {
                     await interaction.reply({ embeds: modal.embeds, components: modal.components, ephemeral: true });
                 }
             } else {
-                await interaction.editReply({ content: result.content! });
+                if (result.success) {
+                    const ui: InteractionReplyOptions = executeBlinkSuccessMessage(result.content!);
+                    await interaction.editReply(ui);
+                } else {
+                    await interaction.editReply(result.content!)
+                }
             }
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);

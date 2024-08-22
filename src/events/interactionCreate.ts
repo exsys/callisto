@@ -1,7 +1,6 @@
 import { Events } from "discord.js";
 import { MODAL_COMMANDS } from "../lib/modalCommands";
 import { saveError } from "../lib/util";
-import { DEFAULT_ERROR_REPLY, DEFAULT_ERROR_REPLY_EPHEM, ERROR_CODES } from "../config/errors";
 import { BUTTON_COMMANDS } from "../lib/buttonCommands";
 import { MENU_COMMANDS } from "../lib/menuCommands";
 
@@ -18,7 +17,7 @@ const event = {
 
             if (command.onlyAdmin) {
                 let userIsAdmin = false;
-                // TODO: check if role actually has admin right
+                // TODO: check if user actually has admin permissions
                 interaction.member.roles.cache.forEach((role: any, index: number) => {
                     if (role.name === "Moderator" || role.name === "Admin" || role.name === "Team") {
                         userIsAdmin = true;
@@ -35,7 +34,6 @@ const event = {
                 await command.execute(interaction);
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isCommand()", error });
-                await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
             }
         } else if (interaction.isButton()) {
             const buttonId = interaction.customId;
@@ -56,11 +54,7 @@ const event = {
                     await buttonCommand(interaction);
                 }
             } catch (error) {
-                // NOTE: if inside a buttonCommand a editReply is used, and then this catch block is executed, 
-                // the app will crash. keep that in mind
-                console.log(error);
                 await saveError({ function_name: "InteractionCreate interaction.isButton()", error });
-                await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             }
         } else if (interaction.isModalSubmit()) {
             const modalId = interaction.customId;
@@ -85,11 +79,6 @@ const event = {
                 } catch (error) { }
             }
 
-            if (!inputValues) {
-                await interaction.reply({ content: ERROR_CODES["0001"].message, ephemeral: true });
-                return;
-            }
-
             try {
                 const values: string[] = modalId.split(":");
                 if (modalId.includes("blinkCustomValues")) {
@@ -104,7 +93,6 @@ const event = {
                 }
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isModalSubmit()", error });
-                await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             }
         } else if (interaction.isStringSelectMenu()) {
             const menuId: string | undefined = interaction.customId;
@@ -120,7 +108,6 @@ const event = {
                 await menuCommand(interaction, value);
             } catch (error) {
                 await saveError({ function_name: "InteractionCreate interaction.isStringSelectMenu()", error });
-                await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             }
         }
     },

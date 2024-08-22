@@ -13,8 +13,6 @@ const event = {
         if (!message.content) return;
         return;
 
-        // TODO: this will do a GET request for every url that gets send in chat, this might be ressource intensive, do some tests for that
-
         /*try {
             const url: URL = new URL(message.content);
             if (url.protocol !== "https:") return;

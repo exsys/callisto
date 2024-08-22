@@ -72,7 +72,8 @@ export const MODAL_COMMANDS = {
     },
     limitOrderInfo: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const contract_address: string = await extractAndValidateCA(values[0]);
+        // TODO: check whether CA line is correct
+        const contract_address: string = await extractAndValidateCA(values[0], 0);
         if (!contract_address) {
             await interaction.editReply("Invalid contract address.");
             return;
@@ -391,10 +392,11 @@ export const MODAL_COMMANDS = {
         }
     },
     sendCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        // send coins to other users through the /send command
         await interaction.deferReply({ ephemeral: true });
         const percentToSend = values[0];
         const destinationAddress = values[1];
-        const contractAddress: string = await extractAndValidateCA(interaction.message!.content);
+        const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 4);
         if (!contractAddress) {
             await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
             return;
@@ -405,6 +407,7 @@ export const MODAL_COMMANDS = {
         await saveDbTransaction(result);
     },
     sendXPercentToUser: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        // send coins to other users through the /send command
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 3);
         if (!contractAddress) await interaction.editReply(DEFAULT_ERROR);
@@ -427,6 +430,7 @@ export const MODAL_COMMANDS = {
         await saveDbTransaction(response);
     },
     sendXAmountToUser: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        // send coins to other users through the /send command
         await interaction.deferReply({ ephemeral: true });
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 3);
         if (!contractAddress) await interaction.editReply(DEFAULT_ERROR);
@@ -456,6 +460,7 @@ export const MODAL_COMMANDS = {
     },
     buyLimitPercentModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
+        // TODO: check whether CA line is correct
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 0);
         if (!contractAddress) {
             await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
@@ -488,6 +493,7 @@ export const MODAL_COMMANDS = {
     },
     buyLimitPriceModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
+        // TODO: check whether CA line is correct
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 0);
         if (!contractAddress) {
             await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
@@ -512,6 +518,7 @@ export const MODAL_COMMANDS = {
     },
     sellLimitPercentModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
+        // TODO: check whether CA line is correct
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 0);
         if (!contractAddress) {
             await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");
@@ -536,6 +543,7 @@ export const MODAL_COMMANDS = {
     },
     sellLimitPriceModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
+        // TODO: check whether CA line is correct
         const contractAddress: string = await extractAndValidateCA(interaction.message!.content, 0);
         if (!contractAddress) {
             await interaction.editReply("Couldn't find contract address. If the issue persists please contact support.");

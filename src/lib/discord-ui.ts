@@ -107,58 +107,8 @@ export async function createStartUI(userId: string): Promise<InteractionEditRepl
         content += "\n\nTo buy a coin tap the Buy button.";
         content += "\n\nWe guarantee the safety of user funds on Callisto, but if you expose your private key your funds will not be safe.";
 
-        // TODO: move buttons into own function
-
-        //const testButton = new ButtonBuilder().setCustomId('test').setLabel('Test').setStyle(ButtonStyle.Secondary);
-        const buyButton = new ButtonBuilder()
-            .setCustomId('buy')
-            .setLabel('Buy')
-            .setStyle(ButtonStyle.Secondary);
-
-        const sellButton = new ButtonBuilder()
-            .setCustomId('sellAndManage')
-            .setLabel('Sell & Manage')
-            .setStyle(ButtonStyle.Secondary);
-
-        const walletButton = new ButtonBuilder()
-            .setCustomId('wallet')
-            .setLabel('Wallet')
-            .setStyle(ButtonStyle.Secondary);
-
-        const settingsButton = new ButtonBuilder()
-            .setCustomId('settings')
-            .setLabel('Settings')
-            .setStyle(ButtonStyle.Secondary);
-
-        const refreshButton = new ButtonBuilder()
-            .setCustomId('refresh')
-            .setLabel('Refresh')
-            .setStyle(ButtonStyle.Secondary);
-
-        const helpButton = new ButtonBuilder()
-            .setCustomId('help')
-            .setLabel('Help')
-            .setStyle(ButtonStyle.Secondary);
-
-        const referButton = new ButtonBuilder()
-            .setCustomId('refer')
-            .setLabel('Refer Friends')
-            .setStyle(ButtonStyle.Secondary);
-
-        const advancedButton = new ButtonBuilder()
-            .setCustomId('advanced')
-            .setLabel('Advanced')
-            .setStyle(ButtonStyle.Secondary);
-
-        const blinkSettingsButton = new ButtonBuilder()
-            .setCustomId('blinkSettings')
-            .setLabel('Blinks')
-            .setStyle(ButtonStyle.Secondary);
-
-        const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, walletButton);
-        const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(helpButton, referButton, settingsButton, refreshButton);
-
-        return { content, components: [firstRow, secondRow] };
+        const buttons = createStartUIButtons();
+        return { content, components: buttons };
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
     }
@@ -995,8 +945,8 @@ export async function createCoinInfoForLimitOrderUI(contract_address: string): P
     }
 }
 
-export async function createSellAndManageUI({ userId, page, ca, successMsg, prevCoin, nextCoin }:
-    { userId: string, page?: number, ca?: string, successMsg?: boolean, prevCoin?: boolean, nextCoin?: boolean }
+export async function createSellAndManageUI({ userId, page, ca, successMsg }:
+    { userId: string, page?: number, ca?: string, successMsg?: boolean }
 ): Promise<InteractionEditReplyOptions> {
     try {
         const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
@@ -1022,25 +972,9 @@ export async function createSellAndManageUI({ userId, page, ca, successMsg, prev
             }
         } else {
             // this block will be executed if ca has been passed
-            if (prevCoin) {
-                const index = coinsInWallet.findIndex((coin: CoinStats) => coin.address === ca);
-                if (index === 0) {
-                    selectedCoin = coinsInWallet[coinsInWallet.length - 1];
-                } else {
-                    selectedCoin = coinsInWallet[index - 1];
-                }
-            } else if (nextCoin) {
-                const index = coinsInWallet.findIndex((coin: CoinStats) => coin.address === ca);
-                if (index === coinsInWallet.length - 1) {
-                    selectedCoin = coinsInWallet[0];
-                } else {
-                    selectedCoin = coinsInWallet[index + 1];
-                }
-            } else {
-                selectedCoin = coinsInWallet.find((coin: CoinStats) => coin.address === ca);
-                if (!selectedCoin) {
-                    selectedCoin = coinsInWallet[0];
-                }
+            selectedCoin = coinsInWallet.find((coin: CoinStats) => coin.address === ca);
+            if (!selectedCoin) {
+                selectedCoin = coinsInWallet[0];
             }
         }
 
@@ -2499,6 +2433,64 @@ export async function blinkCustomValuesModalAsEmbed(
 
 /************************************************************** BUTTONS **********************************************************/
 
+export function createStartUIButtons(includeTestButton: boolean = false): ActionRowBuilder<ButtonBuilder>[] {
+    const testButton = new ButtonBuilder()
+        .setCustomId('test')
+        .setLabel('Test')
+        .setStyle(ButtonStyle.Secondary);
+
+    const buyButton = new ButtonBuilder()
+        .setCustomId('buy')
+        .setLabel('Buy')
+        .setStyle(ButtonStyle.Secondary);
+
+    const sellButton = new ButtonBuilder()
+        .setCustomId('sellAndManage')
+        .setLabel('Sell & Manage')
+        .setStyle(ButtonStyle.Secondary);
+
+    const walletButton = new ButtonBuilder()
+        .setCustomId('wallet')
+        .setLabel('Wallet')
+        .setStyle(ButtonStyle.Secondary);
+
+    const settingsButton = new ButtonBuilder()
+        .setCustomId('settings')
+        .setLabel('Settings')
+        .setStyle(ButtonStyle.Secondary);
+
+    const refreshButton = new ButtonBuilder()
+        .setCustomId('refresh')
+        .setLabel('Refresh')
+        .setStyle(ButtonStyle.Secondary);
+
+    const helpButton = new ButtonBuilder()
+        .setCustomId('help')
+        .setLabel('Help')
+        .setStyle(ButtonStyle.Secondary);
+
+    const referButton = new ButtonBuilder()
+        .setCustomId('refer')
+        .setLabel('Refer Friends')
+        .setStyle(ButtonStyle.Secondary);
+
+    const advancedButton = new ButtonBuilder()
+        .setCustomId('advanced')
+        .setLabel('Advanced')
+        .setStyle(ButtonStyle.Secondary);
+
+    const blinkSettingsButton = new ButtonBuilder()
+        .setCustomId('blinkSettings')
+        .setLabel('Blinks')
+        .setStyle(ButtonStyle.Secondary);
+
+    const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, walletButton);
+    const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(helpButton, referButton, settingsButton, refreshButton);
+    if (includeTestButton) secondRow.addComponents(testButton);
+
+    return [firstRow, secondRow];
+}
+
 export function addStartButton(content: string): InteractionEditReplyOptions {
     const startButton = new ButtonBuilder()
         .setCustomId('start')
@@ -2723,7 +2715,6 @@ export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>, blinkTyp
         });
 
         if (buttons.length) rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons));
-
         if (!embed.fields?.length) return { content: "You need to add at least 1 button to preview your Blink." };
         return { content: "Preview", embeds: [uiEmbed], components: rows };
     } catch (error) {
@@ -2735,6 +2726,15 @@ export function createBlinkCreationContent(blink: any): string {
     let content = `Blink ID: ${blink.blink_id}`;
     content += `\nBlink Type: ${BLINK_TYPE_MAPPING[blink.blink_type]}`;
     if (blink.token_address) content += `\nToken: ${blink.token_address}`;
-
     return content;
+}
+
+export function executeBlinkSuccessMessage(content: string): InteractionReplyOptions {
+    const positionsButton = new ButtonBuilder()
+        .setCustomId("sellAndManage")
+        .setLabel("Positions")
+        .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(positionsButton);
+    return { content, components: [row] };
 }

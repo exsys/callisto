@@ -685,6 +685,8 @@ export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostRe
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) return decryptError(txResponse);
 
+        // TODO: use tx prio fee from wallet settings
+
         const swapTxBuf: Buffer = Buffer.from(blinkTx.transaction, 'base64');
         const tx: VersionedTransaction = VersionedTransaction.deserialize(swapTxBuf);
         tx.sign([signer]);

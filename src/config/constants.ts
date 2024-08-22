@@ -28,4 +28,4 @@ export const BLINK_DEFAULT_IMAGE: string = "https://www.callistobot.com/images/p
 // variables below are not needed for the bot but written down here for easy access to these values
 const BOT_APP_ID: string = "1247262826838622311";
 const DISCORD_SERVER_INVITE_LINK: string = "https://discord.gg/gA7u36rGpX";
-const DISCORD_OAUTH_INVITE_LINK: string = "https://discord.com/oauth2/authorize?client_id=1247262826838622311&permissions=347136&integration_type=0&scope=applications.commands+bot";
+const DISCORD_OAUTH_INVITE_LINK: string = "https://discord.com/oauth2/authorize?client_id=1247262826838622311&permissions=379904&integration_type=0&scope=bot+applications.commands";

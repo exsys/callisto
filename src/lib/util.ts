@@ -157,33 +157,14 @@ export function extractCAFromMessage(message: string, line: number): string | nu
     return parts[parts.length - 1];
 }
 
-export async function extractAndValidateCA(message: string, line?: number): Promise<string> {
-    if (line) {
-        const lineWithCa: string = message.split("\n")[line - 1];
-        const caParts: string[] = lineWithCa.split(" | ");
-        const ca: string = caParts[caParts.length - 1];
-        if (ca === "SOL") return "SOL";
-        const isValidAddress: boolean = await checkIfValidAddress(ca);
-        if (!isValidAddress) return "";
-        return ca;
-    }
-    const firstLine: string = message.split("\n")[0];
-    const parts: string[] = firstLine.split(" | ");
-    if (!parts.length) return "";
-
-    const ca: string = parts[parts.length - 1];
+export async function extractAndValidateCA(message: string, line: number): Promise<string> {
+    const lineWithCa: string = message.split("\n")[line - 1];
+    const caParts: string[] = lineWithCa.split(" | ");
+    let ca: string = caParts[caParts.length - 1];
+    if (ca.includes("**")) ca = ca.replaceAll("**", ""); // remove bold formatting
+    if (ca === "SOL") return "SOL";
     const isValidAddress: boolean = await checkIfValidAddress(ca);
-    if (!isValidAddress) {
-        // check if the address is in the 4th line (the case when user buys coin through the sell & manage UI)
-        const fourthLine: string = message.split("\n")[3];
-        const parts: string[] = fourthLine.split(" | ");
-        if (!parts.length) return "";
-        const ca2: string = parts[parts.length - 1];
-        const isValidAddress2: boolean = await checkIfValidAddress(ca2);
-        if (!isValidAddress2) return "";
-        return ca2;
-    }
-
+    if (!isValidAddress) return "";
     return ca;
 }
 
@@ -261,7 +242,7 @@ export async function decryptPKey(encryptedPKey: string, iv: string): Promise<st
 }
 
 export async function buyCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress: string = await extractAndValidateCA(msgContent);
+    const contractAddress: string = await extractAndValidateCA(msgContent, 1);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
@@ -274,7 +255,7 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
 }
 
 export async function buyCoinX(userId: string, msgContent: string, amount: string): Promise<UIResponse> {
-    const contractAddress: string = await extractAndValidateCA(msgContent);
+    const contractAddress: string = await extractAndValidateCA(msgContent, 1);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, amount);
@@ -287,7 +268,7 @@ export async function buyCoinX(userId: string, msgContent: string, amount: strin
 }
 
 export async function sellCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress: string = await extractAndValidateCA(msgContent);
+    const contractAddress: string = await extractAndValidateCA(msgContent, 4);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
@@ -301,7 +282,7 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
 }
 
 export async function sellCoinX(userId: string, msgContent: string, amountInPercent: string): Promise<UIResponse> {
-    const contractAddress: string = await extractAndValidateCA(msgContent);
+    const contractAddress: string = await extractAndValidateCA(msgContent, 4);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await sellCoinViaAPI(userId, contractAddress, amountInPercent);
@@ -821,7 +802,7 @@ export async function executeBlink(
         if (blinkTx.transaction) {
             const result: TxResponse = await executeBlinkTransaction(wallet, blinkTx);
             await saveDbTransaction(result);
-            return { content: result.response };
+            return { content: result.response, success: result.success };
         } else {
             return { content: `Blink provider returned an error: ${blinkTx.message}` };
         }
