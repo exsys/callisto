@@ -1171,7 +1171,7 @@ export async function createTokenSelectionUI(user_id: string, recipientId: strin
 
         let content: string = `Sending token to <@${recipientId}>\n\n**Your SOL balance**: ${solBalance}\n**Your Tokens**:\n`;
         const coinInfos: CoinInfo[] | null = await getAllCoinInfos({
-            walletAddress: wallet.wallet_address,
+            wallet_address: wallet.wallet_address,
             minPos: wallet.settings.min_position_value
         });
         if (!coinInfos) return DEFAULT_ERROR_REPLY;
@@ -1213,7 +1213,7 @@ export async function createTokenInfoBeforeSendUI(
         const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         if (!solBalance) return DEFAULT_ERROR_REPLY;
         const solPrice: number | null = await getCurrentSolPrice();
-        const holdingsValue: number = Number((solBalance * solPrice).toFixed(2));
+        const holdingsValue: number = Number((solBalance * (solPrice ? solPrice : 0)).toFixed(2));
         content += `\n\nSolana | SOL`;
         content += `\n**Balance**: ${solBalance}`;
         content += `\n**Holdings value**: $${holdingsValue}`;

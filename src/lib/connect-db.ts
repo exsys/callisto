@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 import mongoose, { Mongoose } from "mongoose";
-import { postDbErrorWebhook } from "./util";
+import { postDiscordErrorWebhook } from "./util";
 
 const MONGODB_URI: string | undefined = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -39,7 +39,7 @@ async function connectDb() {
     try {
         cached.conn = await cached.promise;
     } catch (e) {
-        await postDbErrorWebhook(e);
+        await postDiscordErrorWebhook(e);
         cached.promise = null;
         throw e;
     }

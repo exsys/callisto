@@ -26,11 +26,19 @@ const AppStatsSchema = new Schema({
         type: Number,
         default: 0,
     },
-    transactions: {
+    successful_transactions: {
         type: Number,
         default: 0,
     },
-    token_transfers: {
+    failed_transactions: {
+        type: Number,
+        default: 0,
+    },
+    successful_token_transfers: {
+        type: Number,
+        default: 0,
+    },
+    failed_token_transfers: {
         type: Number,
         default: 0,
     }

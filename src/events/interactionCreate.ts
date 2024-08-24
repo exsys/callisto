@@ -1,6 +1,6 @@
 import { Events } from "discord.js";
 import { MODAL_COMMANDS } from "../lib/modalCommands";
-import { saveError } from "../lib/util";
+import { postDiscordErrorWebhook } from "../lib/util";
 import { BUTTON_COMMANDS } from "../lib/buttonCommands";
 import { MENU_COMMANDS } from "../lib/menuCommands";
 
@@ -33,7 +33,7 @@ const event = {
             try {
                 await command.execute(interaction);
             } catch (error) {
-                await saveError({ function_name: "InteractionCreate interaction.isCommand()", error });
+                await postDiscordErrorWebhook(error, "interactionCreate.ts isCommand()");
             }
         } else if (interaction.isButton()) {
             const buttonId = interaction.customId;
@@ -52,7 +52,7 @@ const event = {
                     await buttonCommand(interaction);
                 }
             } catch (error) {
-                await saveError({ function_name: "InteractionCreate interaction.isButton()", error });
+                await postDiscordErrorWebhook(error, "interactionCreate.ts isButton()");
             }
         } else if (interaction.isModalSubmit()) {
             const modalId = interaction.customId;
@@ -90,7 +90,7 @@ const event = {
                     await modalCommand(interaction, allValues);
                 }
             } catch (error) {
-                await saveError({ function_name: "InteractionCreate interaction.isModalSubmit()", error });
+                await postDiscordErrorWebhook(error, "interactionCreate.ts isModalSubmit()");
             }
         } else if (interaction.isStringSelectMenu()) {
             const menuId: string | undefined = interaction.customId;
@@ -105,7 +105,7 @@ const event = {
                 const menuCommand = MENU_COMMANDS[(values.length > 1 ? values[0] : menuId) as keyof typeof MENU_COMMANDS];
                 await menuCommand(interaction, value);
             } catch (error) {
-                await saveError({ function_name: "InteractionCreate interaction.isStringSelectMenu()", error });
+                await postDiscordErrorWebhook(error, "interactionCreate.ts isStringSelectMenu()");
             }
         }
     },

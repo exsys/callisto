@@ -18,6 +18,7 @@ import {
 import { addStartButton, createAfterSwapUI } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
+    API_ERRORS_WEBHOOK,
     BLINK_DEFAULT_IMAGE,
     ERRORS_WEBHOOK,
     FEE_TOKEN_ACCOUNT,
@@ -569,34 +570,67 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
     }
 }
 
-export async function postDbErrorWebhook(error: any): Promise<void> {
-    const embed: any = {
-        title: "Database error",
-        timestamp: new Date().toISOString(),
-        color: 0x4F01EB,
-        fields: [
-            {
-                name: "Error name",
-                value: error.name || "undefined",
-            },
-            {
-                name: "Message",
-                value: error.message || "undefined",
-            },
-            {
-                name: "Stack",
-                value: error.stack || "undefined",
-            },
-        ],
-    };
-    const body: string = JSON.stringify({
-        embeds: [embed],
-    });
-    await fetch(ERRORS_WEBHOOK, {
-        method: "POST",
-        body: body,
-        headers: { "Content-Type": "application/json" },
-    });
+export async function postDiscordErrorWebhook(error: any, extraInfo?: string): Promise<void> {
+    try {
+        const errorStack: string | undefined = truncateString(error.stack, 4096);
+        const errorName: string | undefined = truncateString(error.name, 1024)
+        const errorMsg: string | undefined = truncateString(error.message, 1024);
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setTitle("Application error")
+            .setAuthor({ name: "Error webhook" })
+            .setDescription(`**Error Stack:**\n${errorStack || "undefined"}`)
+            .addFields(
+                { name: "Extra Info", value: extraInfo || "undefined" },
+                { name: "Error Name", value: errorName || "undefined" },
+                { name: "Error Message", value: errorMsg || "undefined" },
+            );
+        const body: string = JSON.stringify({
+            embeds: [embed],
+        });
+        await fetch(ERRORS_WEBHOOK, {
+            method: "POST",
+            body: body,
+            headers: { "Content-Type": "application/json" },
+        });
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+export async function postApiErrorWebhook(error: any, extraInfo?: string): Promise<void> {
+    try {
+        const errorStack: string | undefined = truncateString(error.stack, 4096);
+        const errorName: string | undefined = truncateString(error.name, 1024)
+        const errorMsg: string | undefined = truncateString(error.message, 1024);
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setTitle("Application error")
+            .setAuthor({ name: "Error webhook" })
+            .setDescription(`**Error Stack:**\n${errorStack || "undefined"}`)
+            .addFields(
+                { name: "Extra Info", value: extraInfo || "undefined" },
+                { name: "Error Name", value: errorName || "undefined" },
+                { name: "Error Message", value: errorMsg || "undefined" },
+            );
+        const body: string = JSON.stringify({
+            embeds: [embed],
+        });
+        await fetch(API_ERRORS_WEBHOOK, {
+            method: "POST",
+            body: body,
+            headers: { "Content-Type": "application/json" },
+        });
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+export function truncateString(str: string | undefined, maxLength: number): string | undefined {
+    if (str && str.length > maxLength) {
+        return str.substring(0, maxLength - 3) + "...";
+    }
+    return str;
 }
 
 export function isPositiveNumber(numberToCheck: number | string): boolean {
