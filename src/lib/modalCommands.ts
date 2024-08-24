@@ -578,8 +578,9 @@ export const MODAL_COMMANDS = {
     addCustomAction: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const blinkId: string = values[0];
-        const buttonValues: string[] = values.slice(1);
-        const ui: InteractionReplyOptions | undefined = await addCustomActionButtonToBlink(blinkId, buttonValues);
+        const editMode: boolean = values[1] === "e";
+        const buttonValues: string[] = editMode ? values.slice(2) : values.slice(1);
+        const ui: InteractionReplyOptions | undefined = await addCustomActionButtonToBlink(blinkId, buttonValues, editMode);
         if (!ui) return await interaction.editReply(DEFAULT_ERROR);
         await interaction.editReply(ui);
     },

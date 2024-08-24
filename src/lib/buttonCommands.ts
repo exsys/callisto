@@ -634,7 +634,7 @@ export const BUTTON_COMMANDS = {
     },
     addFixedAction: async (interaction: ButtonInteraction, blink_id?: string, editMode?: string) => {
         try {
-            // TODO: this could potentially cause the app to crash if DB query takes more than 3 seconds. test it.
+            // NOTE: the app might not respond if the DB query takes more than 3 seconds, but the app won't crash
             const isEditMode: boolean = editMode === "e";
             const response: ModalBuilder | InteractionReplyOptions | undefined = await createFixedActionModal(blink_id!, isEditMode);
             if (!response) return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
@@ -644,10 +644,11 @@ export const BUTTON_COMMANDS = {
             await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
         }
     },
-    addCustomAction: async (interaction: ButtonInteraction, blink_id?: string) => {
+    addCustomAction: async (interaction: ButtonInteraction, blink_id?: string, editMode?: string) => {
         try {
-            // TODO: this could potentially cause the app to crash if DB query takes more than 3 seconds. test it.
-            const response: ModalBuilder | InteractionReplyOptions | undefined = await createCustomActionModal(blink_id!);
+            // NOTE: the app might not respond if the DB query takes more than 3 seconds, but the app won't crash
+            const isEditMode: boolean = editMode === "e";
+            const response: ModalBuilder | InteractionReplyOptions | undefined = await createCustomActionModal(blink_id!, isEditMode);
             if (!response) return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
             if (response instanceof ModalBuilder) return await interaction.showModal(response);
             await interaction.reply(response);

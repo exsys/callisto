@@ -191,11 +191,14 @@ export async function changeUserBlinkEmbedUI(
 
 // TODO: check if I can combine addCustomActionButtonToBlink and addFixedActionButtonToBlink in an elegant way
 
-export async function addCustomActionButtonToBlink(blink_id: string, buttonValues: string[]): Promise<InteractionReplyOptions | undefined> {
+export async function addCustomActionButtonToBlink(
+    blink_id: string, buttonValues: string[], editMode: boolean = false
+): Promise<InteractionReplyOptions | undefined> {
     try {
         const blink: any = await Blink.findOne({ blink_id });
         if (!blink) return;
         const content: string = createBlinkCreationContent(blink);
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id, editMode, blink.disabled);
 
         const embed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
@@ -358,7 +361,6 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
         }
 
         await blink.save();
-        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id);
         return { content, embeds: [embed], components: buttons };
     } catch (error) {
         await saveError({
@@ -1629,7 +1631,9 @@ export function tokenAddressForBlinkModal(blinkType: string): ModalBuilder {
     return modal;
 }
 
-export async function createCustomActionModal(blink_id: string): Promise<ModalBuilder | InteractionReplyOptions | undefined> {
+export async function createCustomActionModal(
+    blink_id: string, editMode: boolean = false
+): Promise<ModalBuilder | InteractionReplyOptions | undefined> {
     try {
         const blink: any = await Blink.findOne({ blink_id }).lean();
         if (!blink) return undefined;
@@ -1638,7 +1642,7 @@ export async function createCustomActionModal(blink_id: string): Promise<ModalBu
         }
 
         const modal: ModalBuilder = new ModalBuilder()
-            .setCustomId(`addCustomAction:${blink_id}`)
+            .setCustomId(`addCustomAction:${blink_id}${editMode ? ":e" : ""}`)
             .setTitle("Add button with custom value");
         const rows: ActionRowBuilder<TextInputBuilder>[] = [];
 
