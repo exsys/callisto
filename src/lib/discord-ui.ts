@@ -43,6 +43,7 @@ import { TxResponse } from "../types/txResponse";
 import { User } from "../models/user";
 import {
     BLINK_DEFAULT_IMAGE,
+    CALLISTO_WEBSITE_ROOT_URL,
     REFCODE_MODAL_STRING,
     SOL_TOKEN_ADDRESS_MAX_LENGTH,
     SOL_TOKEN_ADDRESS_MIN_LENGTH,
@@ -69,6 +70,8 @@ import { Blink } from "../models/blink";
 import { BLINK_TYPE_MAPPING } from "../config/blink_type_mapping";
 import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
 import { DBAction } from "../types/dbAction";
+import { BlinkURLs } from "../types/blinkUrls";
+import { BlinkVoteResult } from "../models/blinkVoteResult";
 
 /***************************************************** UIs *****************************************************/
 
@@ -685,7 +688,7 @@ export async function createNewBlinkUI(user_id: string, blinkType: string, token
     }
 }
 
-export async function createBlinkUI(urls: any, action: ActionGetResponse): Promise<MessageCreateOptions | undefined> {
+export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse): Promise<MessageCreateOptions | undefined> {
     try {
         const embed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
@@ -772,6 +775,20 @@ export async function createBlinkUI(urls: any, action: ActionGetResponse): Promi
             embed: embed.toJSON(),
             has_attachment: attachment ? true : false,
         });
+        if (urls.root_url === CALLISTO_WEBSITE_ROOT_URL) {
+            // also store the blink_id if it's a callisto blink
+            const urlSplit: string[] = urls.posted_url.split("/");
+            const blink_id: string = urlSplit[urlSplit.length - 1];
+            newActionUI.blink_id = blink_id;
+            const blink: any = await Blink.findOne({ blink_id }).lean();
+            if (blink) {
+                newActionUI.blink_type = blink.blink_type;
+                if (blink.blink_type === "blinkVote") {
+                    const showResultsButton = voteResultButton(blink.blink_id);
+                    rows.push(showResultsButton);
+                }
+            }
+        }
         // TODO: retry a few times if save error
         await newActionUI.save();
         await appStats.save();
@@ -1479,8 +1496,9 @@ export async function selectBlinkMenu(user_id: string, actionType: string): Prom
 
 export function createBlinkCreationMenu(): InteractionEditReplyOptions {
     let content: string = "What type of Action Blink do you want to create?";
-    content += "\n\n**Donation**: Create a Blink to ask for tips to one of your Callisto wallets.";
-    content += "\n**Token Swap**: Swap any token with SOL.";
+    content += "\n\n**Donation**: Creates a Blink for tips to your default Callisto wallet.";
+    content += "\n**Token Swap**: Creates a Blink to swap any token with SOL.";
+    content += "\n**Vote**: Creates a Blink to vote for something with different choices.";
 
     const blinkTypes: SelectMenuComponentOptionData[] = [
         { label: "Donation", value: "blinkDonation" },
@@ -2484,7 +2502,7 @@ export function createStartUIButtons(includeTestButton: boolean = false): Action
         .setLabel('Blinks')
         .setStyle(ButtonStyle.Secondary);
 
-    const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, walletButton);
+    const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(buyButton, sellButton, blinkSettingsButton, walletButton);
     const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(helpButton, referButton, settingsButton, refreshButton);
     if (includeTestButton) secondRow.addComponents(testButton);
 
@@ -2575,6 +2593,39 @@ export function createBlinkCreationButtons(
 
 /************************************************************** UTILITY **********************************************************/
 
+export async function getVoteResults(blink_id: string): Promise<InteractionReplyOptions> {
+    try {
+        const voteResults: any = await BlinkVoteResult.findOne({ blink_id }).lean();
+        if (!voteResults) return { content: "No votes yet." };
+
+        let description: string = "";
+        const voteValues = Object.entries(voteResults.results);
+        for (const [key, value] of voteValues) {
+            description += `${key}: ${value}\n`;
+        }
+
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setAuthor({ name: `${voteResults.blink_title}` })
+            .setTitle(`Vote Results`)
+            .setDescription(description);
+
+        return { embeds: [embed] };
+    } catch (error) {
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
+export function voteResultButton(blink_id: number): ActionRowBuilder<ButtonBuilder> {
+    const voteResultButton = new ButtonBuilder()
+        .setCustomId(`showBlinkVoteResults:${blink_id}`)
+        .setLabel("Show Results")
+        .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(voteResultButton);
+    return row;
+}
+
 export function sortDBActions(actions: DBAction[]): DBAction[] {
     return actions.sort((a: DBAction, b: DBAction) => {
         if (a.token_amount === undefined) return 1;
@@ -2607,6 +2658,8 @@ export async function storeUserBlink(blink_id: string): Promise<InteractionReply
     try {
         const blink: any = await Blink.findOne({ blink_id });
         if (!blink) return DEFAULT_ERROR_REPLY;
+
+        if (!blink.links?.actions.length) return { content: "You need to add at least 1 action button." };
 
         blink.is_complete = true;
         blink.disabled = false;

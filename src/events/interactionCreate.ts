@@ -43,8 +43,6 @@ const event = {
             }
 
             try {
-                // TODO: make it so no values are hand over as params at all. 
-                // use interaction.customId.split(":") inside each buttonCommand to get the values
                 const values: string[] = buttonId.split(":");
                 if (values.length > 1) {
                     const buttonCommand = BUTTON_COMMANDS[values[0] as keyof typeof BUTTON_COMMANDS];

@@ -119,7 +119,7 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) return decryptError(txResponse);
 
-        const maxSolAmountToSend: number = balanceInLamports - GAS_FEE_FOR_SOL_TRANSFER;
+        const maxSolAmountToSend: number = balanceInLamports - GAS_FEE_FOR_SOL_TRANSFER - RENT_FEE;
         txResponse.token_amount = maxSolAmountToSend;
         const tx: Transaction = new Transaction().add(
             SystemProgram.transfer({

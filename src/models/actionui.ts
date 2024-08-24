@@ -6,6 +6,14 @@ const ActionUiSchema = new Schema({
         required: true,
         unique: true,
     },
+    blink_id: {
+        type: String,
+        required: false,
+    },
+    blink_type: {
+        type: String,
+        required: false,
+    },
     posted_url: {
         type: String, // original url that was initially posted
         required: true,

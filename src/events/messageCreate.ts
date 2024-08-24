@@ -1,19 +1,19 @@
 import { AttachmentBuilder, Events, Message, MessageCreateOptions } from "discord.js";
-import { BLINK_URL_REGEX } from "../config/constants";
+import { BLINK_URL_REGEX, CALLISTO_WEBSITE_ROOT_URL } from "../config/constants";
 import { replaceWildcards, saveError, urlToBuffer } from "../lib/util";
 import { ActionGetResponse, ActionRuleObject, ACTIONS_CORS_HEADERS } from "@solana/actions";
 import { ActionRule } from "../types/actionRule";
-import { createBlinkUI } from "../lib/discord-ui";
+import { createBlinkUI, voteResultButton } from "../lib/discord-ui";
 import { ActionUI } from "../models/actionui";
 import sharp from "sharp";
+import { BlinkURLs } from "../types/blinkUrls";
 
 const event = {
     name: Events.MessageCreate,
     async execute(message: Message) {
         if (!message.content) return;
-        return;
 
-        /*try {
+        try {
             const url: URL = new URL(message.content);
             if (url.protocol !== "https:") return;
             const isBlinkUrl: boolean = BLINK_URL_REGEX.test(url.href);
@@ -57,7 +57,7 @@ const event = {
                 ).json();
                 if (!actionRule) return;
 
-                // TODO: handle multiple objects inside the rules array. how does it have to be handled or processed?
+                // TODO: handle multiple objects inside the rules array. check: how does it have to be handled or processed?
                 const actionRuleObj: ActionRuleObject = actionRule.rules[0];
                 const pathPattern: string = actionRuleObj.pathPattern;
                 const apiPath: string = actionRuleObj.apiPath;
@@ -81,10 +81,14 @@ const event = {
                 // if action url is already stored in database use that ui object
                 const actionUIExists: any = await ActionUI.findOne({ action_url: actionUrl }).lean();
                 if (actionUIExists) {
+                    if (rootUrl === CALLISTO_WEBSITE_ROOT_URL && actionUIExists.blink_type === "blinkVote") {
+                        const showResultsButton = voteResultButton(actionUIExists.blink_id);
+                        actionUIExists.rows.push(showResultsButton);
+                    }
                     await message.reply({ embeds: [actionUIExists.embed], components: actionUIExists.rows });
                 } else {
                     const actionRootUrl: URL = new URL(actionRuleObj.apiPath);
-                    const urls: any = {
+                    const urls: BlinkURLs = {
                         posted_url: url.href,
                         root_url: rootUrl,
                         action_root_url: actionRootUrl.origin,
@@ -97,7 +101,7 @@ const event = {
                     await message.reply(actionUI);
                 }
             }
-        } catch (error) { }*/
+        } catch (error) { }
     },
 }
 

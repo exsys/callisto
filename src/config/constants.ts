@@ -24,6 +24,7 @@ export const SOL_TOKEN_ADDRESS_MAX_LENGTH: number = 44;
 export const SOL_WALLET_ADDRESS_MIN_LENGTH: number = 43;
 export const SOL_WALLET_ADDRESS_MAX_LENGTH: number = 44;
 export const BLINK_DEFAULT_IMAGE: string = "https://www.callistobot.com/images/planet.png";
+export const CALLISTO_WEBSITE_ROOT_URL: string = "https://callistobot.com";
 
 // variables below are not needed for the bot but written down here for easy access to these values
 const BOT_APP_ID: string = "1247262826838622311";

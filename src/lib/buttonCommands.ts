@@ -74,6 +74,7 @@ import {
     checkAndUpdateBlink,
     storeUserBlink,
     executeBlinkSuccessMessage,
+    getVoteResults,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
 import {
@@ -692,4 +693,9 @@ export const BUTTON_COMMANDS = {
         const menu: InteractionEditReplyOptions = await selectBlinkMenu(interaction.user.id, "url");
         await interaction.editReply(menu);
     },
+    showBlinkVoteResults: async (interaction: ButtonInteraction, blinkId?: string) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionReplyOptions = await getVoteResults(blinkId!);
+        await interaction.editReply(ui);
+    }
 };
