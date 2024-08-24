@@ -685,7 +685,7 @@ export async function executeBlink(
 
                 const searchParams: URLSearchParams = actionLink.searchParams;
                 if (searchParams.toString()) {
-                    // this block is executed if the action url is in this format: /swap?amount=amount
+                    // this block is executed if the action url is in this format: /swap?amount={amount}
                     let index: number = 0;
                     for (const [key, value] of searchParams) {
                         const correspondingValue: BlinkCustomValue | undefined = processed_values.find((orderedValue: BlinkCustomValue) => {
@@ -965,7 +965,7 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
                     { href: `/blinks/${newBlink.blink_id}?amount=0.5`, label: `Tip 0.5 ${tokenSymbol}`, embed_field_value: "Amount: 0.5", token_amount: 0.5 },
                     { href: `/blinks/${newBlink.blink_id}?amount=1`, label: `Tip 1 ${tokenSymbol}`, embed_field_value: "Amount: 1", token_amount: 1 },
                     {
-                        href: `/blinks/${newBlink.blink_id}?amount=amount`, label: "Custom amount", embed_field_value: "Amount: custom", parameters: [
+                        href: `/blinks/${newBlink.blink_id}?amount={amount}`, label: "Custom amount", embed_field_value: "Amount: custom", parameters: [
                             { name: "amount", label: "Tip custom amount", required: true },
                         ]
                     },
@@ -980,7 +980,7 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
                     { href: `/blinks/${newBlink.blink_id}?amount=0.5`, label: "Buy 0.5 SOL", embed_field_value: "Amount: 0.5", token_amount: 0.5 },
                     { href: `/blinks/${newBlink.blink_id}?amount=1`, label: "Buy 1 SOL", embed_field_value: "Amount: 1", token_amount: 1 },
                     {
-                        href: `/blinks/${newBlink.blink_id}?amount=amount`, label: "Buy custom amount", embed_field_value: "Amount: custom", parameters: [
+                        href: `/blinks/${newBlink.blink_id}?amount={amount}`, label: "Buy custom amount", embed_field_value: "Amount: custom", parameters: [
                             { name: "amount", label: "Buy custom amount", required: true },
                         ]
                     },

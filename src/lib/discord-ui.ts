@@ -216,7 +216,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                     blink.links = {
                         actions: [{
                             label: buttonLabel,
-                            href: `/blinks/${blink.blink_id}?amount=amount`,
+                            href: `/blinks/${blink.blink_id}?amount={amount}`,
                             embed_field_value: customAmountString,
                             parameters: [{
                                 name: "amount",
@@ -242,7 +242,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
 
                     blink.links.actions.push({
                         label: buttonLabel,
-                        href: `/blinks/${blink.blink_id}?amount=amount`,
+                        href: `/blinks/${blink.blink_id}?amount={amount}`,
                         embed_field_value: customAmountString,
                         parameters: [{
                             name: "amount",
@@ -265,7 +265,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                     blink.links = {
                         actions: [{
                             label: buttonLabel,
-                            href: `/blinks/${blink.blink_id}?amount=amount`,
+                            href: `/blinks/${blink.blink_id}?amount={amount}`,
                             embed_field_value: customAmountString,
                             parameters: [{
                                 name: "amount",
@@ -290,7 +290,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                     });
                     blink.links.actions.push({
                         label: buttonLabel,
-                        href: `/blinks/${blink.blink_id}?amount=amount`,
+                        href: `/blinks/${blink.blink_id}?amount={amount}`,
                         embed_field_value: customAmountString,
                         parameters: [{
                             name: "amount",
@@ -312,7 +312,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                     blink.links = {
                         actions: [{
                             label: buttonValue,
-                            href: `/blinks/${blink.blink_id}?choice=choice`,
+                            href: `/blinks/${blink.blink_id}?choice={choice}`,
                             embed_field_value: buttonLabel,
                             parameters: [{
                                 name: "choice",
@@ -337,7 +337,7 @@ export async function addCustomActionButtonToBlink(blink_id: string, buttonValue
                     });
                     blink.links.actions.push({
                         label: buttonValue,
-                        href: `/blinks/${blink.blink_id}?choice=choice`,
+                        href: `/blinks/${blink.blink_id}?choice={choice}`,
                         embed_field_value: buttonLabel,
                         parameters: [{
                             name: "choice",
@@ -1798,6 +1798,8 @@ export async function removeActionSelectionMenu(blink_id: string, editMode: bool
                 blinkActions.push({ label: action.label, value: `${blink_id}:${action.label}:${labels[action.label]}` });
             }
         });
+
+        if (!blinkActions.length) return { content: "No actions to remove." };
 
         const options: StringSelectMenuOptionBuilder[] = blinkActions.map((option: SelectMenuComponentOptionData) => {
             return new StringSelectMenuOptionBuilder().setLabel(option.label).setValue(option.value);
