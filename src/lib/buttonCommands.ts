@@ -133,7 +133,7 @@ export const BUTTON_COMMANDS = {
     },
     sellAndManage: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
+        const ui: InteractionEditReplyOptions = await createSellAndManageUI({ user_id: interaction.user.id, page: 0 });
         await interaction.editReply(ui);
     },
     limitOrder: async (interaction: ButtonInteraction) => {
@@ -165,22 +165,16 @@ export const BUTTON_COMMANDS = {
     },
     refreshCoinInfo: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string = await extractAndValidateCA(interaction.message.content, 1);
-        if (!contractAddress) {
-            await interaction.editReply({ content: ERROR_CODES["0006"].message });
-            return;
-        }
+        const contractAddress: string | null = extractAndValidateCA(interaction.message.content, 1);
+        if (!contractAddress) return await interaction.editReply({ content: ERROR_CODES["0006"].message });
         const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress);
         await interaction.editReply(uiResponse.ui);
     },
     refreshManageInfo: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string = await extractAndValidateCA(interaction.message.content, 4);
-        if (!contractAddress) {
-            await interaction.editReply({ content: ERROR_CODES["0006"].message });
-            return;
-        }
-        const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
+        const contractAddress: string | null = extractAndValidateCA(interaction.message.content, 4);
+        if (!contractAddress) return await interaction.editReply({ content: ERROR_CODES["0006"].message });
+        const ui: InteractionEditReplyOptions = await createSellAndManageUI({ user_id: interaction.user.id, ca: contractAddress });
         await interaction.editReply(ui);
     },
     help: async (interaction: ButtonInteraction) => {
@@ -460,12 +454,12 @@ export const BUTTON_COMMANDS = {
     },
     firstCoin: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: 0 });
+        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ user_id: interaction.user.id, page: 0 });
         await interaction.editReply(sellUI);
     },
     lastCoin: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, page: -1 });
+        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ user_id: interaction.user.id, page: -1 });
         await interaction.editReply(sellUI);
     },
     currentCoin: async (interaction: ButtonInteraction) => {
@@ -479,16 +473,12 @@ export const BUTTON_COMMANDS = {
     },
     retryLastSwap: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string = await extractAndValidateCA(interaction.message.content, 0);
+        const contractAddress: string | null = extractAndValidateCA(interaction.message.content, 0);
         if (!contractAddress) {
-            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
-            return;
+            return await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
         }
         const amount: string = extractAmountFromMessage(interaction.message.content);
-        if (!amount) {
-            await interaction.editReply(DEFAULT_ERROR_REPLY);
-            return;
-        }
+        if (!amount) return await interaction.editReply(DEFAULT_ERROR_REPLY);
 
         if (amount.includes("%")) {
             const amountWithoutPercentSymbol = amount.slice(0, -1);

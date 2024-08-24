@@ -62,7 +62,7 @@ import { get } from "https";
 import { AppStats } from "../models/appstats";
 import { Blink } from "../models/blink";
 import { REQUIRED_SEARCH_PARAMS } from "../config/required_params_mapping";
-import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
+import { TOKEN_ADDRESS_STRICT_LIST, TOKEN_STRICT_LIST } from "../config/token_strict_list";
 import { CoinInfo } from "../types/coinInfo";
 import { SWAP_BLINKS_MAPPING } from "../config/swap_blinks_mapping";
 import { CoinStats } from "../types/coinStats";
@@ -152,21 +152,14 @@ export function isNumber(str: string): boolean {
     return !isNaN(num);
 }
 
-export function extractCAFromMessage(message: string, line: number): string | null {
-    const firstLine: string = message.split("\n")[line];
-    const parts: string[] = firstLine.split(" | ");
-    return parts[parts.length - 1];
-}
-
-export async function extractAndValidateCA(message: string, line: number): Promise<string> {
+export function extractAndValidateCA(message: string, line: number): string | null {
     const lineWithCa: string = message.split("\n")[line - 1];
     const caParts: string[] = lineWithCa.split(" | ");
     let ca: string = caParts[caParts.length - 1];
     if (ca.includes("**")) ca = ca.replaceAll("**", ""); // remove bold formatting
     if (ca === "SOL") return "SOL";
-    const isValidAddress: boolean = await checkIfValidAddress(ca);
-    if (!isValidAddress) return "";
-    return ca;
+    const tokenAddress: string | null = parseTokenAddress(ca);
+    return tokenAddress;
 }
 
 export function extractAmountFromMessage(message: string): string {
@@ -243,7 +236,7 @@ export async function decryptPKey(encryptedPKey: string, iv: string): Promise<st
 }
 
 export async function buyCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress: string = await extractAndValidateCA(msgContent, 1);
+    const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
@@ -256,7 +249,7 @@ export async function buyCoin(userId: string, msgContent: string, buttonNumber: 
 }
 
 export async function buyCoinX(userId: string, msgContent: string, amount: string): Promise<UIResponse> {
-    const contractAddress: string = await extractAndValidateCA(msgContent, 1);
+    const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, amount);
@@ -269,7 +262,7 @@ export async function buyCoinX(userId: string, msgContent: string, amount: strin
 }
 
 export async function sellCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress: string = await extractAndValidateCA(msgContent, 4);
+    const contractAddress: string | null = extractAndValidateCA(msgContent, 4);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
@@ -283,7 +276,7 @@ export async function sellCoin(userId: string, msgContent: string, buttonNumber:
 }
 
 export async function sellCoinX(userId: string, msgContent: string, amountInPercent: string): Promise<UIResponse> {
-    const contractAddress: string = await extractAndValidateCA(msgContent, 4);
+    const contractAddress: string | null = extractAndValidateCA(msgContent, 4);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await sellCoinViaAPI(userId, contractAddress, amountInPercent);
@@ -1071,6 +1064,20 @@ export async function checkImageAndFormat(url: string): Promise<string | null> {
         }
 
         return null; // Either it's not an image or content type is not available
+    } catch (error) {
+        return null;
+    }
+}
+
+export function parseTokenAddress(tokenOrTokenAddress: string | null): string | null {
+    if (!tokenOrTokenAddress) return null;
+    // check if user has entered a valid token symbol
+    const parsedAddress: string | undefined = TOKEN_STRICT_LIST[tokenOrTokenAddress as keyof typeof TOKEN_STRICT_LIST];
+    if (parsedAddress) return parsedAddress;
+    
+    try {
+        const tokenPublicKey: PublicKey = new PublicKey(tokenOrTokenAddress);
+        return tokenPublicKey.toBase58();
     } catch (error) {
         return null;
     }

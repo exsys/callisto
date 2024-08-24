@@ -77,7 +77,7 @@ export const MENU_COMMANDS = {
     },
     selectCoin: async (interaction: StringSelectMenuInteraction, contractAddress: string) => {
         await interaction.deferReply({ ephemeral: true });
-        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id, ca: contractAddress });
+        const sellUI: InteractionEditReplyOptions = await createSellAndManageUI({ user_id: interaction.user.id, ca: contractAddress });
         await interaction.editReply(sellUI);
     },
     selectTokenToSend: async (interaction: StringSelectMenuInteraction, contractAddress: string) => {

@@ -7,7 +7,7 @@ const command = {
         .setDescription("Displays your open positions."),
     async execute(interaction: ChatInputCommandInteraction) {
         await interaction.deferReply({ ephemeral: true });
-        const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId: interaction.user.id });
+        const ui: InteractionEditReplyOptions = await createSellAndManageUI({ user_id: interaction.user.id });
         await interaction.editReply(ui);
     }
 }

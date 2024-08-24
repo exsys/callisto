@@ -828,24 +828,23 @@ export async function createReferUI(userId: string): Promise<InteractionEditRepl
     return { content: refCodeMsg, components: [row] };
 }
 
-export async function createPreBuyUI(userId: string, contractAddress: string): Promise<UIResponse> {
+export async function createPreBuyUI(user_id: string, tokenAddress: string): Promise<UIResponse> {
     let content: string = "";
-    const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
-    if (!wallet) return { ui: { content: "No default wallet found. Create one with the /create command." } };
+    const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+    if (!wallet) return { ui: DEFAULT_ERROR_REPLY };
     const walletBalance: number | undefined = await getBalanceOfWalletInLamports(wallet.wallet_address);
     if (walletBalance === undefined) return { ui: { content: ERROR_CODES["0015"].message } };
     if (wallet.settings.auto_buy_value > 0) {
         const txPrio: number = wallet.settings.tx_priority_value;
-
         if (walletBalance < wallet.settings.auto_buy_value * LAMPORTS_PER_SOL + txPrio + 105000) {
             // 105000 is the minimum amount of lamports needed for a swap
             content += `Not enough SOL for autobuy. Please deposit more SOL to your wallet.`;
             // TODO: don't return here, give use coin info anyways but with the content above this line as extra
             return { ui: { content } };
         }
-        const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, String(wallet.settings.auto_buy_value));
+        const response: TxResponse = await buyCoinViaAPI(user_id, tokenAddress, String(wallet.settings.auto_buy_value));
         if (!response.error) {
-            const ui: InteractionEditReplyOptions = await createSellAndManageUI({ userId });
+            const ui: InteractionEditReplyOptions = await createSellAndManageUI({ user_id });
             return { ui, transaction: response };
         } else {
             return createAfterSwapUI(response);
@@ -855,12 +854,12 @@ export async function createPreBuyUI(userId: string, contractAddress: string): P
     // TODO: if dexscreener fails try another method
     // TODO: find a way to get a more up-to-date price of the coin, because dex price can lag like 1 min behind
     // best way for this would be to know how much SOL and how much of the token are in the LP and then simply calculate the price
-    const coinInfo: CoinStats | null = await getCoinPriceStats(contractAddress);
+    const coinInfo: CoinStats | null = await getCoinPriceStats(tokenAddress);
     if (!coinInfo) return { ui: { content: "Coin not found. Please enter a valid contract address." } };
 
     // TODO: calculate price impact
 
-    content += `\n\n**${coinInfo.name}** | **${coinInfo.symbol}** | **${contractAddress}**`;
+    content += `\n\n**${coinInfo.name}** | **${coinInfo.symbol}** | **${tokenAddress}**`;
     content += `\n\n**Price**: $${coinInfo.price}`;
     content += `\n**Market Cap**: $${coinInfo.fdv}`;
     content += `\n**5m**: ${coinInfo.priceChange.m5}%, **1h**: ${coinInfo.priceChange.h1}%, **6h**: ${coinInfo.priceChange.h6}%, **24h**: ${coinInfo.priceChange.h24}%`
@@ -868,12 +867,12 @@ export async function createPreBuyUI(userId: string, contractAddress: string): P
     content += "\n\nTap one of the buttons below to buy the coin.";
 
     const solscanCoinButton = new ButtonBuilder()
-        .setURL(`https://solscan.io/token/${contractAddress}`)
+        .setURL(`https://solscan.io/token/${tokenAddress}`)
         .setLabel('Solscan')
         .setStyle(ButtonStyle.Link);
 
     const dexscreenerButton = new ButtonBuilder()
-        .setURL(`https://dexscreener.com/solana/${contractAddress}`)
+        .setURL(`https://dexscreener.com/solana/${tokenAddress}`)
         .setLabel('Dexscreener')
         .setStyle(ButtonStyle.Link);
 
@@ -964,11 +963,11 @@ export async function createCoinInfoForLimitOrderUI(contract_address: string): P
     }
 }
 
-export async function createSellAndManageUI({ userId, page, ca, successMsg }:
-    { userId: string, page?: number, ca?: string, successMsg?: boolean }
+export async function createSellAndManageUI({ user_id, page, ca, successMsg }:
+    { user_id: string, page?: number, ca?: string, successMsg?: boolean }
 ): Promise<InteractionEditReplyOptions> {
     try {
-        const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
+        const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
 
         const coinsInWallet: CoinStats[] | null = await getAllCoinStatsFromWallet(wallet.wallet_address, wallet.settings.min_position_value);
