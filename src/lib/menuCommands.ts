@@ -87,12 +87,14 @@ export const MENU_COMMANDS = {
         await interaction.editReply(ui);
     },
     selectBlinkType: async (interaction: StringSelectMenuInteraction, blinkType: string) => {
+        console.log(blinkType)
         if (blinkType === "blinkTokenSwap" || blinkType === "blinkDonation") {
             const modal: ModalBuilder = tokenAddressForBlinkModal(blinkType);
             return await interaction.showModal(modal);
         }
         await interaction.deferReply({ ephemeral: true });
         const ui: InteractionEditReplyOptions = await createNewBlinkUI(interaction.user.id, blinkType);
+        console.log(ui)
         await interaction.editReply(ui);
     },
     removeBlinkAction: async (interaction: StringSelectMenuInteraction, buttonValues: string) => {
