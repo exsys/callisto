@@ -22,6 +22,7 @@ import {
     executeBlink,
     isNumber,
     changeBlinkEmbedModal,
+    parseTokenAddress,
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY, ERROR_CODES } from "../config/errors";
@@ -47,14 +48,11 @@ import { BlinkCustomValue } from "../types/blinkCustomValue";
 
 export const MODAL_COMMANDS = {
     buyCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
-        // this one will be called after pasting the contract address in the CA modal
+        // this one will be called after pasting the contract address or symbol in the CA modal
         await interaction.deferReply({ ephemeral: true });
-        const isValidAddress: boolean = await checkIfValidAddress(values[0]);
-        if (!isValidAddress) {
-            await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
-            return;
-        }
-        const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, values[0]);
+        const tokenAddress: string | null = parseTokenAddress(values[0]);
+        if (!tokenAddress) return await interaction.editReply({ content: "Invalid token address or symbol." });
+        const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, tokenAddress);
         await interaction.editReply(uiResponse.ui);
     },
     buyXSol: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -82,8 +80,8 @@ export const MODAL_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const amountToWithdraw = values[0];
         const destinationAddress = values[1];
-        const isValidAddress: boolean = await checkIfValidAddress(destinationAddress);
-        if (!isValidAddress) return await interaction.editReply({ content: "Invalid destination address. Please enter a valid address." });
+        const isValidAddress: boolean = checkIfValidAddress(destinationAddress);
+        if (!isValidAddress) return await interaction.editReply({ content: "Invalid destination wallet address." });
 
         const result: TxResponse = await transferXSol(interaction.user.id, amountToWithdraw, destinationAddress);
         await interaction.editReply({ content: result.response });
@@ -91,8 +89,8 @@ export const MODAL_COMMANDS = {
     },
     withdrawAllSol: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const isValidAddress: boolean = await checkIfValidAddress(values[0]);
-        if (!isValidAddress) return await interaction.editReply({ content: "Invalid destination address. Please enter a valid address." });
+        const isValidAddress: boolean = checkIfValidAddress(values[0]);
+        if (!isValidAddress) return await interaction.editReply({ content: "Invalid destination wallet address." });
 
         const result: TxResponse = await transferAllSol(interaction.user.id, values[0]);
         await interaction.editReply({ content: result.response });
@@ -516,7 +514,8 @@ export const MODAL_COMMANDS = {
     createBlinkWithAddress: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         const blinkType: string = values[0];
-        const tokenAddress: string = values[1];
+        const tokenAddress: string | null = parseTokenAddress(values[1]);
+        if (!tokenAddress) return await interaction.editReply("Invalid token address or token symbol.");
         const ui: InteractionEditReplyOptions = await createNewBlinkUI(interaction.user.id, blinkType, tokenAddress);
         await interaction.editReply(ui);
     },

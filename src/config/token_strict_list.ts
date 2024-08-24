@@ -31,10 +31,12 @@ export const TOKEN_STRICT_LIST = {
     "WOLF": "Faf89929Ni9fbg4gmVZTca7eW6NFg877Jqn6MizT3Gvw",
     "POPCAT": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
     "$WIF": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+    "WIF": "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
     "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
     "MEW": "MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5",
     "MUMU": "5LafQUrVco6o7KMz42eqVEJ9LW31StPyGjeeu5sKoMtA",
     "$MICHI": "5mbK36SZ7J19An8jFochhQS4of8g6BwUjbeCSxBSoWdp",
+    "MICHI": "5mbK36SZ7J19An8jFochhQS4of8g6BwUjbeCSxBSoWdp",
     "RETARDIO": "6ogzHhzdrQr9Pgv6hZ2MNze7UrzBMAFyBBWUYp1Fhitx",
     "HARAMBE": "Fch1oixTPri8zxBnmdCEADoJW2toyFHxqDZacQkwdvSP",
     "JTO": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
@@ -52,6 +54,7 @@ export const TOKEN_STRICT_LIST = {
     "TREMP": "FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv",
     "CHUD": "6yjNqPzTSanBWSa6dxVEgTjePXBrZ2FoHLDQwYwEsyM6",
     "DADDY": "4Cnk9EPnW5ixfLZatCPJjDB1PUtcRpVVgTQukm9epump",
+    "UWU": "UwU8RVXB69Y6Dcju6cN2Qef6fykkq6UUNpB15rZku6Z",
 };
 
 export const TOKEN_ADDRESS_STRICT_LIST = {
@@ -101,4 +104,5 @@ export const TOKEN_ADDRESS_STRICT_LIST = {
     "FU1q8vJpZNUrmqsciSjp8bAKKidGsLmouB8CBdf8TKQv": "tremp",
     "6yjNqPzTSanBWSa6dxVEgTjePXBrZ2FoHLDQwYwEsyM6": "Chud",
     "4Cnk9EPnW5ixfLZatCPJjDB1PUtcRpVVgTQukm9epump": "DADDY",
+    "UwU8RVXB69Y6Dcju6cN2Qef6fykkq6UUNpB15rZku6Z": "UWU",
 };

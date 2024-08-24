@@ -45,8 +45,6 @@ import {
     BLINK_DEFAULT_IMAGE,
     CALLISTO_WEBSITE_ROOT_URL,
     REFCODE_MODAL_STRING,
-    SOL_TOKEN_ADDRESS_MAX_LENGTH,
-    SOL_TOKEN_ADDRESS_MIN_LENGTH,
     SOL_WALLET_ADDRESS_MAX_LENGTH,
     SOL_WALLET_ADDRESS_MIN_LENGTH
 } from "../config/constants";
@@ -667,11 +665,15 @@ export async function createNewBlinkUI(user_id: string, blinkType: string, token
             }
         });
 
+        const label: string = blink.label || "label";
+        const title: string = blink.title || "title";
+        const description: string = blink.description || "description";
+
         const blinkEmbed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
-            .setTitle("title")
-            .setDescription("description")
-            .setAuthor({ name: "label" })
+            .setAuthor({ name: label })
+            .setTitle(title)
+            .setDescription(description)
             .setImage(BLINK_DEFAULT_IMAGE)
             .setURL("https://callistobot.com");
 
@@ -1620,8 +1622,6 @@ export function tokenAddressForBlinkModal(blinkType: string): ModalBuilder {
             .setCustomId('value1')
             .setLabel("Token Address (empty for SOL)")
             .setPlaceholder("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
-            .setMinLength(SOL_TOKEN_ADDRESS_MIN_LENGTH)
-            .setMaxLength(SOL_TOKEN_ADDRESS_MAX_LENGTH)
             .setStyle(TextInputStyle.Short)
             .setRequired(tokenAddressInputIsRequired)
     );
@@ -1931,15 +1931,13 @@ export async function createBlinkCustomValuesModal(
 export function createBuyModal(): ModalBuilder {
     const enterCAModal = new ModalBuilder()
         .setCustomId('buyCoin')
-        .setTitle('Enter Contract Address');
+        .setTitle('Enter Contract Address or Token Symbol');
 
     const CAInput = new TextInputBuilder()
         .setCustomId('value1')
-        .setLabel('Contract Address')
-        .setPlaceholder('Enter Contract Address')
+        .setLabel('Contract Address or Token Symbol')
+        .setPlaceholder('ca or symbol')
         .setRequired(true)
-        .setMinLength(SOL_TOKEN_ADDRESS_MIN_LENGTH)
-        .setMaxLength(SOL_TOKEN_ADDRESS_MAX_LENGTH)
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(CAInput);
@@ -1957,8 +1955,6 @@ export function createLimitOrderModal(): ModalBuilder {
         .setLabel('Contract Address')
         .setPlaceholder('Enter Contract Address')
         .setRequired(true)
-        .setMinLength(SOL_TOKEN_ADDRESS_MIN_LENGTH)
-        .setMaxLength(SOL_TOKEN_ADDRESS_MAX_LENGTH)
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(CAInput);

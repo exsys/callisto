@@ -1111,7 +1111,7 @@ export async function getTokenAccountOfWallet(wallet_address: string, contract_a
 }
 
 // NOTE: for both wallet and contract addresses
-export async function checkIfValidAddress(address: string | null): Promise<boolean> {
+export function checkIfValidAddress(address: string | null): boolean {
     try {
         if (!address) return false;
         const ca: PublicKey = new PublicKey(address);

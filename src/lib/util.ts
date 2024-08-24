@@ -42,7 +42,6 @@ import {
     MessageCreateOptions
 } from "discord.js";
 import {
-    checkIfValidAddress,
     buyCoinViaAPI,
     sellCoinViaAPI,
     getTransactionInfo,
@@ -955,12 +954,12 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
         const user: any = await User.findOne({ user_id });
         if (user) {
             user.blinks_created++;
+            stats.blinks_created++;
             try {
                 await user.save();
             } catch (error) { }
         }
 
-        stats.blinks_created++;
         const newBlink: any = new Blink({
             user_id,
             blink_id: stats.blinks_created,
@@ -970,22 +969,26 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
             token_address,
         });
 
+        let tokenSymbol: string | undefined;
+        if (token_address) {
+            // check if it's in strict list, if not check dexscreener for symbol. use token address if dexscreener fails
+            tokenSymbol = TOKEN_ADDRESS_STRICT_LIST[token_address as keyof typeof TOKEN_ADDRESS_STRICT_LIST];
+            if (!tokenSymbol) {
+                const coinInfo: CoinInfo | null = await getCoinInfo(token_address!);
+                if (coinInfo) tokenSymbol = coinInfo.symbol;
+            }
+            if (!tokenSymbol) tokenSymbol = token_address;
+        } else {
+            tokenSymbol = "SOL";
+        }
+
         if (blink_type === "blinkDonation") {
-            let tokenSymbol: string | undefined;
             const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
             if (!wallet) return null;
             newBlink.wallet_address = wallet.wallet_address;
-            if (token_address) {
-                // get token symbol from dexscreener if it's not in strict list, and use token address if dexscreener fails
-                tokenSymbol = TOKEN_ADDRESS_STRICT_LIST[token_address as keyof typeof TOKEN_ADDRESS_STRICT_LIST];
-                if (!tokenSymbol) {
-                    const coinInfo: CoinInfo | null = await getCoinInfo(token_address!);
-                    if (coinInfo) tokenSymbol = coinInfo.symbol;
-                }
-                if (!tokenSymbol) tokenSymbol = token_address;
-            } else {
-                tokenSymbol = "SOL";
-            }
+            newBlink.label = `Tip ${tokenSymbol}`;
+            newBlink.title = `Tip ${tokenSymbol}`;
+            newBlink.description = `Tip ${tokenSymbol}`;
             newBlink.links = {
                 actions: [
                     { href: `/blinks/${newBlink.blink_id}?amount=0.1`, label: `Tip 0.1 ${tokenSymbol}`, embed_field_value: "Amount: 0.1", token_amount: 0.1 },
@@ -1001,6 +1004,9 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
         }
 
         if (blink_type === "blinkTokenSwap") {
+            newBlink.label = `Buy ${tokenSymbol}`;
+            newBlink.title = `Buy ${tokenSymbol}`;
+            newBlink.description = `Buy ${tokenSymbol}`;
             newBlink.links = {
                 actions: [
                     { href: `/blinks/${newBlink.blink_id}?amount=0.1`, label: "Buy 0.1 SOL", embed_field_value: "Amount: 0.1", token_amount: 0.1 },
@@ -1072,9 +1078,9 @@ export async function checkImageAndFormat(url: string): Promise<string | null> {
 export function parseTokenAddress(tokenOrTokenAddress: string | null): string | null {
     if (!tokenOrTokenAddress) return null;
     // check if user has entered a valid token symbol
-    const parsedAddress: string | undefined = TOKEN_STRICT_LIST[tokenOrTokenAddress as keyof typeof TOKEN_STRICT_LIST];
+    const parsedAddress: string | undefined = TOKEN_STRICT_LIST[tokenOrTokenAddress.toUpperCase() as keyof typeof TOKEN_STRICT_LIST];
     if (parsedAddress) return parsedAddress;
-    
+
     try {
         const tokenPublicKey: PublicKey = new PublicKey(tokenOrTokenAddress);
         return tokenPublicKey.toBase58();
