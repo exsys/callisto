@@ -572,6 +572,7 @@ export async function postDiscordErrorWebhook(error: any, extraInfo?: string): P
             .setTitle("Application error")
             .setAuthor({ name: "Error webhook" })
             .setDescription(`**Error Stack:**\n${errorStack || "undefined"}`)
+            .setTimestamp()
             .addFields(
                 { name: "Extra Info", value: extraInfo || "undefined" },
                 { name: "Error Name", value: errorName || "undefined" },
@@ -600,6 +601,7 @@ export async function postApiErrorWebhook(error: any, extraInfo?: string): Promi
             .setTitle("Application error")
             .setAuthor({ name: "Error webhook" })
             .setDescription(`**Error Stack:**\n${errorStack || "undefined"}`)
+            .setTimestamp()
             .addFields(
                 { name: "Extra Info", value: extraInfo || "undefined" },
                 { name: "Error Name", value: errorName || "undefined" },
