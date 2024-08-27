@@ -102,6 +102,7 @@ const event = {
                         action_url: actionUrl,
                         api_path: actionRuleObj.apiPath,
                         path_pattern: actionRuleObj.pathPattern,
+                        isV1: action.links === undefined
                     }
                     const actionUI: MessageCreateOptions | undefined = await createBlinkUI(urls, action);
                     if (!actionUI) return;

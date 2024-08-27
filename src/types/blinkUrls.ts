@@ -5,4 +5,5 @@ export interface BlinkURLs {
     action_url: string,
     api_path: string,
     path_pattern: string,
+    isV1: boolean,
 }

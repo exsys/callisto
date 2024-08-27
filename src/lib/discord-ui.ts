@@ -736,20 +736,35 @@ export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse):
         });
 
         if (!buttons.length || !dbButtons.length) {
-            // Action UIs can have no buttons, in that case store a disabled default button, else discord API throws an error
             const customId: string = `executeBlinkButton:${appStats.blinks_posted}:${1}`;
-            buttons.push(
-                new ButtonBuilder()
-                    .setCustomId(customId)
-                    .setLabel("Closed")
-                    .setStyle(ButtonStyle.Primary)
-                    .setDisabled(true)
-            );
-            dbButtons.push({
-                button_id: 1,
-                custom_id: customId,
-                label: "Closed",
-            });
+            if (urls.isV1) {
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId(customId)
+                        .setLabel(action.label)
+                        .setStyle(ButtonStyle.Primary)
+                );
+                dbButtons.push({
+                    button_id: 1,
+                    custom_id: customId,
+                    label: action.label,
+                    href: urls.action_url,
+                });
+            } else {
+                // Action UIs can have no buttons, in that case store a disabled default button, else discord API throws an error
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId(customId)
+                        .setLabel("Closed")
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(true)
+                );
+                dbButtons.push({
+                    button_id: 1,
+                    custom_id: customId,
+                    label: "Closed",
+                });
+            }
         }
 
         let rows: ActionRowBuilder<ButtonBuilder>[] = [];
