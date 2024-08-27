@@ -42,6 +42,7 @@ const event = {
                         root_url: actionRootUrl.origin,
                         action_root_url: actionRootUrl.origin,
                         action_url: reqUrl,
+                        isV1: action.links === undefined,
                     }
                     const actionUI: MessageCreateOptions | undefined = await createBlinkUI(urls, action);
                     if (!actionUI) return;
