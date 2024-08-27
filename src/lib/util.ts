@@ -634,6 +634,11 @@ export function isPositiveNumber(numberToCheck: number | string): boolean {
 
 // find the part of originalUrl which matches with pathPattern
 export function replaceWildcards(originalUrl: string, apiPath: string, pathPattern: string): string | undefined {
+    if (!apiPath.includes("https://")) {
+        // means it's a relative url
+        const url: URL = new URL(originalUrl);
+        apiPath = `${url.origin}${apiPath.startsWith('/') ? '' : '/'}${apiPath}`;
+    }
     let escapedPattern: string = pathPattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
     // replace * with a regex group that matches a single segment and are not part of a double star "**"
     escapedPattern = escapedPattern.replace(/(?<!\*)\*(?!\*)/g, '([^/]+)');

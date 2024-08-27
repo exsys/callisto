@@ -87,7 +87,14 @@ const event = {
                     }
                     await message.reply({ embeds: [actionUIExists.embed], components: actionUIExists.rows });
                 } else {
-                    const actionRootUrl: URL = new URL(actionRuleObj.apiPath);
+                    let actionRootUrl: URL;
+                    if (actionRuleObj.apiPath.includes("https://")) {
+                        // absolute api path urls
+                        actionRootUrl = new URL(actionRuleObj.apiPath);
+                    } else {
+                        // relative api path urls
+                        actionRootUrl = new URL(actionUrl);
+                    }
                     const urls: BlinkURLs = {
                         posted_url: url.href,
                         root_url: rootUrl,
