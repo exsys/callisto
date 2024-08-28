@@ -76,6 +76,7 @@ import { PROMO_REF_MAPPING } from "../config/promo_ref_mapping";
 import { CoinPriceQuote } from "../types/coinPriceQuote";
 import { ParsedProgramAccountWrittenOut } from "../types/parsedProgramAccount";
 import { ActionPostResponse } from "@solana/actions";
+import { AppStats } from "../models/appstats";
 
 
 /*jitoConn: Connection = new Connection("https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/transactions", {
@@ -563,11 +564,23 @@ export async function buyCoinViaAPI(user_id: string, contract_address: string, a
         const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
         txResponse.processing_time_function = functionProcessingTime;
         txResponse.processing_time_tx = txProcessingTime;
-        if (!result) return txExpiredError({ ...txResponse, include_retry_button: true });
-        if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err, include_retry_button: true });
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        if (!result) {
+            appStats.expired_transactions++;
+            await appStats.save();
+            return txExpiredError({ ...txResponse, include_retry_button: true });
+        }
+        if (result.meta?.err) {
+            appStats.failed_transactions++;
+            await appStats.save();
+            return txMetaError({ ...txResponse, error: result.meta?.err, include_retry_button: true });
+        }
 
         txResponse.success = true;
         txResponse.response = `Successfully swapped: https://solscan.io/tx/${signature}`;
+        // TODO: let a worker do this or something like that, so user doesn't lose any performance
+        appStats.successful_transactions++;
+        await appStats.save();
         return successResponse(txResponse);
     } catch (error) {
         const endTimeFunction: number = Date.now();
@@ -677,12 +690,23 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
         const functionProcessingTime: number = (endTimeTx - startTimeFunction) / 1000;
         txResponse.processing_time_function = functionProcessingTime;
         txResponse.processing_time_tx = txProcessingTime;
-        if (!result) return txExpiredError({ ...txResponse, include_retry_button: true });
-        if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err, include_retry_button: true });
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        if (!result) {
+            appStats.expired_transactions++;
+            await appStats.save();
+            return txExpiredError({ ...txResponse, include_retry_button: true });
+        }
+        if (result.meta?.err) {
+            appStats.failed_transactions++;
+            await appStats.save();
+            return txMetaError({ ...txResponse, error: result.meta?.err, include_retry_button: true });
+        }
 
         txResponse.success = true;
         txResponse.referral = user.referral;
         txResponse.response = `Successfully swapped: https://solscan.io/tx/${signature}`;
+        appStats.successful_transactions++;
+        await appStats.save();
         if (wallet.swap_fee === 0) txResponse.total_fee = -1;
         return successResponse(txResponse);
     } catch (error) {

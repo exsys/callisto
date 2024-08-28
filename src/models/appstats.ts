@@ -26,12 +26,24 @@ const AppStatsSchema = new Schema({
         type: Number,
         default: 0,
     },
-    successful_transactions: {
+    blinks_executed: {
         type: Number, // TODO
         default: 0,
     },
-    failed_transactions: {
+    failed_blinks_execution: {
         type: Number, // TODO
+        default: 0,
+    },
+    successful_transactions: {
+        type: Number,
+        default: 0,
+    },
+    expired_transactions: {
+        type: Number,
+        default: 0,
+    },
+    failed_transactions: {
+        type: Number,
         default: 0,
     },
     successful_token_transfers: {
