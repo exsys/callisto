@@ -17,6 +17,7 @@ import {
     tokenAddressForBlinkModal
 } from "./discord-ui";
 import { extractUserIdFromMessage } from "./util";
+import { AppStats } from "../models/appstats";
 
 export const MENU_COMMANDS = {
     selectWallet: async (interaction: StringSelectMenuInteraction, newDefault: string) => {
@@ -47,9 +48,10 @@ export const MENU_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const allWallets: any[] = await Wallet.find({ user_id: interaction.user.id });
         if (!allWallets.length) {
-            await interaction.editReply({ content: "No wallets found. Create a wallet with the /create command to get started." });
+            await interaction.editReply({ content: "No wallets found." });
             return;
         }
+
 
         const removeWallet: any = allWallets.find((wallet: any) => wallet.wallet_address === walletToRemove);
         if (!removeWallet) {
@@ -69,7 +71,12 @@ export const MENU_COMMANDS = {
             if (removeWallet.is_default_wallet) {
                 removeWallet.is_default_wallet = false;
             }
+            
+            const appStats: any = await AppStats.findOne({ stats_id: 1 });
+            appStats.wallets_deleted++;
+
             await removeWallet.save();
+            await appStats.save();
             await interaction.editReply({ content: "Successfully removed wallet." });
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);

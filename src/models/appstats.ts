@@ -15,7 +15,7 @@ const AppStatsSchema = new Schema({
         default: 0,
     },
     wallets_deleted: {
-        type: Number, // TODO
+        type: Number,
         default: 0,
     },
     blinks_posted: {
