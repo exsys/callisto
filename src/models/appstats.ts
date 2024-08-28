@@ -61,6 +61,10 @@ const AppStatsSchema = new Schema({
     failed_token_transfers: {
         type: Number,
         default: 0,
+    },
+    claimed_ref_fees: {
+        type: Number, // in lamports
+        default: 0,
     }
 });
 

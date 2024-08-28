@@ -35,7 +35,8 @@ import {
     TOKEN_PROGRAM,
     CALLISTO_FEE_WALLET,
     DEFAULT_RPC_URL,
-    WRAPPED_SOL_ADDRESS
+    WRAPPED_SOL_ADDRESS,
+    REF_FEE_MIN_CLAIM_AMOUNT
 } from "../config/constants";
 import { ParsedTokenInfo } from "../types/parsedTokenInfo";
 import { CoinInfo } from "../types/coinInfo";
@@ -956,11 +957,12 @@ export async function payRefFees(user_id: string, amount: number): Promise<TxRes
         }
         txResponse.token_amount = amountToPayInLamports;
 
+        // NOTE: RENT_FEE is subtracted above, so if users has less than 0.002 SOL this will be below 0
         if (amountToPayInLamports < 0) {
-            txResponse.response = "You don't have enough fees collected yet to claim them. Min amount is 0.0021 SOL.";
+            txResponse.response = `You don't have enough fees collected yet to claim them. Min amount is ${REF_FEE_MIN_CLAIM_AMOUNT} SOL.`;
             txResponse.error = "You don't have enough fees collected yet to claim them.";
             txResponse.success = false;
-            return successResponse(txResponse);
+            return errorResponse(txResponse);
         }
 
         const { blockhash, lastValidBlockHeight } = await getConnection().getLatestBlockhash("finalized");
@@ -992,7 +994,10 @@ export async function payRefFees(user_id: string, amount: number): Promise<TxRes
         if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
 
         txResponse.success = true;
-        txResponse.response = `Claim request received. Your fees will arrive soon. Transaction ID: ${signature}`;
+        txResponse.response = `Successfully claimed. https://solscan.io/tx/${signature}`;
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        appStats.claimed_ref_fees += amountToPayInLamports;
+        await appStats.save();
         return successResponse(txResponse);
     } catch (error) {
         await postDiscordErrorWebhook("app", error, `payRefFees unknown error. User id: ${user_id} | Amount: ${amount}`);
