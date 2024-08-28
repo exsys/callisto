@@ -159,13 +159,17 @@ export function isNumber(str: string): boolean {
     return !isNaN(num);
 }
 
-export function extractAndValidateCA(message: string, line: number): string | null {
+// extract and validate CA from exact text line. check secondLine if present and CA does not exist on "line"
+export function extractAndValidateCA(message: string, line: number, secondLine?: number): string | null {
     const lineWithCa: string = message.split("\n")[line - 1];
     const caParts: string[] = lineWithCa.split(" | ");
     let ca: string = caParts[caParts.length - 1];
     if (ca.includes("**")) ca = ca.replaceAll("**", ""); // remove bold formatting
     if (ca === "SOL") return "SOL";
     const tokenAddress: string | null = parseTokenAddress(ca);
+    if (!tokenAddress && secondLine) {
+        return extractAndValidateCA(message, secondLine);
+    }
     return tokenAddress;
 }
 
@@ -242,63 +246,63 @@ export async function decryptPKey(encryptedPKey: string, iv: string): Promise<st
     }
 }
 
-export async function buyCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
+export async function buyCoin(user_id: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
+    const contractAddress: string | null = extractAndValidateCA(msgContent, 1, 4);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
-        const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, `buy_button_${buttonNumber}`);
+        const response: TxResponse = await buyCoinViaAPI(user_id, contractAddress, `buy_button_${buttonNumber}`);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
-        await saveDbTransaction({ user_id: userId, tx_type: "swap_buy", error });
+        await saveDbTransaction({ user_id, tx_type: "swap_buy", error });
         return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
-export async function buyCoinX(userId: string, msgContent: string, amount: string): Promise<UIResponse> {
-    const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
+export async function buyCoinX(user_id: string, msgContent: string, amount: string): Promise<UIResponse> {
+    const contractAddress: string | null = extractAndValidateCA(msgContent, 1, 4);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
-        const response: TxResponse = await buyCoinViaAPI(userId, contractAddress, amount);
+        const response: TxResponse = await buyCoinViaAPI(user_id, contractAddress, amount);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
-        await saveDbTransaction({ user_id: userId, tx_type: "swap_buy", error });
+        await saveDbTransaction({ user_id, tx_type: "swap_buy", error });
         return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
-export async function sellCoin(userId: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
+export async function sellCoin(user_id: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
     const contractAddress: string | null = extractAndValidateCA(msgContent, 4);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
-        const response: TxResponse = await sellCoinViaAPI(userId, contractAddress, `sell_button_${buttonNumber}`);
+        const response: TxResponse = await sellCoinViaAPI(user_id, contractAddress, `sell_button_${buttonNumber}`);
         await saveDbTransaction(response);
         const storeFee = response.referral && (response.total_fee !== -1 ? true : false); // users who's swap fee is 0. this is so those swaps don't try to store unpaid ref fees in case such a user has used a ref code
         return createAfterSwapUI(response, storeFee);
     } catch (error) {
-        await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
+        await saveDbTransaction({ user_id, tx_type: "swap_sell", error });
         return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
-export async function sellCoinX(userId: string, msgContent: string, amountInPercent: string): Promise<UIResponse> {
+export async function sellCoinX(user_id: string, msgContent: string, amountInPercent: string): Promise<UIResponse> {
     const contractAddress: string | null = extractAndValidateCA(msgContent, 4);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
-        const response: TxResponse = await sellCoinViaAPI(userId, contractAddress, amountInPercent);
+        const response: TxResponse = await sellCoinViaAPI(user_id, contractAddress, amountInPercent);
         await saveDbTransaction(response);
         const storeFee = response.referral && (response.total_fee !== -1 ? true : false); // users who's swap fee is 0
         return createAfterSwapUI(response, storeFee);
     } catch (error) {
-        await saveDbTransaction({ user_id: userId, tx_type: "swap_sell", error });
+        await saveDbTransaction({ user_id, tx_type: "swap_sell", error });
         return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
-export async function exportPrivateKeyOfUser(userId: string): Promise<any | null> {
+export async function exportPrivateKeyOfUser(user_id: string): Promise<any | null> {
     try {
-        const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
+        const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true });
         if (!wallet) return null;
         wallet.key_exported = true;
         await wallet.save();
