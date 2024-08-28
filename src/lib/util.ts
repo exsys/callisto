@@ -1039,7 +1039,7 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
         }
 
         await newBlink.save();
-        await stats.save();
+        await appStats.save();
         return newBlink;
     } catch (error) {
         await saveError({
