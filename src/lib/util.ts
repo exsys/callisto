@@ -15,7 +15,7 @@ import {
     DEFAULT_ERROR_REPLY,
     ERROR_CODES
 } from "../config/errors";
-import { addStartButton, createAfterSwapUI, createDepositEmbed } from "./discord-ui";
+import { addStartButton, createAfterSwapUI, createDepositButton, createDepositEmbed } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
     API_ERRORS_WEBHOOK,
@@ -686,7 +686,10 @@ export async function executeBlink(
         wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
         const solBalance = await getBalanceOfWalletInLamports(wallet.wallet_address);
-        if (solBalance === 0) return { content: "Not enough SOL to execute this Blink." };
+        if (solBalance === 0) {
+            const depositButton = createDepositButton();
+            return { content: "Not enough SOL to execute this Blink.", components: [depositButton] };
+        }
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
     }

@@ -2624,6 +2624,15 @@ export function createBlinkCreationButtons(
 
 /************************************************************** UTILITY **********************************************************/
 
+export function createDepositButton(): ActionRowBuilder<ButtonBuilder> {
+    const depositButton = new ButtonBuilder()
+        .setCustomId('deposit')
+        .setLabel('Deposit')
+        .setStyle(ButtonStyle.Secondary);
+
+    return new ActionRowBuilder<ButtonBuilder>().addComponents(depositButton);
+}
+
 export async function createDepositEmbed(user_id: string, extra_content?: string): Promise<InteractionReplyOptions> {
     try {
         const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true });

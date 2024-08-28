@@ -8,5 +8,6 @@ export interface BlinkResponse {
     button_id?: string,
     params?: TypedActionParameter[],
     success?: boolean,
+    components?: any,
     deposit_response?: InteractionReplyOptions,
 }

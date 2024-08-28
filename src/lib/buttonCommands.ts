@@ -544,7 +544,7 @@ export const BUTTON_COMMANDS = {
                     const ui: InteractionReplyOptions = executeBlinkSuccessMessage(result.content!);
                     await interaction.editReply(ui);
                 } else {
-                    await interaction.editReply(result.content!)
+                    await interaction.editReply({ content: result.content!, components: result.components });
                 }
             }
         } catch (error) {
