@@ -84,11 +84,23 @@ const event = {
                 // if action url is already stored in database use that ui object
                 const actionUIExists: any = await ActionUI.findOne({ action_url: actionUrl }).lean();
                 if (actionUIExists) {
+                    let attachment: AttachmentBuilder[] | undefined;
                     if (rootUrl === CALLISTO_WEBSITE_ROOT_URL && actionUIExists.blink_type === "blinkVote") {
+                        // "Show Result" button for Callisto vote blinks
                         const showResultsButton = voteResultButton(actionUIExists.blink_id);
                         actionUIExists.rows.push(showResultsButton);
                     }
-                    await message.reply({ embeds: [actionUIExists.embed], components: actionUIExists.rows });
+                    if (actionUIExists.icon_url_is_redirect) {
+                        const imgResponse = await fetch(action.icon, { redirect: 'follow' });
+                        const contentType = imgResponse.headers.get('Content-Type');
+                        if (contentType?.startsWith("image/")) {
+                            const arrayBuffer: ArrayBuffer = await imgResponse.arrayBuffer();
+                            const imageBuffer: Buffer = Buffer.from(arrayBuffer);
+                            attachment = [new AttachmentBuilder("image.png").setFile(imageBuffer)];
+                            actionUIExists.embed.image.url = "attachment://image.png";
+                        }
+                    }
+                    await message.reply({ embeds: [actionUIExists.embed], components: actionUIExists.rows, files: attachment });
                 } else {
                     let actionRootUrl: URL;
                     if (actionRuleObj.apiPath.includes("https://")) {

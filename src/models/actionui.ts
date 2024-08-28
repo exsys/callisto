@@ -38,6 +38,10 @@ const ActionUiSchema = new Schema({
         type: String, // apiPath from ActionRuleObject. Only defined if actions.json found
         required: false,
     },
+    icon_url_is_redirect: {
+        type: Boolean,
+        required: false,
+    },
     action: {
         type: {
             icon: String,

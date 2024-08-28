@@ -702,24 +702,26 @@ export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse):
             .setDescription(action.description ? action.description : null)
             .setAuthor({ name: action.label });
         const imgResponse = await fetch(action.icon, { redirect: 'follow' });
+        let iconUrlIsRedirect: boolean = false;
 
-        let attachment: AttachmentBuilder | undefined;
+        let attachment: AttachmentBuilder[] | undefined;
         if (action.icon.endsWith(".svg")) {
             const buffer: Buffer = await urlToBuffer(action.icon);
             const imageBuffer: Buffer = await sharp(buffer).png().toBuffer();
-            attachment = new AttachmentBuilder("image.png").setFile(imageBuffer);
+            attachment = [new AttachmentBuilder("image.png").setFile(imageBuffer)];
             embed.setImage("attachment://image.png");
         } else {
             if (imgResponse.url !== action.icon) {
                 // this block is executed if the image url returned a redirect url which contains the image
-                // since discord can't handle these cases, this workaround is implemented
+                // since discord can't handle those cases, this workaround is implemented
                 const contentType = imgResponse.headers.get('Content-Type');
                 if (contentType?.startsWith("image/")) {
                     const arrayBuffer: ArrayBuffer = await imgResponse.arrayBuffer();
                     const imageBuffer: Buffer = Buffer.from(arrayBuffer);
-                    attachment = new AttachmentBuilder("image.png").setFile(imageBuffer);
+                    attachment = [new AttachmentBuilder("image.png").setFile(imageBuffer)];
                     embed.setImage("attachment://image.png");
                 }
+                iconUrlIsRedirect = true;
                 embed.setImage(imgResponse.url);
             } else {
                 embed.setImage(action.icon);
@@ -808,6 +810,7 @@ export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse):
             embed: embed.toJSON(),
             has_attachment: attachment ? true : false,
         });
+        if (iconUrlIsRedirect) newActionUI.icon_url_is_redirect = true;
         if (urls.root_url === CALLISTO_WEBSITE_ROOT_URL) {
             // also store the blink_id if it's a callisto blink
             const urlSplit: string[] = urls.posted_url.split("/");
@@ -825,7 +828,7 @@ export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse):
         // TODO: retry a few times if save error
         await newActionUI.save();
         await appStats.save();
-        return { embeds: [embed], components: rows, files: attachment ? [attachment] : undefined };
+        return { embeds: [embed], components: rows, files: attachment };
     } catch (error) {
         await postDiscordErrorWebhook("blinks", error, `createBlinkUI in discord-ui.ts: originUrl: ${urls.posted_url} | actionUrl: ${urls.action_url} | action: ${JSON.stringify(action)}`);
         return undefined;
