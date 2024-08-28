@@ -28,7 +28,8 @@ import {
     urlToBuffer,
     createNewBlink,
     isPositiveNumber,
-    checkImageAndFormat
+    checkImageAndFormat,
+    postDiscordErrorWebhook
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinStats";
@@ -699,8 +700,8 @@ export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse):
             .setURL(urls.posted_url)
             .setTitle(action.title)
             .setDescription(action.description ? action.description : null)
-            .setTimestamp()
             .setAuthor({ name: action.label });
+        const imgResponse = await fetch(action.icon, { redirect: 'follow' });
 
         let attachment: AttachmentBuilder | undefined;
         if (action.icon.endsWith(".svg")) {
@@ -709,7 +710,20 @@ export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse):
             attachment = new AttachmentBuilder("image.png").setFile(imageBuffer);
             embed.setImage("attachment://image.png");
         } else {
-            embed.setImage(action.icon);
+            if (imgResponse.url !== action.icon) {
+                // this block is executed if the image url returned a redirect url which contains the image
+                // since discord can't handle these cases, this workaround is implemented
+                const contentType = imgResponse.headers.get('Content-Type');
+                if (contentType?.startsWith("image/")) {
+                    const arrayBuffer: ArrayBuffer = await imgResponse.arrayBuffer();
+                    const imageBuffer: Buffer = Buffer.from(arrayBuffer);
+                    attachment = new AttachmentBuilder("image.png").setFile(imageBuffer);
+                    embed.setImage("attachment://image.png");
+                }
+                embed.setImage(imgResponse.url);
+            } else {
+                embed.setImage(action.icon);
+            }
         }
 
         const appStats: any = await AppStats.findOne({ stats_id: 1 });
@@ -813,10 +827,7 @@ export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse):
         await appStats.save();
         return { embeds: [embed], components: rows, files: attachment ? [attachment] : undefined };
     } catch (error) {
-        await saveError({
-            function_name: "createBlinkUI",
-            error: `originUrl: ${urls.posted_url} | actionUrl: ${urls.action_url} | action: ${JSON.stringify(action)} | original error: ${JSON.stringify(error)}`,
-        });
+        await postDiscordErrorWebhook("blinks", error, `createBlinkUI in discord-ui.ts: originUrl: ${urls.posted_url} | actionUrl: ${urls.action_url} | action: ${JSON.stringify(action)}`);
         return undefined;
     }
 }

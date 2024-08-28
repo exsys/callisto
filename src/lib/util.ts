@@ -20,13 +20,14 @@ import { Transaction } from "../models/transaction";
 import {
     API_ERRORS_WEBHOOK,
     BLINK_DEFAULT_IMAGE,
-    ERRORS_WEBHOOK,
+    APP_ERRORS_WEBHOOK,
     FEE_TOKEN_ACCOUNT,
     LEVEL1_FEE_IN_PERCENT,
     LEVEL2_FEE_IN_PERCENT,
     LEVEL3_FEE_IN_PERCENT,
     REFCODE_MODAL_STRING,
-    WRAPPED_SOL_ADDRESS
+    WRAPPED_SOL_ADDRESS,
+    BLINK_ERRORS_WEBHOOK
 } from "../config/constants";
 import { TxResponse } from "../types/txResponse";
 import { UIResponse } from "../types/uiResponse";
@@ -106,6 +107,7 @@ export async function createWallet(userId: string): Promise<string | undefined> 
 
         return solanaWallet.publicKey.toString();
     } catch (error) {
+        await postDiscordErrorWebhook("app", error, "createWallet: failed to create a new wallet.");
         return undefined;
     }
 }
@@ -562,15 +564,44 @@ export async function claimUnpaidRefFees(userId: string): Promise<UIResponse> {
     }
 }
 
-export async function postDiscordErrorWebhook(error: any, extraInfo?: string): Promise<void> {
+export async function postDiscordErrorWebhook(errorType: string, error: any, extraInfo?: string): Promise<void> {
     try {
+        let title: string;
+        let author: string;
+        let webhookUrl: string;
+        switch (errorType) {
+            case "app": {
+                title = "Application error";
+                author = "App error webhook";
+                webhookUrl = APP_ERRORS_WEBHOOK;
+                break;
+            }
+            case "api": {
+                title = "API error";
+                author = "API error webhook";
+                webhookUrl = API_ERRORS_WEBHOOK;
+                break;
+            }
+            case "blinks": {
+                title = "Blinks error";
+                author = "Blinks error webhook";
+                webhookUrl = BLINK_ERRORS_WEBHOOK;
+                break;
+            }
+            default: {
+                title = "Unknown error";
+                author = "Unknown error";
+                webhookUrl = APP_ERRORS_WEBHOOK;
+                break;
+            }
+        }
         const errorStack: string | undefined = truncateString(error.stack, 4096);
         const errorName: string | undefined = truncateString(error.name, 1024)
         const errorMsg: string | undefined = truncateString(error.message, 1024);
         const embed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
-            .setTitle("Application error")
-            .setAuthor({ name: "Error webhook" })
+            .setTitle(title)
+            .setAuthor({ name: author })
             .setDescription(`**Error Stack:**\n${errorStack || "undefined"}`)
             .setTimestamp()
             .addFields(
@@ -581,42 +612,13 @@ export async function postDiscordErrorWebhook(error: any, extraInfo?: string): P
         const body: string = JSON.stringify({
             embeds: [embed],
         });
-        await fetch(ERRORS_WEBHOOK, {
+        await fetch(webhookUrl, {
             method: "POST",
             body: body,
             headers: { "Content-Type": "application/json" },
         });
     } catch (error) {
-        console.log(error);
-    }
-}
-
-export async function postApiErrorWebhook(error: any, extraInfo?: string): Promise<void> {
-    try {
-        const errorStack: string | undefined = truncateString(error.stack, 4096);
-        const errorName: string | undefined = truncateString(error.name, 1024)
-        const errorMsg: string | undefined = truncateString(error.message, 1024);
-        const embed: EmbedBuilder = new EmbedBuilder()
-            .setColor(0x4F01EB)
-            .setTitle("Application error")
-            .setAuthor({ name: "Error webhook" })
-            .setDescription(`**Error Stack:**\n${errorStack || "undefined"}`)
-            .setTimestamp()
-            .addFields(
-                { name: "Extra Info", value: extraInfo || "undefined" },
-                { name: "Error Name", value: errorName || "undefined" },
-                { name: "Error Message", value: errorMsg || "undefined" },
-            );
-        const body: string = JSON.stringify({
-            embeds: [embed],
-        });
-        await fetch(API_ERRORS_WEBHOOK, {
-            method: "POST",
-            body: body,
-            headers: { "Content-Type": "application/json" },
-        });
-    } catch (error) {
-        console.log(error);
+        console.log(error); // NOTE: this log is needed, so in case the error isn't posted we still can check what went wrong.
     }
 }
 
@@ -669,16 +671,17 @@ export async function executeBlink(
     let wallet: any;
     let user: any;
     try {
-        wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
-        if (!wallet) return { content: ERROR_CODES["0003"].message };
         user = await User.findOne({ user_id });
         if (!user) {
             const walletAddress: string | undefined = await createWallet(user_id);
             if (!walletAddress) {
+                // NOTE: this block is only executed if the wallet creation failed. probably database connection down.
                 return { content: "No wallet found. Please create a wallet with the /start command first." };
             }
-            return { content: `You have no SOL balance. Load up your wallet to use Blinks.\n\nYour wallet address: ${walletAddress}` };
+            return { content: `You have no SOL balance. Load up your wallet to use Blinks.\n\nYour wallet address:\n${walletAddress}` };
         }
+        wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+        if (!wallet) return { content: ERROR_CODES["0003"].message };
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
     }

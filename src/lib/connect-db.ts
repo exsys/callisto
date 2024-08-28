@@ -39,7 +39,7 @@ async function connectDb() {
     try {
         cached.conn = await cached.promise;
     } catch (e) {
-        await postDiscordErrorWebhook(e);
+        await postDiscordErrorWebhook("app", e);
         cached.promise = null;
         throw e;
     }

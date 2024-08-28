@@ -18,6 +18,7 @@ const event = {
             if (url.protocol !== "https:") return;
             const isBlinkUrl: boolean = BLINK_URL_REGEX.test(url.href);
             if (isBlinkUrl) {
+                // this block is executed if the url has the "solana-action:" schema
                 const reqUrl: string = url.href.split("solana-action:")[1];
                 const action: ActionGetResponse = await (
                     await fetch(reqUrl)
@@ -49,6 +50,7 @@ const event = {
                     await message.reply(actionUI);
                 }
             } else {
+                // this block is executed if it's a normal url without "solana-action:"
                 const rootUrl: string | undefined = url.origin;
                 if (!rootUrl) return;
                 const actionRule: ActionRule | any = await (

@@ -21,7 +21,6 @@ import {
     getFeeInPercentFromFeeLevel,
     getKeypairFromEncryptedPKey,
     isPositiveNumber,
-    postApiErrorWebhook,
     postDiscordErrorWebhook,
     saveError,
     successResponse
@@ -152,7 +151,7 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
         if (result.meta?.err) {
             // TODO: if result.meta.err.InsufficientFundsForRent try again but 
             // maxSolAmountToSend = balanceInLamports - GAS_FEE_FOR_SOL_TRANSFER - RENT_FEE; -> minus rent fee
-            await postDiscordErrorWebhook(result.meta, `transferAllSol tx meta error. User id: ${user_id}`);
+            await postDiscordErrorWebhook("app", result.meta, `transferAllSol tx meta error. User id: ${user_id}`);
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 
@@ -160,7 +159,7 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
         txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
         return successResponse(txResponse);
     } catch (error) {
-        await postDiscordErrorWebhook(error, `transferAllSol unknown error. User id: ${user_id}`);
+        await postDiscordErrorWebhook("app", error, `transferAllSol unknown error. User id: ${user_id}`);
         return unknownError({ ...txResponse, error });
     }
 }
@@ -230,7 +229,7 @@ export async function transferXSol(user_id: string, amount: string, recipientAdd
 
         if (!result) return txExpiredError(txResponse);
         if (result.meta?.err) {
-            await postDiscordErrorWebhook(result.meta, `transferXSol tx meta error. User id: ${user_id}`);
+            await postDiscordErrorWebhook("app", result.meta, `transferXSol tx meta error. User id: ${user_id}`);
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 
@@ -238,7 +237,7 @@ export async function transferXSol(user_id: string, amount: string, recipientAdd
         txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
         return successResponse(txResponse);
     } catch (error) {
-        await postDiscordErrorWebhook(error, `transferXSol unknown error. User id: ${user_id}`);
+        await postDiscordErrorWebhook("app", error, `transferXSol unknown error. User id: ${user_id}`);
         return unknownError({ ...txResponse, error });
     }
 }
@@ -312,7 +311,7 @@ export async function sendXPercentOfCoin(user_id: string, contract_address: stri
 
         if (!result) return txExpiredError(txResponse);
         if (result.meta?.err) {
-            await postDiscordErrorWebhook(result.meta, `sendXPercentOfCoin tx meta error. User id: ${user_id}`);
+            await postDiscordErrorWebhook("app", result.meta, `sendXPercentOfCoin tx meta error. User id: ${user_id}`);
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 
@@ -320,7 +319,7 @@ export async function sendXPercentOfCoin(user_id: string, contract_address: stri
         txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
         return successResponse(txResponse);
     } catch (error) {
-        await postDiscordErrorWebhook(error, `sendXPercentOfCoin unknown error. User id: ${user_id}`);
+        await postDiscordErrorWebhook("app", error, `sendXPercentOfCoin unknown error. User id: ${user_id}`);
         return unknownError({ ...txResponse, error });
     }
 }
@@ -400,7 +399,7 @@ export async function sendCoin(user_id: string, contract_address: string, amount
 
         if (!result) return txExpiredError(txResponse);
         if (result.meta?.err) {
-            await postDiscordErrorWebhook(result.meta, `sendXPercentOfCoin tx meta error. User id: ${user_id}`);
+            await postDiscordErrorWebhook("app", result.meta, `sendXPercentOfCoin tx meta error. User id: ${user_id}`);
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 
@@ -408,7 +407,7 @@ export async function sendCoin(user_id: string, contract_address: string, amount
         txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
         return successResponse(txResponse);
     } catch (error) {
-        await postDiscordErrorWebhook(error, `sendCoin unknown error. User id: ${user_id}`);
+        await postDiscordErrorWebhook("app", error, `sendCoin unknown error. User id: ${user_id}`);
         return unknownError({ ...txResponse, error });
     }
 }
@@ -575,7 +574,7 @@ export async function buyCoinViaAPI(user_id: string, contract_address: string, a
         const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
         txResponse.processing_time_function = functionProcessingTime;
         txResponse.error = `buyCoinViaAPI unknown error: ${error}`;
-        await postDiscordErrorWebhook(error, `buyCoinViaAPI unknown error. User id: ${user_id}`);
+        await postDiscordErrorWebhook("app", error, `buyCoinViaAPI unknown error. User id: ${user_id}`);
         return unknownError(txResponse);
     }
 }
@@ -691,7 +690,7 @@ export async function sellCoinViaAPI(user_id: string, contract_address: string, 
         const functionProcessingTime: number = (endTimeFunction - startTimeFunction) / 1000;
         txResponse.processing_time_function = functionProcessingTime;
         txResponse.error = `sellCoinViaAPI unknown error: ${error}`;
-        await postDiscordErrorWebhook(error, `sellCoinViaAPI unknown error. User id: ${user_id}`);
+        await postDiscordErrorWebhook("app", error, `sellCoinViaAPI unknown error. User id: ${user_id}`);
         return unknownError(txResponse);
     }
 }
@@ -735,7 +734,7 @@ export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostRe
         return txResponse;
     } catch (error) {
         txResponse.success = false;
-        await postDiscordErrorWebhook(error, `executeBlink unknown error. User id: ${wallet.user_id}`);
+        await postDiscordErrorWebhook("app", error, `executeBlink unknown error. User id: ${wallet.user_id}`);
         return unknownError({ ...txResponse, error });
     }
 }
@@ -827,7 +826,7 @@ export async function createBuyLimitOrder(
         txResponse.response = "Successfully set buy limit order.";
         return successResponse(txResponse);
     } catch (error) {
-        await postDiscordErrorWebhook(error, `createBuyLimitOrder unknown error. User id: ${user_id}`);
+        await postDiscordErrorWebhook("app", error, `createBuyLimitOrder unknown error. User id: ${user_id}`);
         return unknownError({ ...txResponse, error });
     }
 }
@@ -850,7 +849,7 @@ export async function createSellLimitOrder(
         txResponse.response = "Successfully set sell limit order.";
         return successResponse(txResponse);
     } catch (error) {
-        await postDiscordErrorWebhook(error, `createSellLimitOrder unknown error. User id: ${user_id}`);
+        await postDiscordErrorWebhook("app", error, `createSellLimitOrder unknown error. User id: ${user_id}`);
         return unknownError({ ...txResponse, error });
     }
 }
@@ -925,7 +924,7 @@ export async function payRefFees(user_id: string, amount: number): Promise<TxRes
         txResponse.response = `Claim request received. Your fees will arrive soon. Transaction ID: ${signature}`;
         return successResponse(txResponse);
     } catch (error) {
-        await postDiscordErrorWebhook(error, `payRefFees unknown error. User id: ${user_id} | Amount: ${amount}`);
+        await postDiscordErrorWebhook("app", error, `payRefFees unknown error. User id: ${user_id} | Amount: ${amount}`);
         return unknownError({ ...txResponse, error });
     }
 }
@@ -937,7 +936,7 @@ export async function getBalanceOfWalletInDecimal(wallet_address: string): Promi
         const balance: number = await conn.getBalance(publicKey, { commitment: "confirmed" });
         return balance / LAMPORTS_PER_SOL;
     } catch (error) {
-        await postApiErrorWebhook(error, `getBalanceOfWalletInDecimal unknown error. Wallet: ${wallet_address}`);
+        await postDiscordErrorWebhook("api", error, `getBalanceOfWalletInDecimal unknown error. Wallet: ${wallet_address}`);
         return undefined;
     }
 }
@@ -949,7 +948,7 @@ export async function getBalanceOfWalletInLamports(wallet_address: string): Prom
         const balance: number = await conn.getBalance(publicKey, { commitment: "confirmed" });
         return balance;
     } catch (error) {
-        await postApiErrorWebhook(error, `getBalanceOfWalletInLamports unknown error. Wallet: ${wallet_address}`);
+        await postDiscordErrorWebhook("api", error, `getBalanceOfWalletInLamports unknown error. Wallet: ${wallet_address}`);
         return undefined;
     }
 }
@@ -1011,7 +1010,7 @@ export async function getAllCoinStatsFromWallet(wallet_address: string, minPosit
 
         return allCoins;
     } catch (error) {
-        await postApiErrorWebhook(error, `getAllCoinStatsFromWallet unknown error. Wallet: ${wallet_address}`);
+        await postDiscordErrorWebhook("api", error, `getAllCoinStatsFromWallet unknown error. Wallet: ${wallet_address}`);
         return null;
     }
 }
@@ -1027,7 +1026,7 @@ export async function getCurrentSolPrice(): Promise<number | null> {
         const solPrice: number = Number(quoteResponse.outAmount) / Math.pow(10, 6);
         return solPrice;
     } catch (error) {
-        await postApiErrorWebhook(error, `getCurrentSolPrice unknown error.`);
+        await postDiscordErrorWebhook("api", error, `getCurrentSolPrice unknown error.`);
         return null;
     }
 }
@@ -1040,7 +1039,7 @@ export async function getCurrentTokenPriceInSol(contract_address: string, amount
         if (!quoteResponse) return null;
         return Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL;
     } catch (error) {
-        await postApiErrorWebhook(error, `getCurrentTokenPriceInSol unknown error. CA: ${contract_address} | Amount: ${amount}`);
+        await postDiscordErrorWebhook("api", error, `getCurrentTokenPriceInSol unknown error. CA: ${contract_address} | Amount: ${amount}`);
         return null;
     }
 }
@@ -1057,7 +1056,7 @@ export async function getCurrentTokenPriceInSolAll(casAndAmounts: CAWithAmount[]
         const prices: number[] = quoteResponses.map((quoteResponse) => Number(quoteResponse.outAmount) / LAMPORTS_PER_SOL);
         return prices;
     } catch (error) {
-        await postApiErrorWebhook(error, `getCurrentTokenPriceInSolAll unknown error. CAs wif amount: ${JSON.stringify(casAndAmounts)}`);
+        await postDiscordErrorWebhook("api", error, `getCurrentTokenPriceInSolAll unknown error. CAs wif amount: ${JSON.stringify(casAndAmounts)}`);
         return [];
     }
 }
@@ -1089,7 +1088,7 @@ export async function getCoinStatsFromWallet(wallet_address: string, contract_ad
 
         return priceInfo;
     } catch (error) {
-        await postApiErrorWebhook(error, `getCoinStatsFromWallet unknown error. Wallet: ${wallet_address} | CA: ${contract_address}`);
+        await postDiscordErrorWebhook("api", error, `getCoinStatsFromWallet unknown error. Wallet: ${wallet_address} | CA: ${contract_address}`);
         return null;
     }
 }
@@ -1105,7 +1104,7 @@ export async function getTokenAccountOfWallet(wallet_address: string, contract_a
         );
         return associatedTokenAddress;
     } catch (error) {
-        await postApiErrorWebhook(error, `getTokenAccountOfWallet unknown error. Wallet: ${wallet_address} | CA: ${contract_address}`);
+        await postDiscordErrorWebhook("api", error, `getTokenAccountOfWallet unknown error. Wallet: ${wallet_address} | CA: ${contract_address}`);
         return null;
     }
 }
@@ -1144,7 +1143,7 @@ export async function getCoinPriceStatsAll(contract_addresses: string[]): Promis
 
         return stats;
     } catch (error) {
-        await postApiErrorWebhook(error, `getCoinPriceStatsAll unknown error. CAs: ${JSON.stringify(contract_addresses)}`);
+        await postDiscordErrorWebhook("api", error, `getCoinPriceStatsAll unknown error. CAs: ${JSON.stringify(contract_addresses)}`);
         return null;
     }
 }
@@ -1165,7 +1164,7 @@ export async function getCoinPriceStats(contract_address: string): Promise<CoinS
 
         return coinStats;
     } catch (error) {
-        await postApiErrorWebhook(error, `getCoinPriceStats unknown error. CA: ${contract_address}`);
+        await postDiscordErrorWebhook("api", error, `getCoinPriceStats unknown error. CA: ${contract_address}`);
         return null;
     }
 }
@@ -1185,7 +1184,7 @@ export async function getCoinValueOfHolding(caWithAmount: CAWithAmount): Promise
             priceInUsd: currentSolPrice ? (priceInSol * currentSolPrice).toFixed(2) : "0",
         };
     } catch (error) {
-        await postApiErrorWebhook(error, `getCoinValueOfHolding unknown error. CA wif amount: ${JSON.stringify(caWithAmount)}`);
+        await postDiscordErrorWebhook("api", error, `getCoinValueOfHolding unknown error. CA wif amount: ${JSON.stringify(caWithAmount)}`);
         return null;
     }
 }
@@ -1208,7 +1207,7 @@ export async function getCoinValuesOfHoldings(casWithAmount: CAWithAmount[]): Pr
             }
         });
     } catch (error) {
-        await postApiErrorWebhook(error, `getCoinValuesOfHoldings unknown error. CA wif amounts: ${JSON.stringify(casWithAmount)}`);
+        await postDiscordErrorWebhook("api", error, `getCoinValuesOfHoldings unknown error. CA wif amounts: ${JSON.stringify(casWithAmount)}`);
         return null;
     }
 }
@@ -1221,7 +1220,7 @@ export async function getCoinInfo(contract_address: string): Promise<CoinInfo | 
         const coinInfo: CoinInfo = pairInfo.pairs[0].baseToken;
         return coinInfo;
     } catch (error) {
-        await postApiErrorWebhook(error, `getCoinInfo unknown error. CA: ${contract_address}`);
+        await postDiscordErrorWebhook("api", error, `getCoinInfo unknown error. CA: ${contract_address}`);
         return null;
     }
 }
@@ -1251,7 +1250,7 @@ export async function getAllCoinInfos(
 
         return coinInfos;
     } catch (error) {
-        await postApiErrorWebhook(error, `getCoinInfo unknown error. User id: ${user_id} | Wallet: ${wallet_address}`);
+        await postDiscordErrorWebhook("api", error, `getCoinInfo unknown error. User id: ${user_id} | Wallet: ${wallet_address}`);
         return null;
     }
 }
@@ -1279,7 +1278,7 @@ export async function getTransactionInfo(signature?: string): Promise<VersionedT
 
         return tx;
     } catch (error) {
-        await postApiErrorWebhook(error, `getTransactionInfo unknown error. Signature: ${signature}`);
+        await postDiscordErrorWebhook("api", error, `getTransactionInfo unknown error. Signature: ${signature}`);
         return null;
     }
 }

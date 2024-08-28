@@ -33,7 +33,7 @@ const event = {
             try {
                 await command.execute(interaction);
             } catch (error) {
-                await postDiscordErrorWebhook(error, "interactionCreate.ts isCommand()");
+                await postDiscordErrorWebhook("app", error, "interactionCreate.ts isCommand()");
             }
         } else if (interaction.isButton()) {
             const buttonId = interaction.customId;
@@ -52,7 +52,7 @@ const event = {
                     await buttonCommand(interaction);
                 }
             } catch (error) {
-                await postDiscordErrorWebhook(error, "interactionCreate.ts isButton()");
+                await postDiscordErrorWebhook("app", error, "interactionCreate.ts isButton()");
             }
         } else if (interaction.isModalSubmit()) {
             const modalId = interaction.customId;
@@ -90,7 +90,7 @@ const event = {
                     await modalCommand(interaction, allValues);
                 }
             } catch (error) {
-                await postDiscordErrorWebhook(error, "interactionCreate.ts isModalSubmit()");
+                await postDiscordErrorWebhook("app", error, "interactionCreate.ts isModalSubmit()");
             }
         } else if (interaction.isStringSelectMenu()) {
             const menuId: string | undefined = interaction.customId;
@@ -105,7 +105,7 @@ const event = {
                 const menuCommand = MENU_COMMANDS[(values.length > 1 ? values[0] : menuId) as keyof typeof MENU_COMMANDS];
                 await menuCommand(interaction, value);
             } catch (error) {
-                await postDiscordErrorWebhook(error, "interactionCreate.ts isStringSelectMenu()");
+                await postDiscordErrorWebhook("app", error, "interactionCreate.ts isStringSelectMenu()");
             }
         }
     },
