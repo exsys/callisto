@@ -72,7 +72,7 @@ import { CoinStats } from "../types/coinStats";
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
 
-export async function createWallet(userId: string): Promise<string | undefined> {
+export async function createWallet(userId: string, ignore_ref_code: boolean = false): Promise<string | undefined> {
     // TODO: make it so if one db save fails, the other saves are reverted
 
     const solanaWallet: Keypair = createNewWallet();
@@ -103,7 +103,7 @@ export async function createWallet(userId: string): Promise<string | undefined> 
 
         await newWallet.save();
 
-        if (walletCount === 1) {
+        if (walletCount === 1 && !ignore_ref_code) {
             return REFCODE_MODAL_STRING;
         }
 
