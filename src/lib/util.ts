@@ -344,8 +344,8 @@ export async function saveDbTransaction({
             ref_fee,
             error: error,
         });
-        await dbTx.save();
 
+        await dbTx.save();
         return true;
     } catch (error) {
         return false;

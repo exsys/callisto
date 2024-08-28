@@ -457,7 +457,6 @@ export async function buyCoinViaAPI(user_id: string, contract_address: string, a
         user_id,
         tx_type,
         contract_address,
-        token_amount: Number(amountToSwap) * LAMPORTS_PER_SOL,
     };
     let wallet: any;
     let user: any;
@@ -503,6 +502,7 @@ export async function buyCoinViaAPI(user_id: string, contract_address: string, a
             }
         }
         const amountInLamports: number = Number(amountToSwap) * LAMPORTS_PER_SOL;
+        txResponse.token_amount = amountInLamports;
         const totalFeesInLamports: number = Math.floor(amountInLamports * (wallet.swap_fee / 100));
         const slippage: number = wallet.settings.buy_slippage * BPS_PER_PERCENT;
         let refFeesInLamports: number = 0;
