@@ -30,7 +30,7 @@ const AppStatsSchema = new Schema({
         type: Number, // TODO
         default: 0,
     },
-    failed_blinks_execution: {
+    failed_blinks_executions: {
         type: Number, // TODO
         default: 0,
     },
