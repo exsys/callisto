@@ -15,7 +15,7 @@ const AppStatsSchema = new Schema({
         default: 0,
     },
     wallets_deleted: {
-        type: Number,
+        type: Number, // TODO
         default: 0,
     },
     blinks_posted: {
@@ -27,19 +27,19 @@ const AppStatsSchema = new Schema({
         default: 0,
     },
     successful_transactions: {
-        type: Number,
+        type: Number, // TODO
         default: 0,
     },
     failed_transactions: {
-        type: Number,
+        type: Number, // TODO
         default: 0,
     },
     successful_token_transfers: {
-        type: Number,
+        type: Number, // TODO
         default: 0,
     },
     failed_token_transfers: {
-        type: Number,
+        type: Number, // TODO
         default: 0,
     }
 });

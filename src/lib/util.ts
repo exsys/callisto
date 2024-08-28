@@ -966,12 +966,12 @@ export function convertDescriptionToOrderedValues(embedDescription: string, acti
 // TODO: create proper ts type for Blink and also return error message instead of null
 export async function createNewBlink(user_id: string, blink_type: string, token_address?: string): Promise<any | null> {
     try {
-        const stats: any = await AppStats.findOne({ stats_id: 1 });
-        if (!stats) return null;
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        if (!appStats) return null;
         const user: any = await User.findOne({ user_id });
         if (user) {
             user.blinks_created++;
-            stats.blinks_created++;
+            appStats.blinks_created++;
             try {
                 await user.save();
             } catch (error) { }
@@ -979,7 +979,7 @@ export async function createNewBlink(user_id: string, blink_type: string, token_
 
         const newBlink: any = new Blink({
             user_id,
-            blink_id: stats.blinks_created,
+            blink_id: appStats.blinks_created,
             blink_type,
             icon: BLINK_DEFAULT_IMAGE,
             required_parameters: REQUIRED_SEARCH_PARAMS[blink_type as keyof typeof REQUIRED_SEARCH_PARAMS],
