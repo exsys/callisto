@@ -1,5 +1,11 @@
-import { ChatInputCommandInteraction, InteractionEditReplyOptions, InteractionReplyOptions, ModalBuilder, SlashCommandBuilder } from "discord.js";
 import { createRefCodeModal, createStartUI } from "../lib/discord-ui";
+import {
+    ChatInputCommandInteraction,
+    InteractionEditReplyOptions,
+    InteractionReplyOptions,
+    ModalBuilder,
+    SlashCommandBuilder
+} from "discord.js";
 import { REFCODE_MODAL_STRING } from "../config/constants";
 import { DEFAULT_ERROR } from "../config/errors";
 

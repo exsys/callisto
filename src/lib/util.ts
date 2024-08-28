@@ -82,6 +82,8 @@ export async function createWallet(userId: string, ignore_ref_code: boolean = fa
 
     try {
         const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        appStats.wallets_created++;
         const user: any = await User.findOneAndUpdate(
             { user_id: userId },
             { $inc: { wallets_created: 1 } },
@@ -89,6 +91,7 @@ export async function createWallet(userId: string, ignore_ref_code: boolean = fa
         ).lean();
         if (!user) return undefined;
         const walletCount: number = user.wallets_created;
+        if (walletCount === 1) appStats.registered_users++;
 
         const newWallet: any = new Wallet({
             wallet_id: walletCount,
@@ -102,6 +105,7 @@ export async function createWallet(userId: string, ignore_ref_code: boolean = fa
         });
 
         await newWallet.save();
+        await appStats.save();
 
         if (walletCount === 1 && !ignore_ref_code) {
             return REFCODE_MODAL_STRING;
