@@ -15,7 +15,7 @@ import {
     DEFAULT_ERROR_REPLY,
     ERROR_CODES
 } from "../config/errors";
-import { addStartButton, createAfterSwapUI } from "./discord-ui";
+import { addStartButton, createAfterSwapUI, createDepositEmbed } from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
     API_ERRORS_WEBHOOK,
@@ -39,6 +39,7 @@ import {
     Embed,
     EmbedBuilder,
     InteractionEditReplyOptions,
+    InteractionReplyOptions,
     MessageActionRowComponent,
     MessageCreateOptions
 } from "discord.js";
@@ -51,7 +52,8 @@ import {
     executeBlinkTransaction,
     getCoinInfo,
     getBalanceOfWalletInDecimal,
-    getCoinStatsFromWallet
+    getCoinStatsFromWallet,
+    getBalanceOfWalletInLamports
 } from "./solanaweb3";
 import { ActionUI } from "../models/actionui";
 import { BlinkResponse } from "../types/blinkResponse";
@@ -678,10 +680,13 @@ export async function executeBlink(
                 // NOTE: this block is only executed if the wallet creation failed. probably database connection down.
                 return { content: "No wallet found. Please create a wallet with the /start command first." };
             }
-            return { content: `You have no SOL balance. Load up your wallet to use Blinks.\n\nYour wallet address:\n${walletAddress}` };
+            const ui: InteractionReplyOptions = await createDepositEmbed(user_id, "You don't have enough SOL to execute this Blink. Load up your wallet to use Blinks.");
+            return { deposit_response: ui };
         }
         wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
+        const solBalance = await getBalanceOfWalletInLamports(wallet.wallet_address);
+        if (solBalance === 0) return { content: "Not enough SOL to execute this Blink." };
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
     }
@@ -846,12 +851,7 @@ export async function executeBlink(
         if (error instanceof SyntaxError) {
             return { content: "Blink returned unexpected values. Transaction cancelled." };
         } else {
-            await saveError({
-                user_id,
-                wallet_address: wallet.wallet_address,
-                function_name: "executeBlink",
-                error,
-            });
+            await postDiscordErrorWebhook("blinks", error, `User: ${user_id} | Wallet: ${wallet.wallet_address} | function: executeBlink in util.ts`);
             return DEFAULT_ERROR_REPLY;
         }
     }

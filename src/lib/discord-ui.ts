@@ -71,6 +71,7 @@ import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
 import { DBAction } from "../types/dbAction";
 import { BlinkURLs } from "../types/blinkUrls";
 import { BlinkVoteResult } from "../models/blinkVoteResult";
+import QRCode from 'qrcode';
 
 /***************************************************** UIs *****************************************************/
 
@@ -2622,6 +2623,27 @@ export function createBlinkCreationButtons(
 }
 
 /************************************************************** UTILITY **********************************************************/
+
+export async function createDepositEmbed(user_id: string, extra_content?: string): Promise<InteractionReplyOptions> {
+    try {
+        const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true });
+        if (!wallet) return { content: ERROR_CODES["0003"].message };
+
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setAuthor({ name: `Deposit` })
+            .setTitle(`Your wallet address`)
+            .setDescription(`${wallet.wallet_address}`)
+            .setImage('attachment://wallet_qr_code.png');
+
+        const qrBuffer: Buffer = await QRCode.toBuffer(wallet.wallet_address);
+        const attachment = new AttachmentBuilder("wallet_qr_code.png").setFile(qrBuffer);
+        return { content: extra_content, embeds: [embed], files: [attachment] };
+    } catch (error) {
+        await postDiscordErrorWebhook("app", error, "createDepositEmbed");
+        return DEFAULT_ERROR_REPLY;
+    }
+}
 
 export async function getVoteResults(blink_id: string): Promise<InteractionReplyOptions> {
     try {

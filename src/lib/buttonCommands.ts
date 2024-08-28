@@ -75,6 +75,7 @@ import {
     storeUserBlink,
     executeBlinkSuccessMessage,
     getVoteResults,
+    createDepositEmbed,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
 import {
@@ -189,12 +190,8 @@ export const BUTTON_COMMANDS = {
     deposit: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         try {
-            const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
-            if (!wallet) {
-                await interaction.editReply({ content: ERROR_CODES["0003"].message });
-                return;
-            }
-            await interaction.editReply({ content: wallet.wallet_address });
+            const ui: InteractionReplyOptions = await createDepositEmbed(interaction.user.id);
+            await interaction.editReply(ui);
         } catch (error) {
             await interaction.editReply({ content: ERROR_CODES["0000"].message });
         }
@@ -531,13 +528,11 @@ export const BUTTON_COMMANDS = {
             // this will execute the blink if all values are processed. if custom values are needed and not submitted yet,
             // this function will return with custom_values, so they can be submitted first
             const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!);
+            if (result.deposit_response) return await interaction.editReply(result.deposit_response);
             if (result.custom_values) {
                 const modal: ModalBuilder | MessageCreateOptions | undefined =
                     await createBlinkCustomValuesModal(result.action_id!, result.button_id!, result.params!);
-                if (!modal) {
-                    await interaction.editReply(DEFAULT_ERROR_REPLY);
-                    return;
-                }
+                if (!modal) return await interaction.editReply(DEFAULT_ERROR_REPLY);
 
                 if (modal instanceof ModalBuilder) {
                     await interaction.showModal(modal);
