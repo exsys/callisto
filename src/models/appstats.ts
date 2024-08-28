@@ -51,11 +51,15 @@ const AppStatsSchema = new Schema({
         default: 0,
     },
     successful_token_transfers: {
-        type: Number, // TODO
+        type: Number,
+        default: 0,
+    },
+    expired_token_transfers: {
+        type: Number,
         default: 0,
     },
     failed_token_transfers: {
-        type: Number, // TODO
+        type: Number,
         default: 0,
     }
 });

@@ -103,7 +103,7 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
     const txResponse: TxResponse = {
         user_id,
         tx_type: "transfer_all",
-    }
+    };
     let wallet: any;
     try {
         wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
@@ -148,16 +148,25 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
             },
         });
 
-        if (!result) return txExpiredError(txResponse);
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        if (!result) {
+            appStats.expired_token_transfers++;
+            await appStats.save();
+            return txExpiredError(txResponse);
+        }
         if (result.meta?.err) {
             // TODO: if result.meta.err.InsufficientFundsForRent try again but 
             // maxSolAmountToSend = balanceInLamports - GAS_FEE_FOR_SOL_TRANSFER - RENT_FEE; -> minus rent fee
+            appStats.failed_token_transfers++;
+            await appStats.save();
             await postDiscordErrorWebhook("app", result.meta, `transferAllSol tx meta error. User id: ${user_id}`);
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 
         txResponse.success = true;
         txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
+        appStats.successful_token_transfers++;
+        await appStats.save();
         return successResponse(txResponse);
     } catch (error) {
         await postDiscordErrorWebhook("app", error, `transferAllSol unknown error. User id: ${user_id}`);
@@ -228,14 +237,23 @@ export async function transferXSol(user_id: string, amount: string, recipientAdd
             },
         });
 
-        if (!result) return txExpiredError(txResponse);
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        if (!result) {
+            appStats.expired_token_transfers++;
+            await appStats.save();
+            return txExpiredError(txResponse);
+        }
         if (result.meta?.err) {
+            appStats.failed_token_transfers++;
+            await appStats.save();
             await postDiscordErrorWebhook("app", result.meta, `transferXSol tx meta error. User id: ${user_id}`);
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 
         txResponse.success = true;
         txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
+        appStats.successful_token_transfers++;
+        await appStats.save();
         return successResponse(txResponse);
     } catch (error) {
         await postDiscordErrorWebhook("app", error, `transferXSol unknown error. User id: ${user_id}`);
@@ -310,14 +328,23 @@ export async function sendXPercentOfCoin(user_id: string, contract_address: stri
             },
         });
 
-        if (!result) return txExpiredError(txResponse);
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        if (!result) {
+            appStats.expired_token_transfers++;
+            await appStats.save();
+            return txExpiredError(txResponse);
+        }
         if (result.meta?.err) {
+            appStats.failed_token_transfers++;
+            await appStats.save();
             await postDiscordErrorWebhook("app", result.meta, `sendXPercentOfCoin tx meta error. User id: ${user_id}`);
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 
         txResponse.success = true;
         txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
+        appStats.successful_token_transfers++;
+        await appStats.save();
         return successResponse(txResponse);
     } catch (error) {
         await postDiscordErrorWebhook("app", error, `sendXPercentOfCoin unknown error. User id: ${user_id}`);
@@ -398,14 +425,23 @@ export async function sendCoin(user_id: string, contract_address: string, amount
             },
         });
 
-        if (!result) return txExpiredError(txResponse);
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        if (!result) {
+            appStats.expired_token_transfers++;
+            await appStats.save();
+            return txExpiredError(txResponse);
+        }
         if (result.meta?.err) {
+            appStats.failed_token_transfers++;
+            await appStats.save();
             await postDiscordErrorWebhook("app", result.meta, `sendXPercentOfCoin tx meta error. User id: ${user_id}`);
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 
         txResponse.success = true;
         txResponse.response = `Successfully transferred funds: https://solscan.io/tx/${signature}`;
+        appStats.successful_token_transfers++;
+        await appStats.save();
         return successResponse(txResponse);
     } catch (error) {
         await postDiscordErrorWebhook("app", error, `sendCoin unknown error. User id: ${user_id}`);
