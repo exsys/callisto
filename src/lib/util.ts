@@ -675,7 +675,7 @@ export async function executeBlink(
     try {
         user = await User.findOne({ user_id });
         if (!user) {
-            const walletAddress: string | undefined = await createWallet(user_id);
+            const walletAddress: string | undefined = await createWallet(user_id, true);
             if (!walletAddress) {
                 // NOTE: this block is only executed if the wallet creation failed. probably database connection down.
                 return { content: "No wallet found. Please create a wallet with the /start command first." };
