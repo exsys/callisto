@@ -747,11 +747,22 @@ export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostRe
                 lastValidBlockHeight: lastValidBlockHeight,
             },
         });
-        if (!result) return txExpiredError(txResponse);
-        if (result.meta?.err) return txMetaError({ ...txResponse, error: result.meta?.err });
+        const appStats: any = await AppStats.findOne({ stats_id: 1 });
+        if (!result) {
+            appStats.expired_blink_executions++;
+            await appStats.save();
+            return txExpiredError(txResponse);
+        }
+        if (result.meta?.err) {
+            appStats.failed_blink_executions++;
+            await appStats.save();
+            return txMetaError({ ...txResponse, error: result.meta?.err });
+        }
 
         txResponse.success = true;
         txResponse.response = `Blink successfully executed: https://solscan.io/tx/${signature}`;
+        appStats.successful_blink_executions++;
+        await appStats.save();
         if (blinkTx.message) {
             txResponse.response += `\n\n${blinkTx.message}`;
         }

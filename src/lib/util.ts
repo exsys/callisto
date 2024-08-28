@@ -689,11 +689,6 @@ export async function executeBlink(
         }
         wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
-        const solBalance = await getBalanceOfWalletInLamports(wallet.wallet_address);
-        if (solBalance === 0) {
-            const depositButton = createDepositButton();
-            return { content: "Not enough SOL to execute this Blink.", components: [depositButton] };
-        }
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
     }
@@ -701,15 +696,15 @@ export async function executeBlink(
     try {
         const actionUI: any = await ActionUI.findOne({ action_id }).lean();
         if (!actionUI) return { content: "The Blink magically disappeared. Please contact support for more information." };
+        const solBalanceInDecimal = await getBalanceOfWalletInDecimal(wallet.wallet_address);
+        if (solBalanceInDecimal === 0) {
+            const depositButton = createDepositButton();
+            return { content: "Not enough SOL to execute this Blink.", components: [depositButton] };
+        }
 
         const button: any = actionUI.buttons.find((button: any) => Number(button.button_id) === Number(button_id));
         if (!button) {
-            await saveError({
-                user_id,
-                wallet_address: wallet.wallet_address,
-                function_name: "sendBlinkPostReq",
-                error: `Couldn't find action button. ActionUI: ${JSON.stringify(actionUI)}`
-            });
+            await postDiscordErrorWebhook("blinks", "", `Couldn't find action button. ActionUI: ${JSON.stringify(actionUI)}`);
             return DEFAULT_ERROR_REPLY;
         }
 
@@ -766,12 +761,7 @@ export async function executeBlink(
                     }
                 }
             } catch (error) {
-                await saveError({
-                    user_id,
-                    wallet_address: wallet.wallet_address,
-                    function_name: "executeBlink",
-                    error: `Error in blink id ${action_id}, button id ${button_id}: ${error}`,
-                });
+                await postDiscordErrorWebhook("blinks", error, `Action id: ${action_id} | Button id: ${button_id} | User: ${user_id} | Wallet: ${wallet.wallet_address}`);
                 return { content: "Failed to process Blink. Please try again later." };
             }
         } else {
@@ -813,26 +803,23 @@ export async function executeBlink(
                 // check if wallet has enough balance to execute this blink action
                 if (baseToken === WRAPPED_SOL_ADDRESS) {
                     // case of SOL
-                    const solBalanceInDecimal: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
                     if (solBalanceInDecimal && solBalanceInDecimal < swapAmount) {
-                        return { content: "Insufficient balance. Please check your balance and try again." };
+                        const depositButton = createDepositButton();
+                        return { content: "Not enough SOL to execute this Blink.", components: [depositButton] };
                     }
                 } else {
                     // case of SPL token
                     if (baseToken) {
                         const coinStats: CoinStats | null = await getCoinStatsFromWallet(wallet.wallet_address, baseToken);
                         if (coinStats?.tokenAmount && coinStats.tokenAmount.uiAmount && coinStats.tokenAmount.uiAmount < swapAmount) {
-                            return { content: "Insufficient balance. Please check your balance and try again." };
+                            return { content: `Not enough ${coinStats.symbol} to execute this Blink.` };
                         }
                     }
                 }
             } catch (error) {
                 // NOTE: let user execute blink even if there was an error in this try-catch block.
                 // they are lucky and have to pay no swap fee's if this error block is executed
-                await saveError({
-                    function_name: "executeBlink if(swapAmount)",
-                    error
-                });
+                await postDiscordErrorWebhook("blinks", error, "executeBlink if(SWAP_BLINKS_MAPPING.includes(actionUI.root_url) && actionValue)");
             }
         }
 
