@@ -25,6 +25,7 @@ export const TOKEN_STRICT_LIST = {
     "JUP": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
     "ORCA": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
     "RAY": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "W": "85VBFQZC9TZkfaptBWjvUw7YbZjy52A6mjtPGjstQAmQ",
 
     /** MEME COINS */
     "GIGA": "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9",
@@ -55,6 +56,10 @@ export const TOKEN_STRICT_LIST = {
     "CHUD": "6yjNqPzTSanBWSa6dxVEgTjePXBrZ2FoHLDQwYwEsyM6",
     "DADDY": "4Cnk9EPnW5ixfLZatCPJjDB1PUtcRpVVgTQukm9epump",
     "UWU": "UwU8RVXB69Y6Dcju6cN2Qef6fykkq6UUNpB15rZku6Z",
+    "FWOG": "A8C3xuqscfmyLrte3VmTqrAq8kgMASius9AFNANwpump",
+    "NEIRO": "CTJf74cTo3cw8acFP1YXF3QpsQUUBGBjh2k2e8xsZ6UL",
+    "BILLY": "3B5wuUrMEi5yATD7on46hKfej3pfmd7t1RKgrsN3pump",
+    "SCF": "GiG7Hr61RVm4CSUxJmgiCoySFQtdiwxtqf64MsRppump",
 };
 
 export const TOKEN_ADDRESS_STRICT_LIST = {
@@ -78,6 +83,7 @@ export const TOKEN_ADDRESS_STRICT_LIST = {
     "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN": "JUP",
     "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE": "ORCA",
     "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R": "RAY",
+    "85VBFQZC9TZkfaptBWjvUw7YbZjy52A6mjtPGjstQAmQ": "W",
 
     /** MEME COINS */
     "63LfDmNb3MQ8mw9MtZ2To9bEA2M71kZUUGq5tiJxcqj9": "GIGA",
@@ -105,4 +111,8 @@ export const TOKEN_ADDRESS_STRICT_LIST = {
     "6yjNqPzTSanBWSa6dxVEgTjePXBrZ2FoHLDQwYwEsyM6": "Chud",
     "4Cnk9EPnW5ixfLZatCPJjDB1PUtcRpVVgTQukm9epump": "DADDY",
     "UwU8RVXB69Y6Dcju6cN2Qef6fykkq6UUNpB15rZku6Z": "UWU",
+    "A8C3xuqscfmyLrte3VmTqrAq8kgMASius9AFNANwpump": "FWOG",
+    "CTJf74cTo3cw8acFP1YXF3QpsQUUBGBjh2k2e8xsZ6UL": "Neiro",
+    "3B5wuUrMEi5yATD7on46hKfej3pfmd7t1RKgrsN3pump": "BILLY",
+    "GiG7Hr61RVm4CSUxJmgiCoySFQtdiwxtqf64MsRppump": "SCF"
 };
