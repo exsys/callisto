@@ -887,7 +887,7 @@ export async function createPreBuyUI(user_id: string, tokenAddress: string): Pro
     // TODO: find a way to get a more up-to-date price of the coin, because dex price can lag like 1 min behind
     // best way for this would be to know how much SOL and how much of the token are in the LP and then simply calculate the price
     const coinInfo: CoinStats | null = await getCoinPriceStats(tokenAddress);
-    if (!coinInfo) return { ui: { content: "Coin not found. Please enter a valid contract address." } };
+    if (!coinInfo) return { ui: { content: "Coin not found. Please enter a valid contract address or token symbol." } };
 
     // TODO: calculate price impact
 
