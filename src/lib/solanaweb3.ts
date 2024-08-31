@@ -1229,6 +1229,7 @@ export async function getCoinPriceStats(contract_address: string): Promise<CoinS
         const pairInfo: any = await (
             await fetch(`https://api.dexscreener.io/latest/dex/tokens/${contract_address}`)
         ).json();
+        if (!pairInfo.pairs || !pairInfo.pairs?.length) return null; // meaning it's (most likely) not a valid SPL token
         const coinStats: CoinStats = {
             ...pairInfo.pairs[0].baseToken,
             transactions: pairInfo.pairs[0].txns,
