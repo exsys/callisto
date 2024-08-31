@@ -525,6 +525,7 @@ export async function buyCoinViaAPI(user_id: string, contract_address: string, a
                     // TODO: move referrer.save() to after interaction.editReply
                     await referrer.save();
                 } catch (error) {
+                    await postDiscordErrorWebhook("app", error, `buyCoinViaAPI: Failed to store ${refFeesInLamports} Lamports for user: ${referrer.user_id}`);
                     await saveError({
                         user_id,
                         wallet_address: wallet.wallet_address,
