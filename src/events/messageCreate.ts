@@ -8,6 +8,7 @@ import { ActionUI } from "../models/actionui";
 import sharp from "sharp";
 import { BlinkURLs } from "../types/blinkUrls";
 import { BLINKS_BLACKLIST } from "../config/blinks_blacklist";
+import { GuildSettings } from "../models/guildSettings";
 
 const event = {
     name: Events.MessageCreate,
@@ -18,6 +19,12 @@ const event = {
             const url: URL = new URL(message.content);
             if (url.protocol !== "https:") return;
             const isBlinkUrl: boolean = BLINK_URL_REGEX.test(url.href);
+            const guildId: string | null = message.guildId;
+            let guildSettings: any;
+            if (guildId) {
+                guildSettings = await GuildSettings.findOne({ guild_id: guildId }).lean();
+                if (guildSettings && !guildSettings.blinks_conversion) return;
+            }
 
             if (isBlinkUrl) {
                 // this block is executed if the url has the "solana-action:" schema
