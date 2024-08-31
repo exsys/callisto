@@ -632,6 +632,12 @@ export async function postDiscordErrorWebhook(errorType: string, error: any, ext
     }
 }
 
+export function extractUrls(input: string): string[] | null {
+    const urlRegex: RegExp = /https?:\/\/[^\s/$.?#].[^\s]*/gi;
+    const matches: RegExpMatchArray | null = input.match(urlRegex);
+    return matches ? matches : null;
+}
+
 export function truncateString(str: string | undefined, maxLength: number): string | undefined {
     if (str && str.length > maxLength) {
         return str.substring(0, maxLength - 3) + "...";
