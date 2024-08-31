@@ -1,12 +1,13 @@
 import { AttachmentBuilder, Events, Message, MessageCreateOptions } from "discord.js";
-import { BLINK_URL_REGEX, CALLISTO_WEBSITE_ROOT_URL } from "../config/constants";
-import { replaceWildcards, saveError, urlToBuffer } from "../lib/util";
+import { BLINK_URL_REGEX, CALLISTO_WEBSITE_ROOT_URLS } from "../config/constants";
+import { postDiscordErrorWebhook, replaceWildcards, urlToBuffer } from "../lib/util";
 import { ActionGetResponse, ActionRuleObject, ACTIONS_CORS_HEADERS } from "@solana/actions";
 import { ActionRule } from "../types/actionRule";
 import { createBlinkUI, voteResultButton } from "../lib/discord-ui";
 import { ActionUI } from "../models/actionui";
 import sharp from "sharp";
 import { BlinkURLs } from "../types/blinkUrls";
+import { BLINKS_BLACKLIST } from "../config/blinks_blacklist";
 
 const event = {
     name: Events.MessageCreate,
@@ -17,14 +18,18 @@ const event = {
             const url: URL = new URL(message.content);
             if (url.protocol !== "https:") return;
             const isBlinkUrl: boolean = BLINK_URL_REGEX.test(url.href);
+
             if (isBlinkUrl) {
                 // this block is executed if the url has the "solana-action:" schema
                 const reqUrl: string = url.href.split("solana-action:")[1];
+                const actionRootUrl: URL = new URL(reqUrl);
+                if (BLINKS_BLACKLIST.includes(actionRootUrl.origin)) {
+                    return await message.reply({ content: "This Blink is blacklisted." });
+                }
+
                 const action: ActionGetResponse = await (
                     await fetch(reqUrl)
                 ).json();
-
-                const actionRootUrl: URL = new URL(reqUrl);
 
                 // if action url is already stored in database use that ui object
                 const actionUIExists: any = await ActionUI.findOne({ action_url: reqUrl }).lean();
@@ -52,6 +57,9 @@ const event = {
             } else {
                 // this block is executed if it's a normal url without "solana-action:"
                 const rootUrl: string | undefined = url.origin;
+                if (BLINKS_BLACKLIST.includes(rootUrl)) {
+                    return await message.reply({ content: "This Blink is blacklisted." });
+                }
                 if (!rootUrl) return;
                 const actionRule: ActionRule | any = await (
                     await fetch(`${rootUrl}/actions.json`, {
@@ -69,10 +77,11 @@ const event = {
 
                 const actionUrl: string | undefined = replaceWildcards(url.href, apiPath, pathPattern);
                 if (!actionUrl) {
-                    await saveError({
-                        function_name: "replaceWildcards returned undefined",
-                        error: `Root url: ${rootUrl} | Posted url: ${url.href} | apiPath: ${apiPath} | pathPattern: ${pathPattern}`,
-                    });
+                    await postDiscordErrorWebhook(
+                        "blinks",
+                        undefined,
+                        `replaceWildcards returned undefined. Root url: ${rootUrl} | Posted url: ${url.href} | apiPath: ${apiPath} | pathPattern: ${pathPattern}`
+                    );
                     return;
                 }
                 const action: ActionGetResponse = await (
@@ -85,7 +94,7 @@ const event = {
                 const actionUIExists: any = await ActionUI.findOne({ action_url: actionUrl }).lean();
                 if (actionUIExists) {
                     let attachment: AttachmentBuilder[] | undefined;
-                    if (rootUrl === CALLISTO_WEBSITE_ROOT_URL && actionUIExists.blink_type === "blinkVote") {
+                    if (CALLISTO_WEBSITE_ROOT_URLS.includes(rootUrl) && actionUIExists.blink_type === "blinkVote") {
                         // "Show Result" button for Callisto vote blinks
                         const showResultsButton = voteResultButton(actionUIExists.blink_id);
                         actionUIExists.rows.push(showResultsButton);

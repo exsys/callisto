@@ -44,7 +44,7 @@ import { TxResponse } from "../types/txResponse";
 import { User } from "../models/user";
 import {
     BLINK_DEFAULT_IMAGE,
-    CALLISTO_WEBSITE_ROOT_URL,
+    CALLISTO_WEBSITE_ROOT_URLS,
     REFCODE_MODAL_STRING,
     SOL_WALLET_ADDRESS_MAX_LENGTH,
     SOL_WALLET_ADDRESS_MIN_LENGTH
@@ -66,7 +66,7 @@ import { AppStats } from "../models/appstats";
 import { TypedActionParameter } from "@solana/actions-spec";
 import sharp from "sharp";
 import { Blink } from "../models/blink";
-import { BLINK_TYPE_MAPPING } from "../config/blink_type_mapping";
+import { BLINKS_TYPE_MAPPING } from "../config/blinks_type_mapping";
 import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
 import { DBAction } from "../types/dbAction";
 import { BlinkURLs } from "../types/blinkUrls";
@@ -648,7 +648,7 @@ export async function createNewBlinkUI(user_id: string, blinkType: string, token
         if (!blink) return DEFAULT_ERROR_REPLY;
 
         let content: string = `Blink ID: ${blink.blink_id}`;
-        content += `\nBlink type: ${BLINK_TYPE_MAPPING[blinkType]}`;
+        content += `\nBlink type: ${BLINKS_TYPE_MAPPING[blinkType]}`;
         if (tokenAddress) {
             // this only replaces the embed content with the token symbol, not the database value
             const addressToSymbol: string | undefined = TOKEN_ADDRESS_STRICT_LIST[tokenAddress as keyof typeof TOKEN_ADDRESS_STRICT_LIST];
@@ -812,13 +812,14 @@ export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse):
             has_attachment: attachment ? true : false,
         });
         if (iconUrlIsRedirect) newActionUI.icon_url_is_redirect = true;
-        if (urls.root_url === CALLISTO_WEBSITE_ROOT_URL) {
+        if (CALLISTO_WEBSITE_ROOT_URLS.includes(urls.root_url)) {
             // also store the blink_id if it's a callisto blink
             const urlSplit: string[] = urls.posted_url.split("/");
             const blink_id: string = urlSplit[urlSplit.length - 1];
             newActionUI.blink_id = blink_id;
             const blink: any = await Blink.findOne({ blink_id }).lean();
             if (blink) {
+                // NOTE: dev environment will have different blink ids stored in DB. so this might not work in dev
                 newActionUI.blink_type = blink.blink_type;
                 if (blink.blink_type === "blinkVote") {
                     const showResultsButton = voteResultButton(blink.blink_id);
@@ -2838,7 +2839,7 @@ export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>, blinkTyp
 
 export function createBlinkCreationContent(blink: any): string {
     let content = `Blink ID: ${blink.blink_id}`;
-    content += `\nBlink Type: ${BLINK_TYPE_MAPPING[blink.blink_type]}`;
+    content += `\nBlink Type: ${BLINKS_TYPE_MAPPING[blink.blink_type]}`;
     if (blink.token_address) content += `\nToken: ${blink.token_address}`;
     return content;
 }
