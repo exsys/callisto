@@ -1,4 +1,4 @@
-import { Events } from "discord.js";
+import { Events, PermissionFlagsBits } from "discord.js";
 import { MODAL_COMMANDS } from "../lib/modalCommands";
 import { postDiscordErrorWebhook } from "../lib/util";
 import { BUTTON_COMMANDS } from "../lib/buttonCommands";
@@ -8,7 +8,6 @@ const event = {
     name: Events.InteractionCreate,
     async execute(interaction: any) {
         if (interaction.isCommand()) {
-            // TODO: find out if deferReply is needed here, because in some cases it will probably take more than 3 seconds
             const command = interaction.client.commands.get(interaction.commandName);
             if (!command) {
                 console.log(`No command matching ${interaction.commandName} was found.`);
@@ -16,17 +15,16 @@ const event = {
             }
 
             if (command.onlyAdmin) {
-                let userIsAdmin = false;
-                // TODO: check if user actually has admin permissions
-                interaction.member.roles.cache.forEach((role: any, index: number) => {
-                    if (role.name === "Moderator" || role.name === "Admin" || role.name === "Team") {
-                        userIsAdmin = true;
-                    }
-                });
-
-                if (!userIsAdmin) {
-                    await interaction.reply({ content: "This command can be executed only by Admins.", ephemeral: true });
-                    return;
+                if (!interaction.inGuild()) {
+                    return await interaction.reply({ content: "This command can only be executed inside Servers.", ephemeral: true });
+                }
+                
+                const guildMember = interaction.member;
+                if (!guildMember) {
+                    return await interaction.reply({ content: "This command can only be executed by Admins.", ephemeral: true });
+                }
+                if (!guildMember.permissions.has(PermissionFlagsBits.Administrator)) {
+                    return await interaction.reply({ content: "This command can be executed only by Admins.", ephemeral: true });
                 }
             }
 

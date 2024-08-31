@@ -76,6 +76,7 @@ import {
     executeBlinkSuccessMessage,
     getVoteResults,
     createDepositEmbed,
+    toggleBlinksConversion,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
 import {
@@ -683,5 +684,12 @@ export const BUTTON_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const ui: InteractionReplyOptions = await getVoteResults(blinkId!);
         await interaction.editReply(ui);
-    }
+    },
+    toggleBlinksConversion: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const guildId: string | null = interaction.guildId;
+        if (!guildId) return await interaction.editReply("Couldn't find Server information. Please try again later.");
+        const ui: InteractionReplyOptions = await toggleBlinksConversion(guildId);
+        await interaction.editReply(ui);
+    },
 };

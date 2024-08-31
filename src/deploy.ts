@@ -22,7 +22,8 @@ const rest = new REST({ version: '10' }).setToken(isDevelopment ? String(process
             Routes.applicationCommands(isDevelopment ? String(process.env.BOT_APP_ID_DEV) : String(process.env.BOT_APP_ID_PROD)),
             { body: commands },
         );
-        console.log(`Successfully updated ${data.length} application (/) commands.`);
+        const devOrProd: string = isDevelopment ? "Dev" : "Prod"
+        console.log(`Successfully updated ${data.length} application (/) commands in ${devOrProd}.`);
     } catch (error) {
         console.log(error);
     }

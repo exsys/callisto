@@ -72,8 +72,38 @@ import { DBAction } from "../types/dbAction";
 import { BlinkURLs } from "../types/blinkUrls";
 import { BlinkVoteResult } from "../models/blinkVoteResult";
 import QRCode from 'qrcode';
+import { GuildSettings } from "../models/guildSettings";
 
 /***************************************************** UIs *****************************************************/
+
+export async function createAdminUI(guild_id: string, toggled?: string): Promise<InteractionReplyOptions> {
+    try {
+        let content: string = "**Blinks Conversion:** Toggle the automatic Blinks URL conversion to Action Blinks. If turned off Callisto will not transform Blink URLs into Action Blinks.";
+
+        let blinksConversion: string = "On";
+        if (!toggled) {
+            const guildSettings: any = await GuildSettings.findOne({ guild_id }).lean();
+            if (!guildSettings) {
+                const newGuildSettings = new GuildSettings({
+                    guild_id,
+                });
+                await newGuildSettings.save();
+            } else {
+                if (!guildSettings.blinks_conversion) blinksConversion = "Off";
+            }
+        }
+        const blinksToggleButton = new ButtonBuilder()
+            .setCustomId(`toggleBlinksConversion`)
+            .setLabel(`Blinks Conversion: ${toggled ? toggled : blinksConversion}`)
+            .setStyle(ButtonStyle.Secondary);
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(blinksToggleButton);
+        return { content, components: [row] };
+    } catch (error) {
+        await postDiscordErrorWebhook("app", error, "createAdminUI");
+        return DEFAULT_ERROR_REPLY;
+    }
+}
 
 export async function createStartUI(userId: string): Promise<InteractionEditReplyOptions> {
     try {
@@ -2624,6 +2654,23 @@ export function createBlinkCreationButtons(
 }
 
 /************************************************************** UTILITY **********************************************************/
+
+export async function toggleBlinksConversion(guild_id: string): Promise<InteractionReplyOptions> {
+    try {
+        const guildSettings: any = await GuildSettings.findOne({ guild_id });
+        if (!guildSettings) {
+            await postDiscordErrorWebhook("app", undefined, `Couldn't find guild settings inside database. Guild: ${guild_id}`);
+            return DEFAULT_ERROR_REPLY;
+        }
+
+        guildSettings.blinks_conversion = !guildSettings.blinks_conversion;
+        await guildSettings.save();
+        const toggled: string = guildSettings.blinks_conversion ? "On" : "Off";
+        return createAdminUI(guild_id, toggled);
+    } catch (error) {
+        return DEFAULT_ERROR_REPLY;
+    }
+}
 
 export function createDepositButton(): ActionRowBuilder<ButtonBuilder> {
     const depositButton = new ButtonBuilder()
