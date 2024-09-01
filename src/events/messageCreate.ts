@@ -26,6 +26,7 @@ const event = {
                         const guildId: string | null = message.guildId;
                         let guildSettings: any;
                         if (guildId) {
+                            // check whether blink conversion is turned off for this guild
                             guildSettings = await GuildSettings.findOne({ guild_id: guildId }).lean();
                             if (guildSettings && !guildSettings.blinks_conversion) return;
                         }
@@ -105,9 +106,9 @@ const event = {
                             const actionUIExists: any = await ActionUI.findOne({ action_url: actionUrl }).lean();
                             if (actionUIExists) {
                                 let attachment: AttachmentBuilder[] | undefined;
-                                if (CALLISTO_WEBSITE_ROOT_URLS.includes(rootUrl) && actionUIExists.blink_type === "blinkVote") {
+                                if (CALLISTO_WEBSITE_ROOT_URLS.includes(rootUrl) && actionUIExists.callisto_blink_type === "blinkVote") {
                                     // "Show Result" button for Callisto vote blinks
-                                    const showResultsButton = voteResultButton(actionUIExists.blink_id);
+                                    const showResultsButton = voteResultButton(actionUIExists.callisto_blink_id);
                                     actionUIExists.rows.push(showResultsButton);
                                 }
                                 if (actionUIExists.icon_url_is_redirect) {

@@ -6,11 +6,11 @@ const ActionUiSchema = new Schema({
         required: true,
         unique: true,
     },
-    blink_id: {
+    callisto_blink_id: {
         type: String,
         required: false,
     },
-    blink_type: {
+    callisto_blink_type: {
         type: String,
         required: false,
     },

@@ -846,11 +846,11 @@ export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse):
             // also store the blink_id if it's a callisto blink
             const urlSplit: string[] = urls.posted_url.split("/");
             const blink_id: string = urlSplit[urlSplit.length - 1];
-            newActionUI.blink_id = blink_id;
+            newActionUI.callisto_blink_id = blink_id;
             const blink: any = await Blink.findOne({ blink_id }).lean();
             if (blink) {
                 // NOTE: dev environment will have different blink ids stored in DB. so this might not work in dev
-                newActionUI.blink_type = blink.blink_type;
+                newActionUI.callisto_blink_type = blink.blink_type;
                 if (blink.blink_type === "blinkVote") {
                     const showResultsButton = voteResultButton(blink.blink_id);
                     rows.push(showResultsButton);
