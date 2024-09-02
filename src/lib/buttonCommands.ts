@@ -519,7 +519,25 @@ export const BUTTON_COMMANDS = {
     },
     executeBlinkButton: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, buttonType?: string) => {
         // this is the function that will be executed whenever a user clicks on a button from a blink UI
+
+        /****************************************** */
+        // TODO:
+        // if its a custom button it can take more than 3 seconds to reply, causing in "Application did not respond"
+        // because we query:
+        // 1. action ui from db
+        // 2. actions.json if applicable
+        // 3. GET ActionGetResponse,
+        // 4. post error if applicable
+
+        // 2. & 3. take the most time. 
+
+        // ideas:
+        // 1. use an embed for custom values, and always deferReply here
+        // 2. 
+
+        /****************************************** */
         try {
+            // buttonType is defined (as "custom") if the action has parameters defined. eg. action.links.actions[i].parameters
             if (buttonType !== "custom") {
                 // NOTE: discord doesn't allow to show a modal after a reply, and a reply has to be send within 3 seconds
                 // but this function might take more than 3 seconds to process
@@ -532,7 +550,7 @@ export const BUTTON_COMMANDS = {
             if (result.deposit_response) return await interaction.editReply(result.deposit_response);
             if (result.custom_values) {
                 const modal: ModalBuilder | MessageCreateOptions | undefined =
-                    await createBlinkCustomValuesModal(result.action_id!, result.button_id!, result.params!);
+                    await createBlinkCustomValuesModal(result.action_id!, result.button_id!, result.action!);
                 if (!modal) return await interaction.editReply(DEFAULT_ERROR_REPLY);
 
                 if (modal instanceof ModalBuilder) {

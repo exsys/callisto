@@ -15,7 +15,12 @@ import {
     DEFAULT_ERROR_REPLY,
     ERROR_CODES
 } from "../config/errors";
-import { addStartButton, createAfterSwapUI, createDepositButton, createDepositEmbed } from "./discord-ui";
+import {
+    addStartButton,
+    createAfterSwapUI,
+    createDepositButton,
+    createDepositEmbed
+} from "./discord-ui";
 import { Transaction } from "../models/transaction";
 import {
     API_ERRORS_WEBHOOK,
@@ -27,7 +32,7 @@ import {
     LEVEL3_FEE_IN_PERCENT,
     REFCODE_MODAL_STRING,
     WRAPPED_SOL_ADDRESS,
-    BLINK_ERRORS_WEBHOOK
+    BLINK_ERRORS_WEBHOOK,
 } from "../config/constants";
 import { TxResponse } from "../types/txResponse";
 import { UIResponse } from "../types/uiResponse";
@@ -36,6 +41,7 @@ import { Error } from "../models/errors";
 import {
     ActionRow,
     APIEmbed,
+    AttachmentBuilder,
     Embed,
     EmbedBuilder,
     InteractionEditReplyOptions,
@@ -53,12 +59,17 @@ import {
     getCoinInfo,
     getBalanceOfWalletInDecimal,
     getCoinStatsFromWallet,
-    getBalanceOfWalletInLamports
 } from "./solanaweb3";
 import { ActionUI } from "../models/actionui";
 import { BlinkResponse } from "../types/blinkResponse";
 import { BlinkCustomValue } from "../types/blinkCustomValue";
-import { ActionPostResponse, ACTIONS_CORS_HEADERS } from "@solana/actions";
+import {
+    ActionGetResponse,
+    ActionPostResponse,
+    ActionRuleObject,
+    ACTIONS_CORS_HEADERS,
+    LinkedAction
+} from "@solana/actions";
 import { URLSearchParams } from "url";
 import { get } from "https";
 import { AppStats } from "../models/appstats";
@@ -66,11 +77,16 @@ import { Blink } from "../models/blink";
 import { REQUIRED_SEARCH_PARAMS } from "../config/required_params_mapping";
 import { TOKEN_ADDRESS_STRICT_LIST, TOKEN_STRICT_LIST } from "../config/token_strict_list";
 import { CoinInfo } from "../types/coinInfo";
-import { SWAP_BLINKS_MAPPING } from "../config/swap_blinks_mapping";
+import { SWAP_BLINKS } from "../config/swap_blinks";
 import { CoinStats } from "../types/coinStats";
+import { BLINKS_BLACKLIST } from "../config/blinks_blacklist";
+import sharp from "sharp";
+import { EmbedFromUrlResponse } from "../types/EmbedFromUrlResponse";
+import { ActionRule } from "../types/actionRule";
+import { ActionAndUrlResponse } from "../types/ActionAndUrlResponse";
 
-const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
-const REFCODE_CHARSET = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
+const ENCRYPTION_ALGORITHM: string = 'aes-256-cbc';
+const REFCODE_CHARSET: string = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
 
 export async function createWallet(userId: string, ignore_ref_code: boolean = false): Promise<string | undefined> {
     // TODO: make it so if one db save fails, the other saves are reverted
@@ -605,9 +621,9 @@ export async function postDiscordErrorWebhook(errorType: string, error: any, ext
                 break;
             }
         }
-        const errorStack: string | undefined = truncateString(error.stack, 4096);
-        const errorName: string | undefined = truncateString(error.name, 1024)
-        const errorMsg: string | undefined = truncateString(error.message, 1024);
+        const errorStack: string | undefined = truncateString(error?.stack, 4096);
+        const errorName: string | undefined = truncateString(error?.name, 1024)
+        const errorMsg: string | undefined = truncateString(error?.message, 1024);
         const embed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
             .setTitle(title)
@@ -628,7 +644,7 @@ export async function postDiscordErrorWebhook(errorType: string, error: any, ext
             headers: { "Content-Type": "application/json" },
         });
     } catch (error) {
-        console.log(error); // NOTE: this log is needed, so in case the error isn't posted we still can check what went wrong.
+        console.log(error); // NOTE: this log is needed, so in case the error isn't posted we can still check what went wrong.
     }
 }
 
@@ -681,20 +697,22 @@ export function replaceWildcards(originalUrl: string, apiPath: string, pathPatte
 }
 
 // processes_values will only be defined when user presses a button where custom values have to be submitted
+// NOTE: button_id starts with 1
 export async function executeBlink(
     user_id: string, action_id: string, button_id: string, processed_values?: BlinkCustomValue[]
 ): Promise<BlinkResponse> {
     let wallet: any;
     let user: any;
     try {
+        // create new wallet for user if not registered yet
         user = await User.findOne({ user_id });
         if (!user) {
             const walletAddress: string | undefined = await createWallet(user_id, true);
-            if (!walletAddress) {
-                // NOTE: this block is only executed if the wallet creation failed. probably database connection down.
-                return { content: "No wallet found. Please create a wallet with the /start command first." };
-            }
-            const ui: InteractionReplyOptions = await createDepositEmbed(user_id, "You don't have enough SOL to execute this Blink. Load up your wallet to use Blinks.");
+            if (!walletAddress) return { content: "No wallet found. Please create a wallet with the /start command first." };
+            const ui: InteractionReplyOptions = await createDepositEmbed(
+                user_id,
+                "You don't have enough SOL to execute this Blink. Load up your wallet to use Blinks."
+            );
             return { deposit_response: ui };
         }
         wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
@@ -704,36 +722,44 @@ export async function executeBlink(
     }
 
     try {
+        const actionAndUrl: ActionAndUrlResponse | null = await getActionAndActionRootUrl({ action_id: Number(action_id) });
+        if (!actionAndUrl) return { content: "Error while fetching Blink data. Please try again later." };
+
+        const linkedActions: LinkedAction[] | undefined = actionAndUrl.action.links?.actions;
+        let actionButton: LinkedAction | undefined = linkedActions?.find((linkedAction: LinkedAction, index: number) => {
+            return index + 1 === Number(button_id);
+        });
+        if (!actionButton) {
+            await postDiscordErrorWebhook("blinks", "", `Failed to find Action Button on Blink. ActionGetResponse: ${JSON.stringify(actionAndUrl.action)}`);
+            return DEFAULT_ERROR_REPLY;
+        }
+
+        // if button has custom values and user didn't submit those values yet
+        if (actionButton.parameters?.length && !processed_values?.length) {
+            return { custom_values: true, action_id, button_id, action: actionAndUrl.action };
+        }
+
         const actionUI: any = await ActionUI.findOne({ action_id }).lean();
-        if (!actionUI) return { content: "The Blink magically disappeared. Please contact support for more information." };
-        const solBalanceInDecimal = await getBalanceOfWalletInDecimal(wallet.wallet_address);
+        if (!actionUI) {
+            await postDiscordErrorWebhook("blinks", undefined, `Action UI disappeared from DB. Action id: ${action_id}`);
+            return { content: "The Blink magically disappeared. Please contact support for more information." };
+        }
+        const solBalanceInDecimal: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         if (solBalanceInDecimal === 0) {
             const depositButton = createDepositButton();
             return { content: "Not enough SOL to execute this Blink.", components: [depositButton] };
         }
 
-        const button: any = actionUI.buttons.find((button: any) => Number(button.button_id) === Number(button_id));
-        if (!button) {
-            await postDiscordErrorWebhook("blinks", "", `Couldn't find action button. ActionUI: ${JSON.stringify(actionUI)}`);
-            return DEFAULT_ERROR_REPLY;
-        }
-
-        // if button has custom values and user didn't submit those values yet
-        if (button.parameters?.length && !processed_values?.length) {
-            return { custom_values: true, action_id, button_id, params: button.parameters };
-        }
-
-        // if button has custom values and user submitted them
         let url: string | undefined;
-        let actionValue: string | undefined;
-        if (button.parameters?.length && processed_values?.length) {
-            // NOTE: this block will only be executed if a custom value button is pressed
+        let actionValue: string | undefined; // how much of SOL or SPL token is needed for the tx
+        if (actionButton.parameters?.length && processed_values?.length) {
+            // if button has custom values and user submitted them
             try {
                 let actionLink: URL;
-                if (button.href.includes("https://")) {
-                    actionLink = new URL(button.href);
+                if (actionButton.href.includes("https://")) {
+                    actionLink = new URL(actionButton.href);
                 } else {
-                    actionLink = new URL(actionUI.action_root_url + button.href);
+                    actionLink = new URL(actionAndUrl.action_root_url + actionButton.href);
                 }
 
                 const searchParams: URLSearchParams = actionLink.searchParams;
@@ -753,7 +779,7 @@ export async function executeBlink(
                     url = actionLink.href;
                 } else {
                     // this block is executed if the action url is in this format: /swap/{amount}
-                    const parameterNames: string[] = button.parameters.map((param: any) => param.name);
+                    const parameterNames: string[] = actionButton.parameters.map((param: any) => param.name);
                     parameterNames.forEach((paramName: string, index: number) => {
                         const correspondingValue: BlinkCustomValue | undefined = processed_values.find((value: BlinkCustomValue) => {
                             return value.index === index;
@@ -761,13 +787,13 @@ export async function executeBlink(
                         if (!correspondingValue) return { content: "Failed to process Blink. Please try again later." };
                         actionValue = correspondingValue.value;
                         const regex: RegExp = new RegExp(`{${paramName}}`, 'g');
-                        button.href = button.href.replace(regex, correspondingValue.value);
+                        actionButton.href = actionButton.href.replace(regex, correspondingValue.value);
                     });
 
-                    if (button.href.includes("https://")) {
-                        url = button.href;
+                    if (actionButton.href.includes("https://")) {
+                        url = actionButton.href;
                     } else {
-                        url = actionUI.action_root_url + button.href;
+                        url = actionAndUrl.action_root_url + actionButton.href;
                     }
                 }
             } catch (error) {
@@ -775,10 +801,10 @@ export async function executeBlink(
                 return { content: "Failed to process Blink. Please try again later." };
             }
         } else {
-            if (button.href.includes("https://")) {
-                url = button.href;
+            if (actionButton.href.includes("https://")) {
+                url = actionButton.href;
             } else {
-                url = actionUI.action_root_url + button.href;
+                url = actionAndUrl.action_root_url + actionButton.href;
             }
             // NOTE: only applicable to jupiter, also if jupiter decides to change url schema this has to be adjusted too
             actionValue = url?.split("/")[7];
@@ -789,11 +815,12 @@ export async function executeBlink(
         let swapAmount: number | undefined;
         let baseToken: string | undefined;
 
-        // TODO: do SOL balance check on all transactions where SOL is needed
+        // TODO: do SOL balance check on all transactions where SOL is needed (not just gas fee)
 
         // TODO: current problem with adding swap fee to jupiter swap blinks: no way to add fee's to token sells
-        // with the sellViaAPI it's through the feeAccount, but that's not available in blinks
-        if (SWAP_BLINKS_MAPPING.includes(actionUI.root_url) && actionValue) {
+        // through sellViaAPI, which uses feeAccount, but that's not available in blinks
+        const rootUrl: string = new URL(actionUI.posted_url).origin;
+        if (SWAP_BLINKS.includes(rootUrl) && actionValue) {
             // TODO: check if there's another way to find out whether the blink is a swap
             // TODO: replace amount in url with swapAmountAfterFees
             // TODO: create instruction to send swap fee
@@ -803,8 +830,8 @@ export async function executeBlink(
                 // TODO: überlegen wie es für tokens gemacht werden muss (es muss ja tortzdem zB 100% geselled werden)
                 // example for url.split("/"): [ 'https:', '', 'worker.jup.ag', 'blinks', 'swap', '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr', 'So11111111111111111111111111111111111111112', '0.5' ]
                 swapAmount = Number(actionValue);
-                /*baseToken = url.split("/")[5];
-                const swapFee: number = swapAmount * (wallet.swap_fee / 100);
+                baseToken = url.split("/")[5];
+                /*const swapFee: number = swapAmount * (wallet.swap_fee / 100);
                 const swapAmountAfterFees: number = swapAmount - swapFee;
                 const urlSplit = url.split("/");
                 urlSplit[7] = String(swapAmountAfterFees);
@@ -815,7 +842,7 @@ export async function executeBlink(
                     // case of SOL
                     if (solBalanceInDecimal && solBalanceInDecimal < swapAmount) {
                         const depositButton = createDepositButton();
-                        return { content: "Not enough SOL to execute this Blink.", components: [depositButton] };
+                        return { content: "Insufficient SOL balance.", components: [depositButton] };
                     }
                 } else {
                     // case of SPL token
@@ -1099,6 +1126,169 @@ export function parseTokenAddress(tokenOrTokenAddress: string | null): string | 
         const tokenPublicKey: PublicKey = new PublicKey(tokenOrTokenAddress);
         return tokenPublicKey.toBase58();
     } catch (error) {
+        return null;
+    }
+}
+
+export async function createEmbedFromBlinkUrlAndAction(url: string, action: ActionGetResponse): Promise<EmbedFromUrlResponse | null> {
+    try {
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setURL(url)
+            .setTitle(action.title)
+            .setDescription(action.description ? action.description : null)
+            .setAuthor({ name: action.label });
+
+        const imgResponse = await fetch(action.icon, { redirect: 'follow' });
+        const contentType = imgResponse.headers.get('Content-Type');
+
+        let attachment: AttachmentBuilder[] | undefined;
+        if (contentType === "image/svg+xml" || action.icon.endsWith(".svg")) {
+            const buffer: Buffer = await urlToBuffer(action.icon);
+            const imageBuffer: Buffer = await sharp(buffer).png().toBuffer();
+            attachment = [new AttachmentBuilder("image.png").setFile(imageBuffer)];
+            embed.setImage("attachment://image.png");
+        } else {
+            if (imgResponse.url !== action.icon) {
+                // this block is executed if the image url returned a redirect url which contains the image
+                // since discord can't handle those cases, this workaround is implemented
+                if (contentType?.startsWith("image/")) {
+                    const arrayBuffer: ArrayBuffer = await imgResponse.arrayBuffer();
+                    const imageBuffer: Buffer = Buffer.from(arrayBuffer);
+                    attachment = [new AttachmentBuilder("image.png").setFile(imageBuffer)];
+                    embed.setImage("attachment://image.png");
+                }
+                embed.setImage(imgResponse.url);
+            } else {
+                embed.setImage(action.icon);
+            }
+        }
+
+        return { embed, attachment };
+    } catch (error) {
+        return null;
+    }
+}
+
+export async function getActionAndActionRootUrl({ action_id, url }: { action_id?: number, url?: string }): Promise<ActionAndUrlResponse | null> {
+    try {
+        if (action_id && url) return null; // only one can be used for this function
+        let urlObj: URL | undefined;
+        let action_root_url: string;
+
+        if (action_id) {
+            // meaning it's already stored in the DB
+            const actionUi: any = await ActionUI.findOne({ action_id }).lean();
+            if (!actionUi) return null;
+            urlObj = new URL(actionUi.posted_url);
+        }
+        if (url) {
+            // meaning it's not stored in the DB
+            urlObj = new URL(url);
+        }
+        if (!urlObj) return null;
+
+        if (urlObj.protocol !== "https:") return null;
+        const isBlinkUrl: boolean = urlObj.href.includes("?action=solana-action:");
+
+        let action: ActionGetResponse | null = null;
+        if (isBlinkUrl) {
+            // this block is executed if url has the "/?action=solana-action:" schema
+            const reqUrl: string = urlObj.href.split("solana-action:")[1];
+            const actionRootUrl: URL = new URL(reqUrl);
+            action = await (
+                await fetch(reqUrl, {
+                    headers: ACTIONS_CORS_HEADERS,
+                })
+            ).json();
+
+            action_root_url = actionRootUrl.origin;
+        } else {
+            // this block is executed if root url has an actions.json file
+            const rootUrl: string | undefined = urlObj.origin;
+            if (!rootUrl) return null;
+            const actionRule: ActionRule | any = await (
+                await fetch(`${rootUrl}/actions.json`, {
+                    headers: ACTIONS_CORS_HEADERS,
+                })
+            ).json();
+            if (!actionRule) return null;
+
+            let actionUrl: string | undefined;
+            const actionRules: ActionRuleObject[] | undefined = actionRule?.rules;
+            if (!actionRules) return null;
+            let actionRuleObj: ActionRuleObject | undefined;
+            for (const rule of actionRules) {
+                if (actionUrl) break; // skip rest once we find a match
+                if (urlObj.href.endsWith(rule.pathPattern)) {
+                    // try to find exact matches first
+                    actionUrl = urlObj.href.replace(rule.pathPattern, rule.apiPath);
+                }
+                if (!actionUrl) {
+                    // afterwards try to replace wildcards "*" and "**"
+                    actionUrl = replaceWildcards(urlObj.href, rule.apiPath, rule.pathPattern);
+                }
+            }
+
+            if (!actionUrl) {
+                await postDiscordErrorWebhook(
+                    "blinks",
+                    undefined,
+                    `replaceWildcards returned undefined. Root url: ${rootUrl} | Posted url: ${urlObj.href} | Action Rules: ${JSON.stringify(actionRules)}`
+                );
+                return null;
+            }
+            action = await (
+                await fetch(actionUrl, {
+                    headers: ACTIONS_CORS_HEADERS,
+                })
+            ).json();
+
+            let actionRootUrl: URL;
+            if (actionRuleObj?.apiPath.includes("https://")) {
+                // absolute api path urls
+                actionRootUrl = new URL(actionRuleObj.apiPath);
+            } else {
+                // relative api path urls
+                actionRootUrl = new URL(actionUrl);
+            }
+            action_root_url = actionRootUrl.origin;
+        }
+
+        if (!action) return null;
+        return { action, action_root_url };
+    } catch (error) {
+        await postDiscordErrorWebhook("blinks", error, `getActionGetResponseFromActionId | action_id: ${action_id}`);
+        return null;
+    }
+}
+
+export function checkIfBlacklisted(urlObj: URL, isActionsSchema: boolean): boolean {
+    try {
+        if (isActionsSchema) {
+            const reqUrl: string = urlObj.href.split("solana-action:")[1];
+            const actionRootUrl: URL = new URL(reqUrl);
+            return BLINKS_BLACKLIST.includes(actionRootUrl.origin);
+        } else {
+            const rootUrl: string | undefined = urlObj.origin;
+            return BLINKS_BLACKLIST.includes(rootUrl);
+        }
+    } catch (error) {
+        return false;
+    }
+}
+
+export async function extractRootUrlFromBlink(urlObj: URL, isActionsSchema: boolean): Promise<string | null> {
+    try {
+        if (isActionsSchema) {
+            const reqUrl: string = urlObj.href.split("solana-action:")[1];
+            const actionRootUrl: URL = new URL(reqUrl);
+            return actionRootUrl.origin
+        } else {
+            return urlObj.origin;
+        }
+    } catch (error) {
+        await postDiscordErrorWebhook("app", error, "extractRootUrl");
         return null;
     }
 }

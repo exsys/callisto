@@ -25,11 +25,11 @@ import {
     createOrUseRefCodeForUser,
     formatNumber,
     saveError,
-    urlToBuffer,
     createNewBlink,
     isPositiveNumber,
     checkImageAndFormat,
-    postDiscordErrorWebhook
+    postDiscordErrorWebhook,
+    createEmbedFromBlinkUrlAndAction
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinStats";
@@ -73,6 +73,7 @@ import { BlinkURLs } from "../types/blinkUrls";
 import { BlinkVoteResult } from "../models/blinkVoteResult";
 import QRCode from 'qrcode';
 import { GuildSettings } from "../models/guildSettings";
+import { EmbedFromUrlResponse } from "../types/EmbedFromUrlResponse";
 
 /***************************************************** UIs *****************************************************/
 
@@ -724,146 +725,42 @@ export async function createNewBlinkUI(user_id: string, blinkType: string, token
     }
 }
 
-export async function createBlinkUI(urls: BlinkURLs, action: ActionGetResponse): Promise<MessageCreateOptions | undefined> {
+export async function createBlinkUI(posted_url: string, root_url: string, action: ActionGetResponse): Promise<MessageCreateOptions | null> {
     try {
-        const embed: EmbedBuilder = new EmbedBuilder()
-            .setColor(0x4F01EB)
-            .setURL(urls.posted_url)
-            .setTitle(action.title)
-            .setDescription(action.description ? action.description : null)
-            .setAuthor({ name: action.label });
-        const imgResponse = await fetch(action.icon, { redirect: 'follow' });
-        let iconUrlIsRedirect: boolean = false;
-
-        let attachment: AttachmentBuilder[] | undefined;
-        if (action.icon.endsWith(".svg")) {
-            const buffer: Buffer = await urlToBuffer(action.icon);
-            const imageBuffer: Buffer = await sharp(buffer).png().toBuffer();
-            attachment = [new AttachmentBuilder("image.png").setFile(imageBuffer)];
-            embed.setImage("attachment://image.png");
-        } else {
-            if (imgResponse.url !== action.icon) {
-                // this block is executed if the image url returned a redirect url which contains the image
-                // since discord can't handle those cases, this workaround is implemented
-                const contentType = imgResponse.headers.get('Content-Type');
-                if (contentType?.startsWith("image/")) {
-                    const arrayBuffer: ArrayBuffer = await imgResponse.arrayBuffer();
-                    const imageBuffer: Buffer = Buffer.from(arrayBuffer);
-                    attachment = [new AttachmentBuilder("image.png").setFile(imageBuffer)];
-                    embed.setImage("attachment://image.png");
-                }
-                iconUrlIsRedirect = true;
-                embed.setImage(imgResponse.url);
-            } else {
-                embed.setImage(action.icon);
-            }
-        }
+        const embedResponse: EmbedFromUrlResponse | null = await createEmbedFromBlinkUrlAndAction(posted_url, action);
+        if (!embedResponse) return null;
 
         const appStats: any = await AppStats.findOne({ stats_id: 1 });
         appStats.blinks_posted++;
-        let buttons: ButtonBuilder[] = [];
-        let dbButtons: any[] = [];
-        action.links?.actions.forEach((linkedAction: LinkedAction, index: number) => {
-            // NOTE: discord only allows up to 45 chars for customId, keep that in mind
-            const customId: string = `executeBlinkButton:${appStats.blinks_posted}:${index + 1}${linkedAction.parameters?.length ? ":custom" : ""}`;
-            buttons.push(
-                new ButtonBuilder()
-                    .setCustomId(customId)
-                    .setLabel(linkedAction.label)
-                    .setStyle(ButtonStyle.Primary)
-                    .setDisabled(action.disabled ? true : false)
-            );
-            dbButtons.push({
-                button_id: index + 1,
-                custom_id: customId,
-                label: linkedAction.label,
-                href: linkedAction.href,
-                parameters: linkedAction.parameters,
-            });
-        });
-
-        if (!buttons.length || !dbButtons.length) {
-            const customId: string = `executeBlinkButton:${appStats.blinks_posted}:${1}`;
-            if (urls.isV1) {
-                buttons.push(
-                    new ButtonBuilder()
-                        .setCustomId(customId)
-                        .setLabel(action.label)
-                        .setStyle(ButtonStyle.Primary)
-                );
-                dbButtons.push({
-                    button_id: 1,
-                    custom_id: customId,
-                    label: action.label,
-                    href: urls.action_url,
-                });
-            } else {
-                // Action UIs can have no buttons, in that case store a disabled default button, else discord API throws an error
-                buttons.push(
-                    new ButtonBuilder()
-                        .setCustomId(customId)
-                        .setLabel("Closed")
-                        .setStyle(ButtonStyle.Primary)
-                        .setDisabled(true)
-                );
-                dbButtons.push({
-                    button_id: 1,
-                    custom_id: customId,
-                    label: "Closed",
-                });
-            }
-        }
-
-        let rows: ActionRowBuilder<ButtonBuilder>[] = [];
-        let tempButtons: ButtonBuilder[] = [];
-        for (let i = 0; i < buttons.length; i++) {
-            // NOTE: 5 is the max amount of buttons per row (discord api limit)
-            if (i !== 0 && i % 5 === 0) {
-                rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...tempButtons));
-                tempButtons = [buttons[i]];
-            } else {
-                tempButtons.push(buttons[i]);
-            }
-        }
-        rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...tempButtons));
-
         const newActionUI: any = new ActionUI({
             action_id: appStats.blinks_posted,
-            posted_url: urls.posted_url,
-            action_root_url: urls.action_root_url,
-            root_url: urls.root_url,
-            action_url: urls.action_url,
-            api_path: urls.api_path, // only defined if actions.json was found on root domain
-            path_pattern: urls.path_pattern, // only defined if actions.json was found on root domain
-            action: action,
-            buttons: dbButtons,
-            rows: rows.map((row: ActionRowBuilder<ButtonBuilder>) => row.toJSON()),
-            embed: embed.toJSON(),
-            has_attachment: attachment ? true : false,
+            posted_url: posted_url,
+            root_url: root_url,
         });
-        if (iconUrlIsRedirect) newActionUI.icon_url_is_redirect = true;
-        if (CALLISTO_WEBSITE_ROOT_URLS.includes(urls.root_url)) {
+
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createActionBlinkButtons(newActionUI.action_id, action);
+        if (CALLISTO_WEBSITE_ROOT_URLS.includes(root_url)) {
             // also store the blink_id if it's a callisto blink
-            const urlSplit: string[] = urls.posted_url.split("/");
+            const urlSplit: string[] = posted_url.split("/");
             const blink_id: string = urlSplit[urlSplit.length - 1];
             newActionUI.callisto_blink_id = blink_id;
             const blink: any = await Blink.findOne({ blink_id }).lean();
             if (blink) {
-                // NOTE: dev environment will have different blink ids stored in DB. so this might not work in dev
+                // NOTE: dev environment will have different blink ids stored in DB. so dev might not include the "show result" button
                 newActionUI.callisto_blink_type = blink.blink_type;
                 if (blink.blink_type === "blinkVote") {
                     const showResultsButton = voteResultButton(blink.blink_id);
-                    rows.push(showResultsButton);
+                    buttons.push(showResultsButton);
                 }
             }
         }
         // TODO: retry a few times if save error
         await newActionUI.save();
         await appStats.save();
-        return { embeds: [embed], components: rows, files: attachment };
+        return { embeds: [embedResponse.embed], components: buttons, files: embedResponse.attachment };
     } catch (error) {
-        await postDiscordErrorWebhook("blinks", error, `createBlinkUI in discord-ui.ts: originUrl: ${urls.posted_url} | actionUrl: ${urls.action_url} | action: ${JSON.stringify(action)}`);
-        return undefined;
+        await postDiscordErrorWebhook("blinks", error, `createBlinkUI in discord-ui.ts: posted_url: ${posted_url} | root_url: ${root_url} | action: ${JSON.stringify(action)}`);
+        return null;
     }
 }
 
@@ -1951,14 +1848,19 @@ export async function createChangeBlinkCustomValueModal(
 }
 
 export async function createBlinkCustomValuesModal(
-    action_id: string, button_id: string, params: TypedActionParameter[]
+    action_id: string, button_id: string, action: ActionGetResponse,
 ): Promise<ModalBuilder | MessageCreateOptions | undefined> {
+    const linkedActions: LinkedAction[] | undefined = action.links?.actions;
+    let actionButton: LinkedAction | undefined = linkedActions?.find((linkedAction: LinkedAction, index: number) => {
+        return index + 1 === Number(button_id);
+    });
+    const params = actionButton?.parameters;
     try {
+        if (!params) return;
         if (params.length > 5) {
             // NOTE: discord only allows 5 text inputs per modal, so we have to handle action UIs with more than 5 buttons differently
             // in this case we are creating an embed with buttons which will act as an modal
-            const embed: MessageCreateOptions | undefined = await blinkCustomValuesModalAsEmbed(action_id, button_id, params);
-            return embed;
+            return await blinkCustomValuesModalAsEmbed(action_id, button_id, action, params);
         }
 
         const blinkCustomValuesModal: ModalBuilder = new ModalBuilder()
@@ -1984,7 +1886,11 @@ export async function createBlinkCustomValuesModal(
 
         return blinkCustomValuesModal;
     } catch (error) {
-        await saveError({ function_name: "createBlinkCustomValuesModal", error });
+        await postDiscordErrorWebhook(
+            "blinks",
+            error,
+            `createBlinkCustomValuesModal | Action ID: ${action_id} | Button ID: ${button_id} | Params: ${JSON.stringify(params)}`
+        );
         return;
     }
 }
@@ -2456,7 +2362,7 @@ export function createSellLimitPriceModal(): ModalBuilder {
 /************************************************************** EMBEDS ***********************************************************/
 
 export async function blinkCustomValuesModalAsEmbed(
-    action_id: string, button_id: string, params: TypedActionParameter[]
+    action_id: string, button_id: string, action: ActionGetResponse, params: TypedActionParameter[]
 ): Promise<MessageCreateOptions | undefined> {
     try {
         let content: string = "";
@@ -2499,14 +2405,18 @@ export async function blinkCustomValuesModalAsEmbed(
         const embed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
             .setURL(actionUI.posted_url)
-            .setTitle(actionUI.action.title)
+            .setTitle(action.title)
             .setDescription(content)
-            .setTimestamp()
-            .setAuthor({ name: actionUI.action.label })
-            .setThumbnail(actionUI.action.icon);
+            .setAuthor({ name: action.label })
+            .setThumbnail(action.icon);
 
         return { embeds: [embed], components: rows };
     } catch (error) {
+        await postDiscordErrorWebhook(
+            "blinks",
+            error,
+            `blinkCustomValuesModalAsEmbed | Action ID: ${action_id} | Button ID: ${button_id} | Params: ${JSON.stringify(params)}`
+        );
         return;
     }
 }
@@ -2899,4 +2809,47 @@ export function executeBlinkSuccessMessage(content: string): InteractionReplyOpt
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(positionsButton);
     return { content, components: [row] };
+}
+
+export function createActionBlinkButtons(
+    action_id: number, action: ActionGetResponse
+): ActionRowBuilder<ButtonBuilder>[] {
+    let buttons: ButtonBuilder[] = [];
+    const actions: LinkedAction[] | undefined = action.links?.actions;
+    actions?.forEach((linkedAction: LinkedAction, index: number) => {
+        // NOTE: discord only allows up to 45 chars for customId, keep that in mind
+        const customId: string = `executeBlinkButton:${action_id}:${index + 1}${linkedAction.parameters?.length ? ":custom" : ""}`;
+        buttons.push(
+            new ButtonBuilder()
+                .setCustomId(customId)
+                .setLabel(linkedAction.label)
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(action.disabled ? true : false)
+        );
+    });
+
+    if (!buttons.length) {
+        // meaning this is a v1 blink (no links array present means it's using default button)
+        const customId: string = `executeBlinkButton:${action_id}:${1}`;
+        buttons.push(
+            new ButtonBuilder()
+                .setCustomId(customId)
+                .setLabel(action.label)
+                .setStyle(ButtonStyle.Primary)
+        );
+    }
+
+    let rows: ActionRowBuilder<ButtonBuilder>[] = [];
+    let tempButtons: ButtonBuilder[] = [];
+    for (let i = 0; i < buttons.length; i++) {
+        // NOTE: 5 is the max amount of buttons per row (discord api limit)
+        if (i !== 0 && i % 5 === 0) {
+            rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...tempButtons));
+            tempButtons = [buttons[i]];
+        } else {
+            tempButtons.push(buttons[i]);
+        }
+    }
+    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...tempButtons));
+    return rows;
 }

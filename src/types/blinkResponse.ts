@@ -1,4 +1,4 @@
-import { TypedActionParameter } from "@solana/actions-spec";
+import { ActionGetResponse } from "@solana/actions";
 import { InteractionReplyOptions } from "discord.js";
 
 export interface BlinkResponse {
@@ -6,7 +6,7 @@ export interface BlinkResponse {
     custom_values?: boolean, // whether custom values from blink ui have to be submitted
     action_id?: string,
     button_id?: string,
-    params?: TypedActionParameter[],
+    action?: ActionGetResponse,
     success?: boolean,
     components?: any,
     deposit_response?: InteractionReplyOptions,
