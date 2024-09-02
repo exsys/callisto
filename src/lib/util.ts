@@ -1177,7 +1177,7 @@ export async function getActionAndActionRootUrl({ action_id, url }: { action_id?
         let action_root_url: string;
 
         if (action_id) {
-            // meaning it's already stored in the DB
+            // if action_id defined it means this action ui is already stored in the DB
             const actionUi: any = await ActionUI.findOne({ action_id }).lean();
             if (!actionUi) return null;
             urlObj = new URL(actionUi.posted_url);
@@ -1257,8 +1257,10 @@ export async function getActionAndActionRootUrl({ action_id, url }: { action_id?
 
         if (!action) return null;
         return { action, action_root_url };
-    } catch (error) {
-        await postDiscordErrorWebhook("blinks", error, `getActionAndActionRootUrl | action_id?: ${action_id} | url?: ${url}`);
+    } catch (error: any) {
+        if (!(error instanceof SyntaxError)) {
+            await postDiscordErrorWebhook("blinks", error, `getActionAndActionRootUrl | action_id?: ${action_id} | url?: ${url}`);
+        }
         return null;
     }
 }

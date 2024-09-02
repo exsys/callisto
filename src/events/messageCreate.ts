@@ -36,7 +36,7 @@ const event = {
                     if (guildSettings && !guildSettings.blinks_conversion) return;
                 }
             } catch (error) { }
-            
+
             urls.forEach(async (url: string) => {
                 try {
                     const urlObj: URL = new URL(url);
