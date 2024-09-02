@@ -1258,7 +1258,7 @@ export async function getActionAndActionRootUrl({ action_id, url }: { action_id?
         if (!action) return null;
         return { action, action_root_url };
     } catch (error) {
-        await postDiscordErrorWebhook("blinks", error, `getActionGetResponseFromActionId | action_id: ${action_id}`);
+        await postDiscordErrorWebhook("blinks", error, `getActionAndActionRootUrl | action_id?: ${action_id} | url?: ${url}`);
         return null;
     }
 }
