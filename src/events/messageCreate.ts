@@ -24,17 +24,19 @@ const event = {
         // https://example.domain/?action=<action_url>
         // with <action_url> NOT containing "solana-action:"
 
-        try {
-            const guildId: string | null = message.guildId;
-            if (guildId) {
-                // check whether blink conversion is turned off for this guild
-                const guildSettings: any = await GuildSettings.findOne({ guild_id: guildId }).lean();
-                if (guildSettings && !guildSettings.blinks_conversion) return;
-            }
-        } catch (error) { }
 
         const urls: string[] | null = extractUrls(message.content);
         if (urls) {
+            try {
+                const guildId: string | null = message.guildId;
+                if (guildId) {
+                    // check whether blink conversion is turned off for this guild
+                    // REDIS: store guild settings (for now for all, in the future maybe only for top guilds, if it makes sense and storing all is too much memory waste)
+                    const guildSettings: any = await GuildSettings.findOne({ guild_id: guildId }).lean();
+                    if (guildSettings && !guildSettings.blinks_conversion) return;
+                }
+            } catch (error) { }
+            
             urls.forEach(async (url: string) => {
                 try {
                     const urlObj: URL = new URL(url);
