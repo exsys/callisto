@@ -1187,6 +1187,8 @@ export async function getActionAndActionRootUrl({ action_id, url }: { action_id?
             urlObj = new URL(url);
         }
         if (!urlObj) return null;
+        let postedUrl: string = urlObj.href;
+        if (postedUrl.endsWith("/")) postedUrl = postedUrl.slice(0, -1);
 
         if (urlObj.protocol !== "https:") return null;
         const isBlinkUrl: boolean = urlObj.href.includes("?action=solana-action:");
@@ -1206,6 +1208,7 @@ export async function getActionAndActionRootUrl({ action_id, url }: { action_id?
         } else {
             // this block is executed if root url has an actions.json file
             const rootUrl: string | undefined = urlObj.origin;
+            if (rootUrl === postedUrl) return null; // TODO: find out whether blink urls exist that have their blinks on root level
             if (!rootUrl) return null;
             const actionRule: ActionRule | any = await (
                 await fetch(`${rootUrl}/actions.json`, {
@@ -1220,22 +1223,24 @@ export async function getActionAndActionRootUrl({ action_id, url }: { action_id?
             let actionRuleObj: ActionRuleObject | undefined;
             for (const rule of actionRules) {
                 if (actionUrl) break; // skip rest once we find a match
-                if (urlObj.href.endsWith(rule.pathPattern)) {
+                if (postedUrl.endsWith(rule.pathPattern)) {
                     // try to find exact matches first
-                    actionUrl = urlObj.href.replace(rule.pathPattern, rule.apiPath);
+                    actionUrl = postedUrl.replace(rule.pathPattern, rule.apiPath);
                 }
                 if (!actionUrl) {
                     // afterwards try to replace wildcards "*" and "**"
-                    actionUrl = replaceWildcards(urlObj.href, rule.apiPath, rule.pathPattern);
+                    actionUrl = replaceWildcards(postedUrl, rule.apiPath, rule.pathPattern);
                 }
             }
 
             if (!actionUrl) {
-                await postDiscordErrorWebhook(
+                // NOTE: this will be always executed on urls that are not actual blinks, but have an actions.json file
+                // for example because other parts of the websites have blinks. so there will be too many false positives.
+                /*await postDiscordErrorWebhook(
                     "blinks",
                     undefined,
-                    `replaceWildcards returned undefined. Root url: ${rootUrl} | Posted url: ${urlObj.href} | Action Rules: ${JSON.stringify(actionRules)}`
-                );
+                    `replaceWildcards returned undefined. Root url: ${rootUrl} | Posted url: ${postedUrl} | Action Rules: ${JSON.stringify(actionRules)}`
+                );*/
                 return null;
             }
             action = await (
