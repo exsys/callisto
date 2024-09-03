@@ -106,11 +106,11 @@ export async function createAdminUI(guild_id: string, toggled?: string): Promise
     }
 }
 
-export async function createStartUI(userId: string): Promise<InteractionEditReplyOptions> {
+export async function createStartUI(user_id: string): Promise<InteractionEditReplyOptions> {
     try {
-        const user: any = await User.findOne({ user_id: userId }).lean();
+        const user: any = await User.findOne({ user_id }).lean();
         if (!user) {
-            const walletAddress: string | undefined = await createWallet(userId);
+            const walletAddress: string | undefined = await createWallet(user_id);
             if (!walletAddress) {
                 return { content: "Error while trying to create a wallet. If the issue persists please contact support." };
             }
@@ -118,10 +118,10 @@ export async function createStartUI(userId: string): Promise<InteractionEditRepl
             if (walletAddress === REFCODE_MODAL_STRING) return { content: REFCODE_MODAL_STRING };
         }
 
-        const wallet: any = await Wallet.findOne({ user_id: userId, is_default_wallet: true });
+        const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true });
         if (!wallet) return DEFAULT_ERROR_REPLY;
 
-        let content: string = "Solana's fastest Discord bot to trade any coin.";
+        let content: string = "Solana's fastest wallet for Discord.";
         const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
         let formattedBalance: string;
         if (walletBalance === undefined) {
@@ -625,6 +625,11 @@ export async function createWalletUI(userId: string): Promise<InteractionEditRep
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
     const content = `**Default Wallet Address**:\n${wallet.wallet_address}\n\n**Balance**:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
 
+    const startButton = new ButtonBuilder()
+        .setCustomId('start')
+        .setLabel('Start')
+        .setStyle(ButtonStyle.Secondary);
+
     const solscanButton = new ButtonBuilder()
         .setLabel('View on Solscan')
         .setStyle(ButtonStyle.Link)
@@ -666,9 +671,9 @@ export async function createWalletUI(userId: string): Promise<InteractionEditRep
         .setStyle(ButtonStyle.Secondary);
 
     const firstRow = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(solscanButton, depositButton, withdrawAllSolButton, withdrawXSolButton, removeWalletButton);
+        .addComponents(startButton, solscanButton, depositButton, withdrawAllSolButton, withdrawXSolButton);
     const secondRow = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(changeWallet, addNewWalletButton, exportPrivKeyButton);
+        .addComponents(changeWallet, addNewWalletButton, removeWalletButton, exportPrivKeyButton);
 
     return { content, components: [firstRow, secondRow] };
 };
@@ -765,12 +770,21 @@ export async function createBlinkUI(posted_url: string, root_url: string, action
 }
 
 export function createHelpUI(): InteractionReplyOptions {
-    let content = "Welcome to Callisto, the fastest Solana trading bot on Discord.";
+    let content = "Welcome to Callisto, the fastest Solana wallet on Discord.";
     content += "\n\nTo get started, use the **/start** command, this command will create a new Solana wallet automatically if you don't have one already.";
-    content += " You will see different buttons after using the /start command. From there you will be able to navigate through Callisto.";
-    content += "\n\nUse the **Buy** button to enter a contract address and buy any Solana coin. Alternatively you can also use the **/buy** command to buy a coin.";
-    content += " You can view and manage all your open positions with the **Sell & Manage** button or with the **/positions** command.";
-    content += "\n\nCallisto allows you to easily send SOL to other Discord users with a Callisto wallet. Use the **/send** command and select a coin to send to them.";
+    content += " From there you will be able to navigate through Callisto.";
+    content += "\n\n**Buttons:**";
+    content += "\n**Buy:** Enter a contract address or a token symbol from a popular coin to buy any coin on Solana.";
+    content += "\n**Sell & Manage:** View and manage your open positions.";
+    content += "\n**Blinks:** Create and Manage Solana Action Blinks.";
+    content += "\n**Wallet:** Manage your wallets.";
+    content += "\n**Settings:** Manage your wallet settings.";
+    content += "\n\n**Commands:**";
+    content += "\n**/start:** Open the Callisto main UI.";
+    content += "\n**/send <username>:** Send SOL or SPL tokens to other Discord users with a Callisto wallet using their username.";
+    content += "\n**/buy <contract address>:** Enter a contract address or popular token symbol to buy a coin.";
+    content += "\n**/positions:** View and manage your open positions.";
+    content += "\n**/admin:** Open the admin settings. Only admins of a server can use this command.";
     content += "\n\nFor more information on the other features check out the /start command or visit our website at https://callistobot.com";
     return { content, ephemeral: true };
 };
@@ -1363,12 +1377,17 @@ export async function createSettingsUI(userId: string): Promise<InteractionEditR
 };
 
 export function createSetAsDefaultUI(walletAddress: string): InteractionEditReplyOptions {
+    const startButton = new ButtonBuilder()
+        .setCustomId('start')
+        .setLabel('Start')
+        .setStyle(ButtonStyle.Secondary);
+
     const setAsDefaultButton = new ButtonBuilder()
         .setCustomId('setAsDefault')
         .setLabel('Set as default')
         .setStyle(ButtonStyle.Secondary);
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(setAsDefaultButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(startButton, setAsDefaultButton);
     const content: string = `Your new wallet has been added.\n**Wallet address**: ${walletAddress}\n\nTap the "Set as default" button below to set the new wallet as your default wallet.`
 
     return { content, components: [row] };

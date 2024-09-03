@@ -268,7 +268,8 @@ export const BUTTON_COMMANDS = {
 
             await Wallet.updateOne({ user_id: interaction.user.id, wallet_address: oldDefaultWallet.wallet_address }, { is_default_wallet: false });
             await Wallet.updateOne({ user_id: interaction.user.id, wallet_address: newDefaultWallet.wallet_address }, { is_default_wallet: true });
-            await interaction.editReply({ content: "Successfully set as your default wallet!" });
+            const ui: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
+            await interaction.editReply(ui);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
