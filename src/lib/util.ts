@@ -1258,7 +1258,7 @@ export async function getActionAndActionRootUrl({ action_id, url }: { action_id?
         if (!action) return null;
         return { action, action_root_url };
     } catch (error: any) {
-        if (!(error instanceof SyntaxError)) {
+        if (!(error instanceof SyntaxError) && error.message != "fetch failed") {
             await postDiscordErrorWebhook("blinks", error, `getActionAndActionRootUrl | action_id?: ${action_id} | url?: ${url}`);
         }
         return null;
