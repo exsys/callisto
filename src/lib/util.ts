@@ -33,6 +33,7 @@ import {
     REFCODE_MODAL_STRING,
     WRAPPED_SOL_ADDRESS,
     BLINK_ERRORS_WEBHOOK,
+    MAX_WALLETS_PER_USER,
 } from "../config/constants";
 import { TxResponse } from "../types/txResponse";
 import { UIResponse } from "../types/uiResponse";
@@ -88,20 +89,22 @@ import { ActionAndUrlResponse } from "../types/ActionAndUrlResponse";
 const ENCRYPTION_ALGORITHM: string = 'aes-256-cbc';
 const REFCODE_CHARSET: string = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
 
-export async function createWallet(userId: string, ignore_ref_code: boolean = false): Promise<string | undefined> {
+export async function createWallet(user_id: string, ignore_ref_code: boolean = false): Promise<string | undefined> {
     // TODO: make it so if one db save fails, the other saves are reverted
-
-    const solanaWallet: Keypair = createNewWallet();
-    const solanaPrivateKey: string = bs58.encode(solanaWallet.secretKey);
-    const encryption = await encryptPKey(solanaPrivateKey);
-    if (!encryption) return undefined;
-
     try {
-        const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
+        const allWalletsOfUser: any[] = await Wallet.find({ user_id }).lean();
+        if (allWalletsOfUser.length >= MAX_WALLETS_PER_USER) return "max_limit_reached";
+
         const appStats: any = await AppStats.findOne({ stats_id: 1 });
         appStats.wallets_created++;
+
+        const solanaWallet: Keypair = createNewWallet();
+        const solanaPrivateKey: string = bs58.encode(solanaWallet.secretKey);
+        const encryption = await encryptPKey(solanaPrivateKey);
+        if (!encryption) return undefined;
+
         const user: any = await User.findOneAndUpdate(
-            { user_id: userId },
+            { user_id },
             { $inc: { wallets_created: 1 } },
             { new: true, upsert: true }
         ).lean();
@@ -111,9 +114,9 @@ export async function createWallet(userId: string, ignore_ref_code: boolean = fa
 
         const newWallet: any = new Wallet({
             wallet_id: walletCount,
-            user_id: userId,
+            user_id,
             wallet_name: `Wallet ${walletCount}`,
-            is_default_wallet: walletCount === 1 || !allWallets.length,
+            is_default_wallet: walletCount === 1 || !allWalletsOfUser.length,
             wallet_address: solanaWallet.publicKey.toString(),
             swap_fee: user.swap_fee,
             encrypted_private_key: encryption.encryptedPrivateKey,

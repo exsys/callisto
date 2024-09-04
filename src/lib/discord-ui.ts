@@ -106,7 +106,7 @@ export async function createAdminUI(guild_id: string, toggled?: string): Promise
     }
 }
 
-export async function createStartUI(user_id: string): Promise<InteractionEditReplyOptions> {
+export async function createStartUI(user_id: string): Promise<InteractionReplyOptions> {
     try {
         const user: any = await User.findOne({ user_id }).lean();
         if (!user) {
@@ -623,7 +623,7 @@ export async function createWalletUI(userId: string): Promise<InteractionEditRep
     const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
     if (walletBalance === undefined) return { content: ERROR_CODES["0015"].message };
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
-    const content = `**Default Wallet Address**:\n${wallet.wallet_address}\n\n**Balance**:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
+    const content = `**Default Wallet Address:**\n${wallet.wallet_address}\n\n**Balance**:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
 
     const startButton = new ButtonBuilder()
         .setCustomId('start')
@@ -1502,24 +1502,29 @@ export function createBlinkCreationMenu(): InteractionEditReplyOptions {
 }
 
 export async function createChangeWalletMenu(userId: string): Promise<InteractionEditReplyOptions> {
-    const content: string = "Select a wallet to set it as your default wallet.";
-    const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
-    if (!allWallets) return { content: "No wallets found. Create one with the /create command to get started." };
-
-    // TODO: seems like max length is 25, handle that case
-    const options: StringSelectMenuOptionBuilder[] = allWallets.map((wallet: any) => {
-        return new StringSelectMenuOptionBuilder()
-            .setLabel(wallet.wallet_address)
-            .setValue(wallet.wallet_address);
-    });
-
-    const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
-        .setCustomId('selectWallet')
-        .setPlaceholder('Select a Wallet')
-        .addOptions(options);
-
-    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-    return { content, components: [row] };
+    try {
+        const content: string = "Select a wallet to set it as your default wallet.";
+        const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
+        if (!allWallets) return { content: "No wallets found. Create one with the /create command to get started." };
+    
+        // NOTE: 25 is max length for this (discord limit). keep this in mind
+        const options: StringSelectMenuOptionBuilder[] = allWallets.map((wallet: any) => {
+            return new StringSelectMenuOptionBuilder()
+                .setLabel(wallet.wallet_address)
+                .setValue(wallet.wallet_address);
+        });
+    
+        const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
+            .setCustomId('selectWallet')
+            .setPlaceholder('Select a Wallet')
+            .addOptions(options);
+    
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+        return { content, components: [row] };
+    } catch (error) {
+        await postDiscordErrorWebhook("app", error, "createChangeWalletMenu");
+        return DEFAULT_ERROR_REPLY;
+    }
 };
 
 export async function createSelectCoinMenu(userId: string): Promise<InteractionEditReplyOptions> {

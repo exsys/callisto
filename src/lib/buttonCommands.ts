@@ -224,21 +224,6 @@ export const BUTTON_COMMANDS = {
         const changeWalletUI: InteractionEditReplyOptions = await createChangeWalletMenu(interaction.user.id);
         await interaction.editReply(changeWalletUI);
     },
-    createWallet: async (interaction: ButtonInteraction) => {
-        const walletAddress: string | undefined = await createWallet(interaction.user.id);
-        if (!walletAddress) {
-            await interaction.editReply({ content: ERROR_CODES["0005"].message });
-            return;
-        }
-
-        if (walletAddress === REFCODE_MODAL_STRING) {
-            const refCodeModal: ModalBuilder = createRefCodeModal();
-            await interaction.showModal(refCodeModal);
-        }
-
-        const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
-        await interaction.editReply(startUI);
-    },
     addNewWallet: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const walletAddress: string | undefined = await createWallet(interaction.user.id);
@@ -246,6 +231,8 @@ export const BUTTON_COMMANDS = {
             await interaction.editReply({ content: ERROR_CODES["0005"].message });
             return;
         }
+        if (walletAddress === "max_limit_reached") return await interaction.editReply("Max amount of wallets reached.");
+
         const setAsDefaultUI: InteractionEditReplyOptions = createSetAsDefaultUI(walletAddress as string);
         await interaction.editReply(setAsDefaultUI);
     },
