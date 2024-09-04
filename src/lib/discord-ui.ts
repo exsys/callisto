@@ -1506,19 +1506,20 @@ export async function createChangeWalletMenu(userId: string): Promise<Interactio
         const content: string = "Select a wallet to set it as your default wallet.";
         const allWallets: any[] = await Wallet.find({ user_id: userId }).lean();
         if (!allWallets) return { content: "No wallets found. Create one with the /create command to get started." };
-    
+
         // NOTE: 25 is max length for this (discord limit). keep this in mind
+        // but with current max limit of 10 wallets per user this shouldn't be a problem
         const options: StringSelectMenuOptionBuilder[] = allWallets.map((wallet: any) => {
             return new StringSelectMenuOptionBuilder()
                 .setLabel(wallet.wallet_address)
                 .setValue(wallet.wallet_address);
         });
-    
+
         const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
             .setCustomId('selectWallet')
             .setPlaceholder('Select a Wallet')
             .addOptions(options);
-    
+
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
         return { content, components: [row] };
     } catch (error) {
@@ -1527,13 +1528,17 @@ export async function createChangeWalletMenu(userId: string): Promise<Interactio
     }
 };
 
-export async function createSelectCoinMenu(userId: string): Promise<InteractionEditReplyOptions> {
+export async function createSelectCoinMenu(user_id: string): Promise<InteractionEditReplyOptions> {
     const content: string = "Select a coin to view its info's.";
+    let coinInfos: CoinInfo[] | null = null;
     try {
-        const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
+        coinInfos = await getAllCoinInfos({ user_id });
         if (!coinInfos) return DEFAULT_ERROR_REPLY;
 
-        // TODO: seems like max length is 25, handle that case
+        // NOTE: discord has a limit of 25 for string menus
+        // TODO: replace last element with a "show more" entry, to show the next 25 elements (or 24 if again more than 25)
+        if (coinInfos.length > 25) coinInfos = coinInfos.slice(0, 25);
+
         const options: StringSelectMenuOptionBuilder[] = coinInfos.map((coinInfo: CoinInfo) => {
             return new StringSelectMenuOptionBuilder()
                 .setLabel(coinInfo.symbol)
@@ -1550,17 +1555,22 @@ export async function createSelectCoinMenu(userId: string): Promise<InteractionE
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
         return { content, components: [row] };
     } catch (error) {
+        await postDiscordErrorWebhook("app", error, `createSelectCoinMenu | User: ${user_id} | Coin Infos: ${JSON.stringify(coinInfos)}`);
         return DEFAULT_ERROR_REPLY;
     }
 };
 
-export async function createSelectCoinToSendMenu(userId: string, msgContent: string): Promise<InteractionEditReplyOptions> {
+export async function createSelectCoinToSendMenu(user_id: string, msgContent: string): Promise<InteractionEditReplyOptions> {
     const content: string = `${msgContent}\n\nSelect a coin to send.`;
+    let coinInfos: CoinInfo[] | null = null;
     try {
-        const coinInfos: CoinInfo[] | null = await getAllCoinInfos({ user_id: userId });
+        coinInfos = await getAllCoinInfos({ user_id });
         if (!coinInfos) return DEFAULT_ERROR_REPLY;
 
-        // TODO: seems like max length is 25, handle that case
+        // NOTE: discord has a limit of 25 for string menus
+        // TODO: replace last element with a "show more" entry, to show the next 25 elements (or 24 if again more than 25)
+        if (coinInfos.length > 25) coinInfos = coinInfos.slice(0, 25);
+
         const options: StringSelectMenuOptionBuilder[] = [
             new StringSelectMenuOptionBuilder()
                 .setLabel("SOL")
@@ -1582,6 +1592,7 @@ export async function createSelectCoinToSendMenu(userId: string, msgContent: str
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
         return { content, components: [row] };
     } catch (error) {
+        await postDiscordErrorWebhook("app", error, `createSelectCoinToSendMenu | User: ${user_id} | Coin Infos: ${JSON.stringify(coinInfos)}`);
         return DEFAULT_ERROR_REPLY;
     }
 };
