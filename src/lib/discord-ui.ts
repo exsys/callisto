@@ -64,12 +64,10 @@ import { ActionGetResponse, LinkedAction } from "@solana/actions";
 import { ActionUI } from "../models/actionui";
 import { AppStats } from "../models/appstats";
 import { TypedActionParameter } from "@solana/actions-spec";
-import sharp from "sharp";
 import { Blink } from "../models/blink";
 import { BLINKS_TYPE_MAPPING } from "../config/blinks_type_mapping";
 import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
 import { DBAction } from "../types/dbAction";
-import { BlinkURLs } from "../types/blinkUrls";
 import { BlinkVoteResult } from "../models/blinkVoteResult";
 import QRCode from 'qrcode';
 import { GuildSettings } from "../models/guildSettings";
@@ -139,7 +137,6 @@ export async function createStartUI(user_id: string): Promise<InteractionReplyOp
 
         content += `\n\nWallet: ${wallet.wallet_address}`;
         content += "\n\nTo buy a coin tap the Buy button.";
-        content += "\n\nWe guarantee the safety of user funds on Callisto, but if you expose your private key your funds will not be safe.";
 
         const buttons = createStartUIButtons();
         return { content, components: buttons };
