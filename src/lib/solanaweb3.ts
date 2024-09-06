@@ -47,7 +47,9 @@ import {
     TOKEN_PROGRAM_ID,
     createTransferInstruction,
     getOrCreateAssociatedTokenAccount,
-    Account
+    Account,
+    getAccount,
+    getMint
 } from "@solana/spl-token";
 import {
     invalidNumberError,
@@ -1013,7 +1015,7 @@ export async function getBalanceOfWalletInDecimal(wallet_address: string): Promi
         const balance: number = await conn.getBalance(publicKey, { commitment: "confirmed" });
         return balance / LAMPORTS_PER_SOL;
     } catch (error) {
-        await postDiscordErrorWebhook("api", error, `getBalanceOfWalletInDecimal unknown error. Wallet: ${wallet_address}`);
+        await postDiscordErrorWebhook("api", error, `getBalanceOfWalletInDecimal. Wallet: ${wallet_address}`);
         return undefined;
     }
 }
@@ -1357,6 +1359,21 @@ export async function getTransactionInfo(signature?: string): Promise<VersionedT
         return tx;
     } catch (error) {
         await postDiscordErrorWebhook("api", error, `getTransactionInfo unknown error. Signature: ${signature}`);
+        return null;
+    }
+}
+
+export async function getTokenBalanceOfWallet(wallet_address: string, token_address: string): Promise<number | null> {
+    try {
+        const wallet: PublicKey = new PublicKey(wallet_address);
+        const token: PublicKey = new PublicKey(token_address);
+        const tokenAccount: PublicKey | null = await getTokenAccountOfWallet(wallet_address, token_address);
+        if (!tokenAccount) return null;
+
+        const [tokenAccountInfo, mintInfo] = await Promise.all([getAccount(connection, tokenAccount), getMint(connection, token)]);
+        const balanceInDecimals = Number(tokenAccountInfo.amount) / Math.pow(10, mintInfo.decimals);
+        return balanceInDecimals;
+    } catch (error) {
         return null;
     }
 }

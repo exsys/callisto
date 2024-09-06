@@ -152,7 +152,7 @@ export const BUTTON_COMMANDS = {
     },
     wallet: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: InteractionEditReplyOptions = await createWalletUI(interaction.user.id);
+        const ui: InteractionReplyOptions = await createWalletUI(interaction.user.id);
         await interaction.editReply(ui);
     },
     settings: async (interaction: ButtonInteraction) => {

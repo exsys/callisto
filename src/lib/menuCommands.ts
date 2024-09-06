@@ -38,7 +38,7 @@ export const MENU_COMMANDS = {
             await Wallet.updateOne({ wallet_address: oldDefaultWallet.wallet_address }, { is_default_wallet: false });
             await Wallet.updateOne({ wallet_address: newDefaultWallet.wallet_address }, { is_default_wallet: true });
 
-            const walletUi: InteractionEditReplyOptions = await createWalletUI(interaction.user.id);
+            const walletUi: InteractionReplyOptions = await createWalletUI(interaction.user.id);
             await interaction.editReply(walletUi);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);

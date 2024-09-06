@@ -59,7 +59,8 @@ import {
     getBalanceOfWalletInLamports,
     getCoinPriceStats,
     getCoinStatsFromWallet,
-    getCurrentSolPrice
+    getCurrentSolPrice,
+    getTokenBalanceOfWallet
 } from "./solanaweb3";
 import { ActionGetResponse, LinkedAction } from "@solana/actions";
 import { ActionUI } from "../models/actionui";
@@ -67,7 +68,7 @@ import { AppStats } from "../models/appstats";
 import { TypedActionParameter } from "@solana/actions-spec";
 import { Blink } from "../models/blink";
 import { BLINKS_TYPE_MAPPING } from "../config/blinks_type_mapping";
-import { TOKEN_ADDRESS_STRICT_LIST } from "../config/token_strict_list";
+import { TOKEN_ADDRESS_STRICT_LIST, TOKEN_STRICT_LIST } from "../config/token_strict_list";
 import { DBAction } from "../types/dbAction";
 import { BlinkVoteResult } from "../models/blinkVoteResult";
 import QRCode from 'qrcode';
@@ -615,17 +616,28 @@ export async function createAdvancedUI(userId: string): Promise<InteractionEditR
     }
 }
 
-export async function createWalletUI(userId: string): Promise<InteractionEditReplyOptions> {
+export async function createWalletUI(userId: string): Promise<InteractionReplyOptions> {
     const wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
     if (!wallet) return { content: ERROR_CODES["0003"].message };
 
-    const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-    if (walletBalance === undefined) return { content: ERROR_CODES["0015"].message };
-    const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
-    const content = `**Default Wallet Address:**\n${wallet.wallet_address}\n\n**Balance**:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
+    const [solBalance, usdcBalance] = await Promise.all([
+        getBalanceOfWalletInDecimal(wallet.wallet_address),
+        getTokenBalanceOfWallet(wallet.wallet_address, TOKEN_STRICT_LIST.USDC)
+    ]);
+    const formattedSOLBalance: string = (solBalance && solBalance > 0) ? solBalance.toFixed(4) : "0";
+    const formattedUsdcBalance: string = usdcBalance ? usdcBalance.toFixed(2) : "0";
+    const embed: EmbedBuilder = new EmbedBuilder()
+        .setColor(0x4F01EB)
+        .setTitle("Wallet Address")
+        .setDescription(wallet.wallet_address)
+        .setURL(`https://solscan.io/account/${wallet.wallet_address}`)
+        .addFields(
+            { name: "SOL Balance", value: formattedSOLBalance, inline: true },
+            { name: "USDC Balance", value: formattedUsdcBalance, inline: true },
+        );
 
     const buttons = createWalletUIButtons(wallet.wallet_address);
-    return { content, components: buttons };
+    return { embeds: [embed], components: buttons };
 };
 
 export async function createNewBlinkUI(user_id: string, blinkType: string, tokenAddress?: string): Promise<InteractionEditReplyOptions> {
@@ -2556,11 +2568,6 @@ export function createWalletUIButtons(wallet_address: string): ActionRowBuilder<
         .setLabel('Start')
         .setStyle(ButtonStyle.Secondary);
 
-    const solscanButton = new ButtonBuilder()
-        .setLabel('View on Solscan')
-        .setStyle(ButtonStyle.Link)
-        .setURL(`https://solscan.io/account/${wallet_address}`);
-
     const depositButton = new ButtonBuilder()
         .setCustomId('deposit')
         .setLabel('Deposit')
@@ -2597,7 +2604,7 @@ export function createWalletUIButtons(wallet_address: string): ActionRowBuilder<
         .setStyle(ButtonStyle.Secondary);
 
     const firstRow = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(startButton, solscanButton, depositButton, withdrawAllSolButton, withdrawXSolButton);
+        .addComponents(startButton, depositButton, withdrawAllSolButton, withdrawXSolButton);
     const secondRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(changeWallet, addNewWalletButton, removeWalletButton, exportPrivKeyButton);
 
@@ -2855,7 +2862,6 @@ export async function executeBlinkSuccessMessage(content: string): Promise<Inter
     const embed: EmbedBuilder = new EmbedBuilder()
         .setColor(0x4F01EB)
         .setTitle("Blink successfully executed")
-        .setAuthor({ name: "Callisto" })
         .setDescription(solscanLinkAndBlinkMessage.url || "");
 
     if (solscanLinkAndBlinkMessage.message) {
