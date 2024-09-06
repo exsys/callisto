@@ -24,7 +24,6 @@ const event = {
         // https://example.domain/?action=<action_url>
         // with <action_url> NOT containing "solana-action:"
 
-
         const urls: string[] | null = extractUrls(message.content);
         if (urls) {
             try {

@@ -29,7 +29,8 @@ import {
     isPositiveNumber,
     checkImageAndFormat,
     postDiscordErrorWebhook,
-    createEmbedFromBlinkUrlAndAction
+    createEmbedFromBlinkUrlAndAction,
+    extractUrlAndMessageFromBlink
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinStats";
@@ -72,6 +73,7 @@ import { BlinkVoteResult } from "../models/blinkVoteResult";
 import QRCode from 'qrcode';
 import { GuildSettings } from "../models/guildSettings";
 import { EmbedFromUrlResponse } from "../types/EmbedFromUrlResponse";
+import { UrlAndBlinkMsg } from "../types/UrlAndBlinkMsg";
 
 /***************************************************** UIs *****************************************************/
 
@@ -622,57 +624,8 @@ export async function createWalletUI(userId: string): Promise<InteractionEditRep
     const formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
     const content = `**Default Wallet Address:**\n${wallet.wallet_address}\n\n**Balance**:\n${formattedBalance} SOL\n\nCopy the address and send SOL to deposit.`;
 
-    const startButton = new ButtonBuilder()
-        .setCustomId('start')
-        .setLabel('Start')
-        .setStyle(ButtonStyle.Secondary);
-
-    const solscanButton = new ButtonBuilder()
-        .setLabel('View on Solscan')
-        .setStyle(ButtonStyle.Link)
-        .setURL(`https://solscan.io/account/${wallet.wallet_address}`);
-
-    const depositButton = new ButtonBuilder()
-        .setCustomId('deposit')
-        .setLabel('Deposit')
-        .setStyle(ButtonStyle.Secondary);
-
-    const withdrawAllSolButton = new ButtonBuilder()
-        .setCustomId('withdrawAllSol')
-        .setLabel('Withdraw all SOL')
-        .setStyle(ButtonStyle.Secondary);
-
-    const withdrawXSolButton = new ButtonBuilder()
-        .setCustomId('withdrawXSol')
-        .setLabel('Withdraw X SOL')
-        .setStyle(ButtonStyle.Secondary);
-
-    const removeWalletButton = new ButtonBuilder()
-        .setCustomId('removeWallet')
-        .setLabel('Remove Wallet')
-        .setStyle(ButtonStyle.Secondary);
-
-    const changeWallet = new ButtonBuilder()
-        .setCustomId('changeWallet')
-        .setLabel('Change Wallet')
-        .setStyle(ButtonStyle.Secondary);
-
-    const addNewWalletButton = new ButtonBuilder()
-        .setCustomId('addNewWallet')
-        .setLabel('Add new Wallet')
-        .setStyle(ButtonStyle.Secondary);
-
-    const exportPrivKeyButton = new ButtonBuilder()
-        .setCustomId('exportPrivKeyConfirmation')
-        .setLabel('Export Private Key')
-        .setStyle(ButtonStyle.Secondary);
-
-    const firstRow = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(startButton, solscanButton, depositButton, withdrawAllSolButton, withdrawXSolButton);
-    const secondRow = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(changeWallet, addNewWalletButton, removeWalletButton, exportPrivKeyButton);
-
-    return { content, components: [firstRow, secondRow] };
+    const buttons = createWalletUIButtons(wallet.wallet_address);
+    return { content, components: buttons };
 };
 
 export async function createNewBlinkUI(user_id: string, blinkType: string, tokenAddress?: string): Promise<InteractionEditReplyOptions> {
@@ -2597,6 +2550,60 @@ export function createBlinkCreationButtons(
 
 /************************************************************** UTILITY **********************************************************/
 
+export function createWalletUIButtons(wallet_address: string): ActionRowBuilder<ButtonBuilder>[] {
+    const startButton = new ButtonBuilder()
+        .setCustomId('start')
+        .setLabel('Start')
+        .setStyle(ButtonStyle.Secondary);
+
+    const solscanButton = new ButtonBuilder()
+        .setLabel('View on Solscan')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`https://solscan.io/account/${wallet_address}`);
+
+    const depositButton = new ButtonBuilder()
+        .setCustomId('deposit')
+        .setLabel('Deposit')
+        .setStyle(ButtonStyle.Secondary);
+
+    const withdrawAllSolButton = new ButtonBuilder()
+        .setCustomId('withdrawAllSol')
+        .setLabel('Withdraw all SOL')
+        .setStyle(ButtonStyle.Secondary);
+
+    const withdrawXSolButton = new ButtonBuilder()
+        .setCustomId('withdrawXSol')
+        .setLabel('Withdraw X SOL')
+        .setStyle(ButtonStyle.Secondary);
+
+    const removeWalletButton = new ButtonBuilder()
+        .setCustomId('removeWallet')
+        .setLabel('Remove Wallet')
+        .setStyle(ButtonStyle.Secondary);
+
+    const changeWallet = new ButtonBuilder()
+        .setCustomId('changeWallet')
+        .setLabel('Change Wallet')
+        .setStyle(ButtonStyle.Secondary);
+
+    const addNewWalletButton = new ButtonBuilder()
+        .setCustomId('addNewWallet')
+        .setLabel('Add new Wallet')
+        .setStyle(ButtonStyle.Secondary);
+
+    const exportPrivKeyButton = new ButtonBuilder()
+        .setCustomId('exportPrivKeyConfirmation')
+        .setLabel('Export Private Key')
+        .setStyle(ButtonStyle.Secondary);
+
+    const firstRow = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(startButton, solscanButton, depositButton, withdrawAllSolButton, withdrawXSolButton);
+    const secondRow = new ActionRowBuilder<ButtonBuilder>()
+        .addComponents(changeWallet, addNewWalletButton, removeWalletButton, exportPrivKeyButton);
+
+    return [firstRow, secondRow];
+}
+
 export async function toggleBlinksConversion(guild_id: string): Promise<InteractionReplyOptions> {
     try {
         const guildSettings: any = await GuildSettings.findOne({ guild_id });
@@ -2833,14 +2840,29 @@ export function createBlinkCreationContent(blink: any): string {
     return content;
 }
 
-export function executeBlinkSuccessMessage(content: string): InteractionReplyOptions {
+export async function executeBlinkSuccessMessage(content: string): Promise<InteractionReplyOptions> {
     const positionsButton = new ButtonBuilder()
         .setCustomId("sellAndManage")
-        .setLabel("Positions")
+        .setLabel("Token Balances")
         .setStyle(ButtonStyle.Secondary);
-
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(positionsButton);
-    return { content, components: [row] };
+
+    const solscanLinkAndBlinkMessage: UrlAndBlinkMsg | null = await extractUrlAndMessageFromBlink(content);
+    if (!solscanLinkAndBlinkMessage) {
+        return { content, components: [row] };
+    }
+
+    const embed: EmbedBuilder = new EmbedBuilder()
+        .setColor(0x4F01EB)
+        .setTitle("Blink successfully executed")
+        .setAuthor({ name: "Callisto" })
+        .setDescription(solscanLinkAndBlinkMessage.url || "");
+
+    if (solscanLinkAndBlinkMessage.message) {
+        embed.addFields({ name: "Message", value: solscanLinkAndBlinkMessage.message });
+    }
+
+    return { embeds: [embed], components: [row] };
 }
 
 export function createActionBlinkButtons(

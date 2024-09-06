@@ -34,6 +34,7 @@ import {
     WRAPPED_SOL_ADDRESS,
     BLINK_ERRORS_WEBHOOK,
     MAX_WALLETS_PER_USER,
+    URL_REGEX,
 } from "../config/constants";
 import { TxResponse } from "../types/txResponse";
 import { UIResponse } from "../types/uiResponse";
@@ -85,6 +86,7 @@ import sharp from "sharp";
 import { EmbedFromUrlResponse } from "../types/EmbedFromUrlResponse";
 import { ActionRule } from "../types/actionRule";
 import { ActionAndUrlResponse } from "../types/ActionAndUrlResponse";
+import { UrlAndBlinkMsg } from "../types/UrlAndBlinkMsg";
 
 const ENCRYPTION_ALGORITHM: string = 'aes-256-cbc';
 const REFCODE_CHARSET: string = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -652,9 +654,29 @@ export async function postDiscordErrorWebhook(errorType: string, error: any, ext
 }
 
 export function extractUrls(input: string): string[] | null {
-    const urlRegex: RegExp = /https?:\/\/[^\s/$.?#].[^\s]*/gi;
-    const matches: RegExpMatchArray | null = input.match(urlRegex);
-    return matches ? matches : null;
+    try {
+        const matches: RegExpMatchArray | null = input.match(URL_REGEX);
+        return matches ? matches : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+export async function extractUrlAndMessageFromBlink(content: string): Promise<UrlAndBlinkMsg | null> {
+    try {
+        const urlMatch: RegExpMatchArray | null = content.match(URL_REGEX);
+        if (urlMatch) {
+            const url: string = urlMatch[0];
+            const message: string = content.split(url)[1].trim();
+    
+            return { url, message };
+        } else {
+            return null;
+        }
+    } catch (error) {
+        await postDiscordErrorWebhook("blinks", error, "extractUrlAndMessageFromBlink")
+        return null;
+    }
 }
 
 export function truncateString(str: string | undefined, maxLength: number): string | undefined {

@@ -537,6 +537,7 @@ export const BUTTON_COMMANDS = {
             const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!);
             if (result.deposit_response) return await interaction.editReply(result.deposit_response);
             if (result.custom_values) {
+                // this if block means button which requires custom inputs was pressed and those haven't been submitted yet
                 const modal: ModalBuilder | MessageCreateOptions | undefined =
                     await createBlinkCustomValuesModal(result.action_id!, result.button_id!, result.action!);
                 if (!modal) return await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -547,8 +548,9 @@ export const BUTTON_COMMANDS = {
                     await interaction.reply({ embeds: modal.embeds, components: modal.components, ephemeral: true });
                 }
             } else {
+                // else block means no custom values required or have been submitted already
                 if (result.success) {
-                    const ui: InteractionReplyOptions = executeBlinkSuccessMessage(result.content!);
+                    const ui: InteractionReplyOptions = await executeBlinkSuccessMessage(result.content!);
                     await interaction.editReply(ui);
                 } else {
                     await interaction.editReply({ content: result.content!, components: result.components });
