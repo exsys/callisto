@@ -140,7 +140,7 @@ export async function createStartUI(user_id: string): Promise<InteractionReplyOp
         ]);
 
         const formattedSolBalance: string = solBalance ? (solBalance > 0 ? solBalance.toFixed(4) : "0") : "0";
-        const formattedUsdcBalance: string = usdcBalance ? (usdcBalance > 0 ? usdcBalance.toFixed(4) : "0") : "0";
+        const formattedUsdcBalance: string = usdcBalance ? (usdcBalance > 0 ? usdcBalance.toFixed(2) : "0") : "0";
         const description: string = Number(formattedSolBalance) == 0 ? "You currently have no SOL balance. To get started with trading, send some SOL to your Callisto wallet address. Once done tap refresh and your balance will appear here." : 'To buy a coin tap the "Buy" button.';
         const embed = new EmbedBuilder()
             .setColor(0x4F01EB)
