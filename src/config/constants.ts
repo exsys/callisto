@@ -27,6 +27,7 @@ export const SOL_WALLET_ADDRESS_MIN_LENGTH: number = 43;
 export const SOL_WALLET_ADDRESS_MAX_LENGTH: number = 44;
 export const BLINK_DEFAULT_IMAGE: string = "https://www.callistobot.com/images/planet.png";
 export const CALLISTO_WEBSITE_ROOT_URLS: string[] = ["https://callistobot.com", "https://www.callistobot.com"];
+export const TOKEN_ICON_API_URL: string = "https://token-list-api.solana.cloud/v1/mints";
 export const REF_FEE_MIN_CLAIM_AMOUNT: number = 0.0021;
 export const MAX_WALLETS_PER_USER: number = 10;
 export const URL_REGEX: RegExp = /https?:\/\/[^\s/$.?#].[^\s]*/gi;

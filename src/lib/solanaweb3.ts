@@ -36,7 +36,8 @@ import {
     CALLISTO_FEE_WALLET,
     DEFAULT_RPC_URL,
     WRAPPED_SOL_ADDRESS,
-    REF_FEE_MIN_CLAIM_AMOUNT
+    REF_FEE_MIN_CLAIM_AMOUNT,
+    TOKEN_ICON_API_URL
 } from "../config/constants";
 import { ParsedTokenInfo } from "../types/parsedTokenInfo";
 import { CoinInfo } from "../types/coinInfo";
@@ -1090,6 +1091,24 @@ export async function getAllCoinStatsFromWallet(wallet_address: string, minPosit
         return allCoins;
     } catch (error) {
         await postDiscordErrorWebhook("api", error, `getAllCoinStatsFromWallet unknown error. Wallet: ${wallet_address}`);
+        return null;
+    }
+}
+
+export async function getTokenIcon(token_address: string): Promise<string | null> {
+    try {
+        const tokenMetadata = await (
+            await fetch(TOKEN_ICON_API_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                    addresses: [token_address],
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            })
+        ).json();
+
+        return tokenMetadata?.content?.[0].logoURI || null;
+    } catch (error) {
         return null;
     }
 }

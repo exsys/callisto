@@ -48,7 +48,7 @@ import {
     CALLISTO_WEBSITE_ROOT_URLS,
     REFCODE_MODAL_STRING,
     SOL_WALLET_ADDRESS_MAX_LENGTH,
-    SOL_WALLET_ADDRESS_MIN_LENGTH
+    SOL_WALLET_ADDRESS_MIN_LENGTH,
 } from "../config/constants";
 import { UIResponse } from "../types/uiResponse";
 import {
@@ -60,7 +60,8 @@ import {
     getCoinPriceStats,
     getCoinStatsFromWallet,
     getCurrentSolPrice,
-    getTokenBalanceOfWallet
+    getTokenBalanceOfWallet,
+    getTokenIcon,
 } from "./solanaweb3";
 import { ActionGetResponse, LinkedAction } from "@solana/actions";
 import { ActionUI } from "../models/actionui";
@@ -825,7 +826,6 @@ export async function createCoinInfoForLimitOrderUI(contract_address: string): P
             .setLabel(`Sell Limit (%)`)
             .setStyle(ButtonStyle.Secondary);
 
-
         const sellLimitPriceButton = new ButtonBuilder()
             .setCustomId('sellLimitPrice')
             .setLabel('Sell Limit ($)')
@@ -875,19 +875,19 @@ export async function createSellAndManageUI({ user_id, page, ca, successMsg }:
         if (!selectedCoin) return { content: "No coins found. Buy a coin to see it here." };
         const coinSymbols: string[] = coinsInWallet.map((coin: CoinStats) => coin.symbol);
         const coinSymbolsDivided: string = coinSymbols.join(" | ");
-        const solBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-        if (!solBalance) return DEFAULT_ERROR_REPLY;
+        const [solBalance, tokenIcon] = await Promise.all([
+            getBalanceOfWalletInDecimal(wallet.wallet_address),
+            getTokenIcon(selectedCoin.address)
+        ]);
 
         const usdValue: string = selectedCoin.value ? selectedCoin.value.inUSD : "0";
         const solValue: string = selectedCoin.value ? selectedCoin.value.inSOL : "0";
 
-        let walletTotalValueInSol: number = solBalance;
+        let walletTotalValueInSol: number = solBalance || 0;
         coinsInWallet.forEach((coin: CoinStats) => {
             if (!coin.value) return;
             walletTotalValueInSol += Number(coin.value.inSOL);
         });
-
-        // TODO: add profit in % and SOL
 
         const embed = new EmbedBuilder()
             .setColor(0x4F01EB)
@@ -903,6 +903,8 @@ export async function createSellAndManageUI({ user_id, page, ca, successMsg }:
                 { name: "SOL Balance", value: `${solBalance?.toFixed(4)} SOL`, inline: true },
                 { name: "Total Wallet Value", value: `${walletTotalValueInSol.toFixed(4)} SOL`, inline: true },
             );
+
+        if (tokenIcon) embed.setThumbnail(tokenIcon);
 
         const buttons = createSellAndManageUIButtons(wallet.settings, selectedCoin.address);
         return { embeds: [embed], components: buttons };
