@@ -16,9 +16,7 @@ import {
     ERROR_CODES
 } from "../config/errors";
 import {
-    addStartButton,
     createAfterSwapUI,
-    createDepositButton,
     createDepositEmbed
 } from "./discord-ui";
 import { Transaction } from "../models/transaction";
@@ -87,6 +85,7 @@ import { EmbedFromUrlResponse } from "../types/EmbedFromUrlResponse";
 import { ActionRule } from "../types/actionRule";
 import { ActionAndUrlResponse } from "../types/ActionAndUrlResponse";
 import { UrlAndBlinkMsg } from "../types/UrlAndBlinkMsg";
+import { createDepositButton, createStartButton } from "./ui-buttons";
 
 const ENCRYPTION_ALGORITHM: string = 'aes-256-cbc';
 const REFCODE_CHARSET: string = 'a5W16LCbyxt2zmOdTgGveJ8co0uVkAMXZY74iQpBDrUwhFSRP9s3lKNInfHEjq';
@@ -397,18 +396,18 @@ export const wait = (time: number) => new Promise((resolve) => setTimeout(resolv
 export async function saveReferralAndUpdateFees(userId: string, refCode: string): Promise<InteractionEditReplyOptions> {
     try {
         const user = await User.findOne({ user_id: userId });
-        if (!user) return addStartButton(ERROR_CODES["0013"].message);
+        if (!user) return createStartButton(ERROR_CODES["0013"].message);
         const referrer = await User.findOne({ ref_code: refCode });
         if (!referrer) {
             // TODO: store error and submitted ref code in db
-            return addStartButton(ERROR_CODES["0014"].message);
+            return createStartButton(ERROR_CODES["0014"].message);
         }
 
         let refsWallet: string = "";
         const referrersDefaultWallet = await Wallet.findOne({ user_id: referrer.user_id, is_default_wallet: true }).lean();
         if (referrersDefaultWallet) refsWallet = referrersDefaultWallet.wallet_address;
 
-        if (user.referral) return addStartButton("This user already used a referral code.");
+        if (user.referral) return createStartButton("This user already used a referral code.");
 
         referrer.total_refs++;
         user.swap_fee = user.swap_fee * 0.9; // 10% reduction for first month if using a ref code
@@ -425,9 +424,9 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
         await Wallet.updateMany({ user_id: userId }, { swap_fee: user.swap_fee });
         await user.save();
         await referrer.save();
-        return addStartButton("Successfully used referral code. Your transaction fees are reduced by 10% for the next 30 days.\n\nUse the /start command to start trading.");
+        return createStartButton("Successfully used referral code. Your transaction fees are reduced by 10% for the next 30 days.\n\nUse the /start command to start trading.");
     } catch (error) {
-        return addStartButton(ERROR_CODES["0000"].message);
+        return createStartButton(ERROR_CODES["0000"].message);
     }
 }
 

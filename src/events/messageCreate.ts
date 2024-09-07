@@ -11,9 +11,10 @@ import {
     extractUrls,
     getActionAndActionRootUrl,
 } from "../lib/util";
-import { createActionBlinkButtons, createBlinkUI } from "../lib/discord-ui";
+import { createBlinkUI } from "../lib/discord-ui";
 import { GuildSettings } from "../models/guildSettings";
 import { EmbedFromUrlResponse } from "../types/EmbedFromUrlResponse";
+import { createActionBlinkButtons } from "../lib/ui-buttons";
 
 const event = {
     name: Events.MessageCreate,

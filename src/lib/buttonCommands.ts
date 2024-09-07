@@ -9,7 +9,6 @@ import {
 import {
     DEBOUNCE_TIME,
     REF_FEE_DEBOUNCE_MAP,
-    REFCODE_MODAL_STRING
 } from "../config/constants";
 import {
     ERROR_CODES,
@@ -41,7 +40,6 @@ import {
     sendXAmountToUserModal,
     createRemoveWalletUI,
     createChangeWalletMenu,
-    createRefCodeModal,
     createSetAsDefaultUI,
     createExportPrivKeyUI,
     createClaimRefFeeUI,
@@ -174,7 +172,9 @@ export const BUTTON_COMMANDS = {
     },
     refreshManageInfo: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string | null = extractAndValidateCA(interaction.message.content, 4);
+        const tokenAddressLine: string | undefined = interaction.message.embeds[0].data.fields?.[0].name;
+        if (!tokenAddressLine) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+        const contractAddress: string | null = extractAndValidateCA(tokenAddressLine, 1);
         if (!contractAddress) return await interaction.editReply({ content: ERROR_CODES["0006"].message });
         const ui: InteractionEditReplyOptions = await createSellAndManageUI({ user_id: interaction.user.id, ca: contractAddress });
         await interaction.editReply(ui);
