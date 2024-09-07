@@ -897,7 +897,7 @@ export async function createSellAndManageUI({ user_id, page, ca, successMsg }:
             .addFields(
                 {
                     name: `**${selectedCoin.name}** | **${selectedCoin.symbol}** | **${selectedCoin.address}**`,
-                    value: `\n\n**Holdings Value**: $${usdValue} | ${solValue} SOL\n**Market cap**: $${selectedCoin.fdv} @ $${formatNumber(selectedCoin.price)}\n**5m**: ${selectedCoin.priceChange.m5}%, **1h**: ${selectedCoin.priceChange.h1}%, **6h**: ${selectedCoin.priceChange.h6}%, **24h**: ${selectedCoin.priceChange.h24}%`
+                    value: `**Holdings Value**: $${usdValue} | ${solValue} SOL\n**Market cap**: $${selectedCoin.fdv} @ $${formatNumber(selectedCoin.price)}\n**5m**: ${selectedCoin.priceChange.m5}%, **1h**: ${selectedCoin.priceChange.h1}%, **6h**: ${selectedCoin.priceChange.h6}%, **24h**: ${selectedCoin.priceChange.h24}%`
                 },
                 { name: "SOL Balance", value: `${solBalance?.toFixed(4)} SOL`, inline: true },
                 { name: "Total Wallet Value", value: `${walletTotalValueInSol.toFixed(4)} SOL`, inline: true },
