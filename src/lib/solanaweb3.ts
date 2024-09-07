@@ -1384,7 +1384,6 @@ export async function getTransactionInfo(signature?: string): Promise<VersionedT
 
 export async function getTokenBalanceOfWallet(wallet_address: string, token_address: string): Promise<number | null> {
     try {
-        const wallet: PublicKey = new PublicKey(wallet_address);
         const token: PublicKey = new PublicKey(token_address);
         const tokenAccount: PublicKey | null = await getTokenAccountOfWallet(wallet_address, token_address);
         if (!tokenAccount) return null;
