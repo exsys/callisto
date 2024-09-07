@@ -134,27 +134,26 @@ export async function createStartUI(user_id: string): Promise<InteractionReplyOp
         const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true });
         if (!wallet) return DEFAULT_ERROR_REPLY;
 
-        let content: string = "Solana's fastest wallet for Discord.";
-        const walletBalance: number | undefined = await getBalanceOfWalletInDecimal(wallet.wallet_address);
-        let formattedBalance: string;
-        if (walletBalance === undefined) {
-            // return start ui even if walletBalance returns an error
-            formattedBalance = "???";
-        } else {
-            formattedBalance = walletBalance > 0 ? walletBalance.toFixed(4) : "0";
-        }
+        const [solBalance, usdcBalance] = await Promise.all([
+            getBalanceOfWalletInDecimal(wallet.wallet_address),
+            getTokenBalanceOfWallet(wallet.wallet_address, TOKEN_STRICT_LIST.USDC)
+        ]);
 
-        if (formattedBalance == "0" || formattedBalance == "0.0") {
-            content += "\n\nYou currently have no SOL balance. To get started with trading, send some SOL to your Callisto wallet address. Once done tap refresh and your balance will appear here.";
-        } else {
-            content += `\n\nYour current balance: ${formattedBalance} SOL.`;
-        }
-
-        content += `\n\nWallet: ${wallet.wallet_address}`;
-        content += "\n\nTo buy a coin tap the Buy button.";
+        const formattedSolBalance: string = solBalance ? (solBalance > 0 ? solBalance.toFixed(4) : "0") : "Error fetching balance";
+        const formattedUsdcBalance: string = usdcBalance ? (usdcBalance > 0 ? usdcBalance.toFixed(4) : "0") : "Error fetching balance";
+        const description: string = Number(formattedSolBalance) == 0 ? "You currently have no SOL balance. To get started with trading, send some SOL to your Callisto wallet address. Once done tap refresh and your balance will appear here." : 'To buy a coin tap the "Buy" button.';
+        const embed = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setTitle("Wallet")
+            .setAuthor({ name: "Solana's fastest wallet for Discord" })
+            .setDescription(`${wallet.wallet_address}\n\n${description}`)
+            .addFields(
+                { name: "SOL Balance", value: `${formattedSolBalance} SOL`, inline: true },
+                { name: "USDC Balance", value: `${formattedUsdcBalance} USDC`, inline: true },
+            );
 
         const buttons = createStartUIButtons();
-        return { content, components: buttons };
+        return { embeds: [embed], components: buttons };
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
     }
