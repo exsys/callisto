@@ -60,6 +60,16 @@ export const TOKEN_STRICT_LIST = {
     "NEIRO": "CTJf74cTo3cw8acFP1YXF3QpsQUUBGBjh2k2e8xsZ6UL",
     "BILLY": "3B5wuUrMEi5yATD7on46hKfej3pfmd7t1RKgrsN3pump",
     "SCF": "GiG7Hr61RVm4CSUxJmgiCoySFQtdiwxtqf64MsRppump",
+    "VCAT": "VP9UaBXLM4KYRvyjisu65rz8BU5xNAbewU7LVmyU2x4",
+    "GME": "8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB",
+    "AMC": "9jaZhJM6nMHTo4hY9DGabQ1HNuUWhJtm7js1fmKMVpkN",
+    "SELFIE": "9WPTUkh8fKuCnepRWoPYLH3aK9gSjPHFDenBq2X1Czdp",
+    "SIGMA": "5SVG3T9CNQsm2kEwzbRq6hASqh1oGfjqTtLXYUibpump",
+    "BRAINLET": "8NNXWrWVctNw1UFeaBypffimTdcLCcD8XJzHvYsmgwpF",
+    "MINI": "2JcXacFwt9mVAwBQ5nZkYwCyXQkRcdsYrDXn6hj22SbP",
+    "BTW": "4ytpZgVoNB66bFs6NRCUaAVsLdtYk2fHq4U92Jnjpump",
+    "LOCKIN": "8Ki8DpuWNxu9VsS3kQbarsCWMcFGWkzzA8pUPto9zBd5",
+    "WSB": "AkVt31h8vgji5wF4nVbq1QmBV5wBoe8JdSoDTkDhQwEw",
 };
 
 export const TOKEN_ADDRESS_STRICT_LIST = {
@@ -114,5 +124,15 @@ export const TOKEN_ADDRESS_STRICT_LIST = {
     "A8C3xuqscfmyLrte3VmTqrAq8kgMASius9AFNANwpump": "FWOG",
     "CTJf74cTo3cw8acFP1YXF3QpsQUUBGBjh2k2e8xsZ6UL": "Neiro",
     "3B5wuUrMEi5yATD7on46hKfej3pfmd7t1RKgrsN3pump": "BILLY",
-    "GiG7Hr61RVm4CSUxJmgiCoySFQtdiwxtqf64MsRppump": "SCF"
+    "GiG7Hr61RVm4CSUxJmgiCoySFQtdiwxtqf64MsRppump": "SCF",
+    "VP9UaBXLM4KYRvyjisu65rz8BU5xNAbewU7LVmyU2x4": "VCAT",
+    "8wXtPeU6557ETkp9WHFY1n1EcU6NxDvbAggHGsMYiHsB": "GME",
+    "9jaZhJM6nMHTo4hY9DGabQ1HNuUWhJtm7js1fmKMVpkN": "AMC",
+    "9WPTUkh8fKuCnepRWoPYLH3aK9gSjPHFDenBq2X1Czdp": "SELFIE",
+    "5SVG3T9CNQsm2kEwzbRq6hASqh1oGfjqTtLXYUibpump": "SIGMA",
+    "8NNXWrWVctNw1UFeaBypffimTdcLCcD8XJzHvYsmgwpF": "BRAINLET",
+    "2JcXacFwt9mVAwBQ5nZkYwCyXQkRcdsYrDXn6hj22SbP": "mini",
+    "4ytpZgVoNB66bFs6NRCUaAVsLdtYk2fHq4U92Jnjpump": "BTW",
+    "8Ki8DpuWNxu9VsS3kQbarsCWMcFGWkzzA8pUPto9zBd5": "LOCKIN",
+    "AkVt31h8vgji5wF4nVbq1QmBV5wBoe8JdSoDTkDhQwEw": "WSB",
 };
