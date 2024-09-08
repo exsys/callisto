@@ -13,7 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@solana/actions": "^1.6.1",
+    "@solana/actions": "^1.6.4",
     "@solana/spl-token": "^0.4.6",
     "@solana/web3.js": "^1.91.1",
     "bs58": "^5.0.0",

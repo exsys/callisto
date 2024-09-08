@@ -15,6 +15,7 @@ import { createBlinkUI } from "../lib/discord-ui";
 import { GuildSettings } from "../models/guildSettings";
 import { EmbedFromUrlResponse } from "../types/EmbedFromUrlResponse";
 import { createActionBlinkButtons } from "../lib/ui-buttons";
+import { ActionAndUrlResponse } from "../types/ActionAndUrlResponse";
 
 const event = {
     name: Events.MessageCreate,
@@ -49,7 +50,8 @@ const event = {
                     // Check whether Blink URL was already posted once and get ActionGetResponse
                     const actionUIExists: any = await ActionUI.findOne({ posted_url: urlObj.href }).lean();
                     const actionIdOrUrlObj = actionUIExists ? { action_id: actionUIExists.action_id } : { url: urlObj.href };
-                    const actionAndUrl = await getActionAndActionRootUrl(actionIdOrUrlObj); // TODO: this call takes 2+ seconds for svg images, improve if possible
+                    // TODO: this call takes 2+ seconds for svg images, improve if possible
+                    const actionAndUrl: ActionAndUrlResponse | null = await getActionAndActionRootUrl(actionIdOrUrlObj);
                     if (!actionAndUrl) return;
 
                     if (actionUIExists) {
