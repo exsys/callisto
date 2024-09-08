@@ -667,7 +667,6 @@ export async function extractUrlAndMessageFromBlink(content: string): Promise<Ur
         if (urlMatch) {
             const url: string = urlMatch[0];
             const message: string = content.split(url)[1].trim();
-    
             return { url, message };
         } else {
             return null;
@@ -725,11 +724,12 @@ export function replaceWildcards(originalUrl: string, apiPath: string, pathPatte
 export async function executeBlink(
     user_id: string, action_id: string, button_id: string, processed_values?: BlinkCustomValue[]
 ): Promise<BlinkResponse> {
-    let wallet: any;
-    let user: any;
     try {
-        // create new wallet for user if not registered yet
-        user = await User.findOne({ user_id });
+        let [user, wallet, actionAndUrl] = await Promise.all([
+            User.findOne({ user_id }).lean(),
+            Wallet.findOne({ user_id, is_default_wallet: true }).lean(),
+            getActionAndActionRootUrl({ action_id })
+        ]);
         if (!user) {
             const walletAddress: string | undefined = await createWallet(user_id, true);
             if (!walletAddress) return { content: "No wallet found. Please create a wallet with the /start command first." };
@@ -739,14 +739,7 @@ export async function executeBlink(
             );
             return { deposit_response: ui };
         }
-        wallet = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return { content: ERROR_CODES["0003"].message };
-    } catch (error) {
-        return DEFAULT_ERROR_REPLY;
-    }
-
-    try {
-        const actionAndUrl: ActionAndUrlResponse | null = await getActionAndActionRootUrl({ action_id: Number(action_id) });
         if (!actionAndUrl) return { content: "Error while fetching Blink data. Please try again later." };
 
         const linkedActions: LinkedAction[] | undefined = actionAndUrl.action.links?.actions;
@@ -754,7 +747,7 @@ export async function executeBlink(
             return index + 1 === Number(button_id);
         });
         if (!actionButton) {
-            await postDiscordErrorWebhook("blinks", "", `Failed to find Action Button on Blink. ActionGetResponse: ${JSON.stringify(actionAndUrl.action)}`);
+            await postDiscordErrorWebhook("blinks", undefined, `Failed to find Action Button on Blink. ActionGetResponse: ${JSON.stringify(actionAndUrl.action)}`);
             return DEFAULT_ERROR_REPLY;
         }
 
@@ -906,7 +899,7 @@ export async function executeBlink(
         if (error instanceof SyntaxError) {
             return { content: "Blink returned unexpected values. Transaction cancelled." };
         } else {
-            await postDiscordErrorWebhook("blinks", error, `User: ${user_id} | Wallet: ${wallet.wallet_address} | function: executeBlink in util.ts`);
+            await postDiscordErrorWebhook("blinks", error, `executeBlink util.ts | User: ${user_id}`);
             return DEFAULT_ERROR_REPLY;
         }
     }
@@ -1194,11 +1187,13 @@ export async function createEmbedFromBlinkUrlAndAction(url: string, action: Acti
     }
 }
 
-export async function getActionAndActionRootUrl({ action_id, url }: { action_id?: number, url?: string }): Promise<ActionAndUrlResponse | null> {
+export async function getActionAndActionRootUrl({ action_id, url }: { action_id?: string, url?: string }): Promise<ActionAndUrlResponse | null> {
     try {
         if (action_id && url) return null; // only one can be used for this function
         let urlObj: URL | undefined;
         let action_root_url: string;
+
+        // NOTE: we have to store the action ui because else we don't have access to the posted blink url when a user presses a button
 
         if (action_id) {
             // if action_id defined it means this action ui is already stored in the DB
@@ -1258,13 +1253,9 @@ export async function getActionAndActionRootUrl({ action_id, url }: { action_id?
             }
 
             if (!actionUrl) {
-                // NOTE: this will be always executed on urls that are not actual blinks, but have an actions.json file
-                // for example because other parts of the websites have blinks. so there will be too many false positives.
-                /*await postDiscordErrorWebhook(
-                    "blinks",
-                    undefined,
-                    `replaceWildcards returned undefined. Root url: ${rootUrl} | Posted url: ${postedUrl} | Action Rules: ${JSON.stringify(actionRules)}`
-                );*/
+                // NOTE: this will always be executed on urls that are not actual blinks, but have an actions.json file
+                // for example because other parts of the websites have blinks. 
+                // so we are not posting to the error webhook here because there will be too many false positives.
                 return null;
             }
             action = await (

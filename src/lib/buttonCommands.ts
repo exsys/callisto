@@ -510,18 +510,19 @@ export const BUTTON_COMMANDS = {
 
         /****************************************** */
         // TODO:
-        // if its a custom button it can take more than 3 seconds to reply, causing in "Application did not respond"
+        // if its a custom button it can take more than 3 seconds to reply, causing "Application did not respond"
         // because we query:
-        // 1. action ui from db
-        // 2. actions.json if applicable
-        // 3. GET ActionGetResponse,
-        // 4. post error if applicable
+        // 1. user from db
+        // 2. action ui from db
+        // (3. actions.json if applicable)
+        // 4. GET ActionGetResponse
+        // (5. post error if applicable)
 
-        // 2. & 3. take the most time. 
+        // 3. & 4. take the most time. 
 
-        // ideas:
-        // 1. use an embed for custom values, and always deferReply here
-        // 2. 
+        // solution:
+        // always use an embed for custom values (currently its only the case for 6+ custom values), and always deferReply here
+        // sadly there is no other way because discord doesn't allow to use showModal() after reply() or deferReply()
 
         /****************************************** */
         try {
@@ -535,7 +536,10 @@ export const BUTTON_COMMANDS = {
             // this will execute the blink if all values are processed. if custom values are needed and not submitted yet,
             // this function will return with custom_values, so they can be submitted first
             const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!);
-            if (result.deposit_response) return await interaction.editReply(result.deposit_response);
+            if (result.deposit_response) {
+                // if user has not enough funds to execute this blink
+                return await interaction.editReply(result.deposit_response);
+            }
             if (result.custom_values) {
                 // this if block means button which requires custom inputs was pressed and those haven't been submitted yet
                 const modal: ModalBuilder | MessageCreateOptions | undefined =
