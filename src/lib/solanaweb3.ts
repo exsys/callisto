@@ -69,6 +69,7 @@ import {
     userNotFoundError,
     walletBalanceError,
     notSignedError,
+    customError,
 } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
@@ -127,8 +128,14 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
         if (!signer) return decryptError(txResponse);
 
         const maxSolAmountToSend: number = balanceInLamports - GAS_FEE_FOR_SOL_TRANSFER;
-        if (maxSolAmountToSend < 0) return insufficientBalanceError(txResponse);
         txResponse.token_amount = maxSolAmountToSend;
+        if (maxSolAmountToSend < 0) {
+            txResponse.response = "Balance after gas fees too low. Please try a lower amount.";
+            return customError({
+                ...txResponse,
+                error: `Balance after gas fees too low. User: ${user_id} | Wallet: ${wallet.wallet_address} | Destination: ${recipientAddress}`
+            });
+        }
         const tx: Transaction = new Transaction().add(
             SystemProgram.transfer({
                 fromPubkey: signer.publicKey,
@@ -214,8 +221,18 @@ export async function transferXSol(user_id: string, amount: string, recipientAdd
         const { blockhash, lastValidBlockHeight } = await getConnection().getLatestBlockhash("finalized");
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) return decryptError(txResponse);
-        const amountToSend: number = (Number(amount) * LAMPORTS_PER_SOL) - GAS_FEE_FOR_SOL_TRANSFER;
+        const amountToSend: number = (Number(amount) * LAMPORTS_PER_SOL);
         txResponse.token_amount = amountToSend;
+        const balanceInLamports: number | undefined = await getBalanceOfWalletInLamports(wallet_address);
+        if (!balanceInLamports) return walletBalanceError(txResponse);
+        if (balanceInLamports === 0) return insufficientBalanceError(txResponse);
+        if (balanceInLamports - (amountToSend + GAS_FEE_FOR_SOL_TRANSFER) < 0) {
+            txResponse.response = "Balance after gas fees too low. Please try a lower amount.";
+            return customError({
+                ...txResponse,
+                error: `Balance after gas fees too low. User: ${user_id} | Destination: ${recipientAddress} | Wallet: ${wallet.wallet_address} | Amount: ${amount}`
+            });
+        }
 
         const tx: Transaction = new Transaction().add(
             SystemProgram.transfer({
@@ -226,21 +243,6 @@ export async function transferXSol(user_id: string, amount: string, recipientAdd
         );
         tx.feePayer = signer.publicKey;
         tx.recentBlockhash = blockhash;
-
-        // check if the user has enough balance to transfer the amount
-        const estimatedFeeInLamports: number | null = await tx.getEstimatedFee(getConnection());
-        const balanceInLamports: number | undefined = await getBalanceOfWalletInLamports(wallet_address);
-        if (!balanceInLamports) return walletBalanceError(txResponse);
-        if (balanceInLamports === 0) return insufficientBalanceError(txResponse);
-        if (!estimatedFeeInLamports) {
-            // get default fee if the estimated fee is not available
-            if (balanceInLamports < amountToSend + GAS_FEE_FOR_SOL_TRANSFER) {
-                return insufficientBalanceError(txResponse);
-            }
-        } else if (balanceInLamports < amountToSend + estimatedFeeInLamports) {
-            return insufficientBalanceError(txResponse);
-        }
-
         tx.sign(signer);
         const serializedTx: Buffer = Buffer.from(tx.serialize());
         const signature: string | undefined = getSignature(tx);

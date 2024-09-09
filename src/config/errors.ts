@@ -115,6 +115,29 @@ export const ERROR_CODES = {
     }
 }
 
+export function customError({
+    user_id,
+    wallet_address,
+    tx_type,
+    contract_address,
+    destination_address,
+    token_amount,
+    response,
+    error,
+}: TxResponse): TxResponse {
+    return {
+        user_id,
+        wallet_address,
+        tx_type,
+        success: false,
+        token_amount,
+        contract_address,
+        destination_address,
+        response,
+        error,
+    }
+}
+
 export function walletNotFoundError({ user_id, tx_type, contract_address }: TxResponse): TxResponse {
     return {
         user_id,
