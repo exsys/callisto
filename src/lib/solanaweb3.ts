@@ -130,7 +130,7 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
         const maxSolAmountToSend: number = balanceInLamports - GAS_FEE_FOR_SOL_TRANSFER;
         txResponse.token_amount = maxSolAmountToSend;
         if (maxSolAmountToSend < 0) {
-            txResponse.response = "Balance after gas fees too low. Please try a lower amount.";
+            txResponse.response = "Balance too low. Try a lower amount.";
             return customError({
                 ...txResponse,
                 error: `Balance after gas fees too low. User: ${user_id} | Wallet: ${wallet.wallet_address} | Destination: ${recipientAddress}`
@@ -227,7 +227,7 @@ export async function transferXSol(user_id: string, amount: string, recipientAdd
         if (!balanceInLamports) return walletBalanceError(txResponse);
         if (balanceInLamports === 0) return insufficientBalanceError(txResponse);
         if (balanceInLamports - (amountToSend + GAS_FEE_FOR_SOL_TRANSFER) < 0) {
-            txResponse.response = "Balance after gas fees too low. Please try a lower amount.";
+            txResponse.response = "Balance too low. Try a lower amount.";
             return customError({
                 ...txResponse,
                 error: `Balance after gas fees too low. User: ${user_id} | Destination: ${recipientAddress} | Wallet: ${wallet.wallet_address} | Amount: ${amount}`
