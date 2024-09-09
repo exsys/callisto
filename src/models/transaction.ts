@@ -10,6 +10,10 @@ const TransactionSchema = new Schema<DBTransaction>({
         type: String,
         required: true,
     },
+    destination_address: {
+        type: String,
+        required: false,
+    },
     contract_address: {
         type: String,
         required: false,

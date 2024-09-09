@@ -29,8 +29,8 @@ import {
     isPositiveNumber,
     checkImageAndFormat,
     postDiscordErrorWebhook,
-    createEmbedFromBlinkUrlAndAction,
-    extractUrlAndMessageFromBlink
+    extractUrlAndMessageFromBlink,
+    urlToBuffer
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { CoinStats } from "../types/coinStats";
@@ -63,7 +63,7 @@ import {
     getTokenBalanceOfWallet,
     getTokenIcon,
 } from "./solanaweb3";
-import { ActionGetResponse, LinkedAction } from "@solana/actions";
+import { ActionGetResponse, LinkedAction, NextAction } from "@solana/actions";
 import { ActionUI } from "../models/actionui";
 import { AppStats } from "../models/appstats";
 import { TypedActionParameter } from "@solana/actions-spec";
@@ -87,6 +87,8 @@ import {
     createVoteResultButton,
     createWalletUIButtons
 } from "./ui-buttons";
+import { DbBlink } from "../types/DbBlink";
+import sharp from "sharp";
 
 /***************************************************** UIs *****************************************************/
 
@@ -1319,6 +1321,45 @@ export async function createSelectCoinToSendMenu(user_id: string, msgContent: st
     }
 };
 
+export async function removeActionSelectionMenu(blink_id: string, editMode: boolean = false): Promise<InteractionEditReplyOptions> {
+    try {
+        const blink: any = await Blink.findOne({ blink_id }).lean();
+        if (!blink) return { content: ERROR_CODES["0017"].message };
+
+        const blinkActions: SelectMenuComponentOptionData[] = [];
+        const labels: { [key: string]: number } = {}; // label: number => with number being the order of the label
+        blink.links.actions.forEach((action: any) => {
+            if (labels[action.label]) {
+                // means this exact label already exists
+                // because discord doesn't allow duplicate values for menu options we have to modify the value
+                labels[action.label]++;
+                blinkActions.push({ label: `${action.label} (${labels[action.label]})`, value: `${blink_id}:${action.label}:${labels[action.label]}` });
+            } else {
+                // blink_id:button_label:order of label (in cases of duplicate labels)
+                labels[action.label] = 1;
+                blinkActions.push({ label: action.label, value: `${blink_id}:${action.label}:${labels[action.label]}` });
+            }
+        });
+
+        if (!blinkActions.length) return { content: "No actions to remove." };
+
+        const options: StringSelectMenuOptionBuilder[] = blinkActions.map((option: SelectMenuComponentOptionData) => {
+            return new StringSelectMenuOptionBuilder().setLabel(option.label).setValue(option.value);
+        });
+
+        const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
+            .setCustomId(`removeBlinkAction${editMode ? ":e" : ""}`)
+            .setPlaceholder('Select a button to remove')
+            .addOptions(options);
+
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+        return { content: "Select a button to remove from your Blink.", components: [row] };
+    } catch (error) {
+        await saveError({ function_name: "removeActionSelectionMenu", error });
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
 /************************************************************** MODALS *****************************************************/
 
 export function tokenAddressForBlinkModal(blinkType: string): ModalBuilder {
@@ -1455,99 +1496,6 @@ export async function createFixedActionModal(
         await saveError({ function_name: "createFixedActionModal", error });
         return;
     }
-}
-
-export async function removeActionButtonFromBlink(
-    blink_id: string, label: string, order: number, editMode: boolean = false,
-): Promise<InteractionReplyOptions> {
-    try {
-        const blink: any = await Blink.findOne({ blink_id });
-        if (!blink) return { content: ERROR_CODES["0017"].message };
-
-        // check for duplicate labels so we remove only the selected button label
-        let duplicateLabels: number = 0;
-        let indexToRemove: number = 0;
-        blink.links.actions.forEach((action: any, index: number) => {
-            // find the correct index to remove from blink.links.actions
-            if (action.label === label) {
-                duplicateLabels++;
-                if (duplicateLabels === order) {
-                    indexToRemove = index;
-                    return;
-                }
-            }
-        });
-
-        if (duplicateLabels > 1) {
-            blink.links.actions.splice(indexToRemove, 1);
-        } else {
-            blink.links.actions = blink.links.actions.filter((action: any) => action.label !== label);
-        }
-
-        await blink.save();
-
-        const embed: EmbedBuilder = createBlinkCreationEmbedFromBlink(blink);
-        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id, editMode, blink.disabled);
-        const content: string = createBlinkCreationContent(blink);
-        return { content, embeds: [embed], components: buttons };
-    } catch (error) {
-        await saveError({ function_name: "removeActionButtonFromBlink", error });
-        return DEFAULT_ERROR_REPLY;
-    }
-}
-
-export async function removeActionSelectionMenu(blink_id: string, editMode: boolean = false): Promise<InteractionEditReplyOptions> {
-    try {
-        const blink: any = await Blink.findOne({ blink_id }).lean();
-        if (!blink) return { content: ERROR_CODES["0017"].message };
-
-        const blinkActions: SelectMenuComponentOptionData[] = [];
-        const labels: { [key: string]: number } = {}; // label: number => with number being the order of the label
-        blink.links.actions.forEach((action: any) => {
-            if (labels[action.label]) {
-                // means this exact label already exists
-                // because discord doesn't allow duplicate values for menu options we have to modify the value
-                labels[action.label]++;
-                blinkActions.push({ label: `${action.label} (${labels[action.label]})`, value: `${blink_id}:${action.label}:${labels[action.label]}` });
-            } else {
-                // blink_id:button_label:order of label (in cases of duplicate labels)
-                labels[action.label] = 1;
-                blinkActions.push({ label: action.label, value: `${blink_id}:${action.label}:${labels[action.label]}` });
-            }
-        });
-
-        if (!blinkActions.length) return { content: "No actions to remove." };
-
-        const options: StringSelectMenuOptionBuilder[] = blinkActions.map((option: SelectMenuComponentOptionData) => {
-            return new StringSelectMenuOptionBuilder().setLabel(option.label).setValue(option.value);
-        });
-
-        const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
-            .setCustomId(`removeBlinkAction${editMode ? ":e" : ""}`)
-            .setPlaceholder('Select a button to remove')
-            .addOptions(options);
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-        return { content: "Select a button to remove from your Blink.", components: [row] };
-    } catch (error) {
-        await saveError({ function_name: "removeActionSelectionMenu", error });
-        return DEFAULT_ERROR_REPLY;
-    }
-}
-
-export function addActionButtonTypeSelection(blink_id: string, editMode: boolean = false): InteractionReplyOptions {
-    const addActionButton = new ButtonBuilder()
-        .setCustomId(`addFixedAction:${blink_id}${editMode ? ":e" : ""}`)
-        .setLabel('Fixed value')
-        .setStyle(ButtonStyle.Secondary);
-
-    const addCustomActionButton = new ButtonBuilder()
-        .setCustomId(`addCustomAction:${blink_id}${editMode ? ":e" : ""}`)
-        .setLabel('Custom value')
-        .setStyle(ButtonStyle.Secondary);
-
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(addActionButton, addCustomActionButton);
-    return { content: "Select a button type to add to your Blink.", components: [row], ephemeral: true };
 }
 
 export async function createChangeUserBlinkModal(
@@ -2331,13 +2279,13 @@ export async function disableBlink(blink_id: string): Promise<InteractionReplyOp
     }
 }
 
-export function createBlinkCreationEmbedFromBlink(blink: any): EmbedBuilder {
+export function createBlinkCreationEmbedFromBlink(blink: DbBlink): EmbedBuilder {
     const embed: EmbedBuilder = new EmbedBuilder()
         .setColor(0x4F01EB)
         .setTitle(blink.title)
         .setURL(blink.title_url)
         .setAuthor({ name: blink.label })
-        .setImage(blink.icon)
+        .setImage(blink.icon || null)
         .setDescription(blink.description);
 
     // TODO: consider adding "(custom)" to all field labels, not just for vote blinks
@@ -2396,16 +2344,16 @@ export function createBlinkCreationContent(blink: any): string {
     return content;
 }
 
-export async function executeBlinkSuccessMessage(content: string): Promise<InteractionReplyOptions> {
+export async function executeBlinkSuccessMessage(reply_object: InteractionReplyOptions): Promise<InteractionReplyOptions> {
     const positionsButton = new ButtonBuilder()
         .setCustomId("sellAndManage")
         .setLabel("Token Balances")
         .setStyle(ButtonStyle.Secondary);
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(positionsButton);
 
-    const solscanLinkAndBlinkMessage: UrlAndBlinkMsg | null = await extractUrlAndMessageFromBlink(content);
+    const solscanLinkAndBlinkMessage: UrlAndBlinkMsg | null = await extractUrlAndMessageFromBlink(reply_object.content!);
     if (!solscanLinkAndBlinkMessage) {
-        return { content, components: [row] };
+        return { content: reply_object.content!, components: [row] };
     }
 
     const embed: EmbedBuilder = new EmbedBuilder()
@@ -2418,4 +2366,98 @@ export async function executeBlinkSuccessMessage(content: string): Promise<Inter
     }
 
     return { embeds: [embed], components: [row] };
+}
+
+export async function removeActionButtonFromBlink(
+    blink_id: string, label: string, order: number, editMode: boolean = false,
+): Promise<InteractionReplyOptions> {
+    try {
+        const blink: any = await Blink.findOne({ blink_id });
+        if (!blink) return { content: ERROR_CODES["0017"].message };
+
+        // check for duplicate labels so we remove only the selected button label
+        let duplicateLabels: number = 0;
+        let indexToRemove: number = 0;
+        blink.links.actions.forEach((action: any, index: number) => {
+            // find the correct index to remove from blink.links.actions
+            if (action.label === label) {
+                duplicateLabels++;
+                if (duplicateLabels === order) {
+                    indexToRemove = index;
+                    return;
+                }
+            }
+        });
+
+        if (duplicateLabels > 1) {
+            blink.links.actions.splice(indexToRemove, 1);
+        } else {
+            blink.links.actions = blink.links.actions.filter((action: any) => action.label !== label);
+        }
+
+        await blink.save();
+
+        const embed: EmbedBuilder = createBlinkCreationEmbedFromBlink(blink);
+        const buttons: ActionRowBuilder<ButtonBuilder>[] = createBlinkCreationButtons(blink.blink_id, editMode, blink.disabled);
+        const content: string = createBlinkCreationContent(blink);
+        return { content, embeds: [embed], components: buttons };
+    } catch (error) {
+        await saveError({ function_name: "removeActionButtonFromBlink", error });
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
+export function addActionButtonTypeSelection(blink_id: string, editMode: boolean = false): InteractionReplyOptions {
+    const addActionButton = new ButtonBuilder()
+        .setCustomId(`addFixedAction:${blink_id}${editMode ? ":e" : ""}`)
+        .setLabel('Fixed value')
+        .setStyle(ButtonStyle.Secondary);
+
+    const addCustomActionButton = new ButtonBuilder()
+        .setCustomId(`addCustomAction:${blink_id}${editMode ? ":e" : ""}`)
+        .setLabel('Custom value')
+        .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(addActionButton, addCustomActionButton);
+    return { content: "Select a button type to add to your Blink.", components: [row], ephemeral: true };
+}
+
+export async function createEmbedFromBlinkUrlAndAction(url: string, action: ActionGetResponse | NextAction): Promise<EmbedFromUrlResponse | null> {
+    try {
+        const embed: EmbedBuilder = new EmbedBuilder()
+            .setColor(0x4F01EB)
+            .setURL(url)
+            .setTitle(action.title)
+            .setDescription(action.description ? action.description : null)
+            .setAuthor({ name: action.label });
+
+        const imgResponse = await fetch(action.icon, { redirect: 'follow' });
+        const contentType = imgResponse.headers.get('Content-Type');
+
+        let attachment: AttachmentBuilder[] | undefined;
+        if (contentType === "image/svg+xml" || action.icon.endsWith(".svg")) {
+            const buffer: Buffer = await urlToBuffer(action.icon);
+            const imageBuffer: Buffer = await sharp(buffer).png().toBuffer();
+            attachment = [new AttachmentBuilder("image.png").setFile(imageBuffer)];
+            embed.setImage("attachment://image.png");
+        } else {
+            if (imgResponse.url !== action.icon) {
+                // this block is executed if the image url returned a redirect url which contains the image
+                // since discord can't handle those cases, this workaround is implemented
+                if (contentType?.startsWith("image/")) {
+                    const arrayBuffer: ArrayBuffer = await imgResponse.arrayBuffer();
+                    const imageBuffer: Buffer = Buffer.from(arrayBuffer);
+                    attachment = [new AttachmentBuilder("image.png").setFile(imageBuffer)];
+                    embed.setImage("attachment://image.png");
+                }
+                embed.setImage(imgResponse.url);
+            } else {
+                embed.setImage(action.icon);
+            }
+        }
+
+        return { embed, attachment };
+    } catch (error) {
+        return null;
+    }
 }

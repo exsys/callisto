@@ -6,12 +6,11 @@ import {
 } from "discord.js";
 import {
     checkIfBlacklisted,
-    createEmbedFromBlinkUrlAndAction,
     extractRootUrlFromBlink,
     extractUrls,
     getActionAndActionRootUrl,
 } from "../lib/util";
-import { createBlinkUI } from "../lib/discord-ui";
+import { createBlinkUI, createEmbedFromBlinkUrlAndAction } from "../lib/discord-ui";
 import { GuildSettings } from "../models/guildSettings";
 import { EmbedFromUrlResponse } from "../types/EmbedFromUrlResponse";
 import { createActionBlinkButtons } from "../lib/ui-buttons";

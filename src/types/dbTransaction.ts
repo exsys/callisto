@@ -1,6 +1,7 @@
 export type DBTransaction = {
     user_id: string;
     wallet_address: string;
+    destination_address?: string;
     contract_address?: string;
     tx_type: string;
     success: boolean;

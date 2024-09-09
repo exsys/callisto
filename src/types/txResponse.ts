@@ -5,6 +5,7 @@ export interface TxResponse {
     user_id: string;
     tx_type: string;
     wallet_address?: string;
+    destination_address?: string,
     success?: boolean;
     response?: string;
     contract_address?: string;

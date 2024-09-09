@@ -95,7 +95,7 @@ const BPS_PER_PERCENT: number = 100;
 const CU_TOKEN_TRANSFER: number = 27695;
 const CU_SOL_TRANSFER: number = 450;
 const RENT_FEE: number = 2000000;
-const GAS_FEE_FOR_SOL_TRANSFER: number = 10000;
+const GAS_FEE_FOR_SOL_TRANSFER: number = 5000;
 
 export function createNewWallet() {
     const solanaWallet = Keypair.generate();
@@ -106,6 +106,7 @@ export function createNewWallet() {
 export async function transferAllSol(user_id: string, recipientAddress: string): Promise<TxResponse> {
     const txResponse: TxResponse = {
         user_id,
+        destination_address: recipientAddress,
         tx_type: "transfer_all",
     };
     let wallet: any;
@@ -126,6 +127,7 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
         if (!signer) return decryptError(txResponse);
 
         const maxSolAmountToSend: number = balanceInLamports - GAS_FEE_FOR_SOL_TRANSFER;
+        if (maxSolAmountToSend < 0) return insufficientBalanceError(txResponse);
         txResponse.token_amount = maxSolAmountToSend;
         const tx: Transaction = new Transaction().add(
             SystemProgram.transfer({
@@ -163,7 +165,11 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
             // maxSolAmountToSend = balanceInLamports - GAS_FEE_FOR_SOL_TRANSFER - RENT_FEE; -> minus rent fee
             appStats.failed_token_transfers++;
             await appStats.save();
-            await postDiscordErrorWebhook("app", result.meta, `transferAllSol tx meta error. User id: ${user_id}`);
+            await postDiscordErrorWebhook(
+                "app",
+                result.meta,
+                `transferAllSol tx meta error. User: ${user_id} | Destination: ${recipientAddress}`
+            );
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 

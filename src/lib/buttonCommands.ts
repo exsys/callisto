@@ -535,29 +535,35 @@ export const BUTTON_COMMANDS = {
 
             // this will execute the blink if all values are processed. if custom values are needed and not submitted yet,
             // this function will return with custom_values, so they can be submitted first
-            const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!);
-            if (result.deposit_response) {
-                // if user has not enough funds to execute this blink
-                return await interaction.editReply(result.deposit_response);
-            }
-            if (result.custom_values) {
-                // this if block means button which requires custom inputs was pressed and those haven't been submitted yet
-                const modal: ModalBuilder | MessageCreateOptions | undefined =
-                    await createBlinkCustomValuesModal(result.action_id!, result.button_id!, result.action!);
-                if (!modal) return await interaction.editReply(DEFAULT_ERROR_REPLY);
 
-                if (modal instanceof ModalBuilder) {
-                    await interaction.showModal(modal);
-                } else {
-                    await interaction.reply({ embeds: modal.embeds, components: modal.components, ephemeral: true });
+            // TODO NEXT: schauen ob ich anstatt BlinkResponse was anderes machen kann, zB InteractionReplyOptions
+            const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!);
+            switch (result.response_type) {
+                case "custom_input_required": {
+                    // this if block means button which requires custom inputs was pressed and those haven't been submitted yet
+                    const modal: ModalBuilder | MessageCreateOptions | undefined =
+                        await createBlinkCustomValuesModal(result.action_id!, result.button_id!, result.action!);
+                    if (!modal) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+
+                    if (modal instanceof ModalBuilder) {
+                        return await interaction.showModal(modal);
+                    } else {
+                        // for buttons where more than 5 custom inputs are possible
+                        return await interaction.reply({ embeds: modal.embeds, components: modal.components, ephemeral: true });
+                    }
                 }
-            } else {
-                // else block means no custom values required or have been submitted already
-                if (result.success) {
-                    const ui: InteractionReplyOptions = await executeBlinkSuccessMessage(result.content!);
-                    await interaction.editReply(ui);
-                } else {
-                    await interaction.editReply({ content: result.content!, components: result.components });
+                case "success": {
+                    const ui: InteractionReplyOptions = await executeBlinkSuccessMessage(result.reply_object);
+                    return await interaction.editReply(ui);
+                }
+                case "chained_action": {
+                    return await interaction.editReply(result.reply_object);
+                }
+                case "error": {
+                    return await interaction.editReply(result.reply_object);
+                }
+                default: {
+                    return await interaction.editReply(DEFAULT_ERROR_REPLY);
                 }
             }
         } catch (error) {
@@ -582,7 +588,7 @@ export const BUTTON_COMMANDS = {
             // order values and prepare them to send to the RPC
             const orderedBlinkValues: BlinkCustomValue[] = convertDescriptionToOrderedValues(embedDescription, actionUI, correspondingButton);
             const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!, orderedBlinkValues);
-            return await interaction.editReply({ content: result.content! });
+            return await interaction.editReply(result.reply_object);
         }
 
         // get all lines from the embed

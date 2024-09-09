@@ -526,7 +526,7 @@ export const MODAL_COMMANDS = {
             const buttonId: string = values[1];
             const orderedBlinkValues: BlinkCustomValue[] = values[2];
             const result: BlinkResponse = await executeBlink(interaction.user.id, blinkId, buttonId, orderedBlinkValues);
-            await interaction.editReply({ content: result.content! });
+            await interaction.editReply(result.reply_object);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
         }
