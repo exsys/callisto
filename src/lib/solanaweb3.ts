@@ -170,7 +170,11 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
                 result.meta,
                 `transferAllSol tx meta error. User: ${user_id} | Destination: ${recipientAddress}`
             );
-            return txMetaError({ ...txResponse, error: result.meta?.err });
+            if ((result.meta.err as any).InsufficientFundsForRent) {
+                return txMetaError({ ...txResponse, error: result.meta?.err, response: "Insufficient SOL for Rent. Please increase the withdraw amount or use a destination wallet that has some SOL already." });
+            } else {
+                return txMetaError({ ...txResponse, error: result.meta?.err });
+            }
         }
 
         txResponse.success = true;

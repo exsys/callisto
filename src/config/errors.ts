@@ -177,14 +177,15 @@ export function txMetaError({
     sell_amount,
     token_stats,
     include_retry_button = false,
-    error
+    error,
+    response,
 }: TxResponse): TxResponse {
     return {
         user_id,
         tx_type,
         wallet_address,
         destination_address,
-        response: "Transaction failed. Please try again.",
+        response: response ? response : "Transaction failed. Please try again.",
         success: false,
         contract_address,
         tx_signature,
