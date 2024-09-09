@@ -171,7 +171,11 @@ export async function transferAllSol(user_id: string, recipientAddress: string):
                 `transferAllSol tx meta error. User: ${user_id} | Destination: ${recipientAddress}`
             );
             if ((result.meta.err as any).InsufficientFundsForRent) {
-                return txMetaError({ ...txResponse, error: result.meta?.err, response: "Insufficient SOL for Rent. Please increase the withdraw amount or use a destination wallet that has some SOL already." });
+                return txMetaError({
+                    ...txResponse,
+                    error: result.meta?.err,
+                    response: "Insufficient SOL for Rent. Please increase the withdraw amount or use a destination wallet that has some SOL already."
+                });
             } else {
                 return txMetaError({ ...txResponse, error: result.meta?.err });
             }
@@ -261,7 +265,15 @@ export async function transferXSol(user_id: string, amount: string, recipientAdd
             appStats.failed_token_transfers++;
             await appStats.save();
             await postDiscordErrorWebhook("app", result.meta, `transferXSol tx meta error. User id: ${user_id}`);
-            return txMetaError({ ...txResponse, error: result.meta?.err });
+            if ((result.meta.err as any).InsufficientFundsForRent) {
+                return txMetaError({
+                    ...txResponse,
+                    error: result.meta?.err,
+                    response: "Insufficient SOL for Rent. Please increase the withdraw amount or use a destination wallet that has some SOL already."
+                });
+            } else {
+                return txMetaError({ ...txResponse, error: result.meta?.err });
+            }
         }
 
         txResponse.success = true;
@@ -352,7 +364,15 @@ export async function sendXPercentOfCoin(user_id: string, contract_address: stri
             appStats.failed_token_transfers++;
             await appStats.save();
             await postDiscordErrorWebhook("app", result.meta, `sendXPercentOfCoin tx meta error. User id: ${user_id}`);
-            return txMetaError({ ...txResponse, error: result.meta?.err });
+            if ((result.meta.err as any).InsufficientFundsForRent) {
+                return txMetaError({
+                    ...txResponse,
+                    error: result.meta?.err,
+                    response: "Insufficient SOL for Rent. You need to have at least ~0.002 SOL in your wallet to send a Token to a wallet that doesn't have that Token yet."
+                });
+            } else {
+                return txMetaError({ ...txResponse, error: result.meta?.err });
+            }
         }
 
         txResponse.success = true;
@@ -449,7 +469,15 @@ export async function sendCoin(user_id: string, contract_address: string, amount
             appStats.failed_token_transfers++;
             await appStats.save();
             await postDiscordErrorWebhook("app", result.meta, `sendXPercentOfCoin tx meta error. User id: ${user_id}`);
-            return txMetaError({ ...txResponse, error: result.meta?.err });
+            if ((result.meta.err as any).InsufficientFundsForRent) {
+                return txMetaError({
+                    ...txResponse,
+                    error: result.meta?.err,
+                    response: "Insufficient SOL for Rent. You need to have at least ~0.002 SOL in your wallet to send a Token to a wallet that doesn't have that Token yet."
+                });
+            } else {
+                return txMetaError({ ...txResponse, error: result.meta?.err });
+            }
         }
 
         txResponse.success = true;
