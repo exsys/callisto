@@ -898,15 +898,18 @@ export async function createSellAndManageUI({ user_id, page, ca, successMsg }:
 
         const embed = new EmbedBuilder()
             .setColor(0x4F01EB)
-            .setTitle("Open Positions")
+            .setTitle(`Open Positions: ${coinsInWallet.length}`)
             .setURL(`https://solscan.io/account/${wallet.wallet_address}`)
-            .setAuthor({ name: "Sell & Manage" })
+            .setAuthor({ name: `${selectedCoin.name} | ${selectedCoin.symbol}` })
             .setDescription(coinSymbolsDivided)
             .addFields(
                 {
-                    name: `**${selectedCoin.name}** | **${selectedCoin.symbol}** | **${selectedCoin.address}**`,
-                    value: `**Holdings Value**: $${usdValue} | ${solValue} SOL\n**Market cap**: $${selectedCoin.fdv} @ $${formatNumber(selectedCoin.price)}\n**5m**: ${selectedCoin.priceChange.m5}%, **1h**: ${selectedCoin.priceChange.h1}%, **6h**: ${selectedCoin.priceChange.h6}%, **24h**: ${selectedCoin.priceChange.h24}%`
+                    name: `${selectedCoin.address}`,
+                    value: " ", // NOTE: space is required, else discord throws an error
                 },
+                { name: "Holdings Value", value: `$${usdValue} | ${solValue} SOL`, inline: true },
+                { name: "Market cap", value: `$${selectedCoin.fdv} @ $${formatNumber(selectedCoin.price)}`, inline: true },
+                { name: "Price change", value: `**5m**: ${selectedCoin.priceChange.m5}% | **1h**: ${selectedCoin.priceChange.h1}% | **6h**: ${selectedCoin.priceChange.h6}% | **24h**: ${selectedCoin.priceChange.h24}%` },
                 { name: "SOL Balance", value: `${solBalance?.toFixed(4)} SOL`, inline: true },
                 { name: "Total Wallet Value", value: `${walletTotalValueInSol.toFixed(4)} SOL`, inline: true },
             );
