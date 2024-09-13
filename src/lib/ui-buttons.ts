@@ -394,11 +394,6 @@ export function createPreBuyUIButtons(wallet_settings: any, token_address: strin
         .setLabel('Solscan')
         .setStyle(ButtonStyle.Link);
 
-    const dexscreenerButton = new ButtonBuilder()
-        .setURL(`https://dexscreener.com/solana/${token_address}`)
-        .setLabel('Dexscreener')
-        .setStyle(ButtonStyle.Link);
-
     const buyButton1Button = new ButtonBuilder()
         .setCustomId('buyButton1')
         .setLabel(`Buy ${wallet_settings.buy_button_1} SOL`)
@@ -429,11 +424,10 @@ export function createPreBuyUIButtons(wallet_settings: any, token_address: strin
         .setLabel('Refresh')
         .setStyle(ButtonStyle.Secondary);
 
-    const firstRow = new ActionRowBuilder<ButtonBuilder>().addComponents(solscanCoinButton, dexscreenerButton);
-    const secondRow = new ActionRowBuilder<ButtonBuilder>()
+    const firstRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(buyButton1Button, buyButton2Button, buyButton3Button, buyButton4Button, buyButtonX);
-    const thirdRow = new ActionRowBuilder<ButtonBuilder>().addComponents(refreshButton);
-    return [firstRow, secondRow, thirdRow];
+    const secondRow = new ActionRowBuilder<ButtonBuilder>().addComponents(solscanCoinButton, refreshButton);
+    return [firstRow, secondRow];
 }
 
 export function createSellAndManageUIButtons(wallet_settings: any, token_address: string): ActionRowBuilder<ButtonBuilder>[] {

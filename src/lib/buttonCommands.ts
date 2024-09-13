@@ -312,7 +312,7 @@ export const BUTTON_COMMANDS = {
     },
     buyButton1: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        let content: string | undefined = interaction.message.content;
+        let content: string | undefined = interaction.message.embeds[0].data.description;
         if (!content) {
             content = interaction.message.embeds[0].data.fields?.[0].name;
             if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
@@ -322,7 +322,7 @@ export const BUTTON_COMMANDS = {
     },
     buyButton2: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        let content: string | undefined = interaction.message.content;
+        let content: string | undefined = interaction.message.embeds[0].data.description;
         if (!content) {
             content = interaction.message.embeds[0].data.fields?.[0].name;
             if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
@@ -332,7 +332,7 @@ export const BUTTON_COMMANDS = {
     },
     buyButton3: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        let content: string | undefined = interaction.message.content;
+        let content: string | undefined = interaction.message.embeds[0].data.description;
         if (!content) {
             content = interaction.message.embeds[0].data.fields?.[0].name;
             if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
@@ -342,7 +342,7 @@ export const BUTTON_COMMANDS = {
     },
     buyButton4: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        let content: string | undefined = interaction.message.content;
+        let content: string | undefined = interaction.message.embeds[0].data.description;
         if (!content) {
             content = interaction.message.embeds[0].data.fields?.[0].name;
             if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");

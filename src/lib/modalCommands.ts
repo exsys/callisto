@@ -57,7 +57,7 @@ export const MODAL_COMMANDS = {
     },
     buyXSol: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        let content: string | undefined = interaction.message?.content;
+        let content: string | undefined = interaction.message?.embeds[0].data.description;
         if (!content) {
             content = interaction.message?.embeds[0].data.fields?.[0].name;
             if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");

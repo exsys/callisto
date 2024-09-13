@@ -781,15 +781,21 @@ export async function createPreBuyUI(user_id: string, tokenAddress: string): Pro
 
     // TODO: calculate price impact
 
-    content += `\n\n**${coinInfo.name}** | **${coinInfo.symbol}** | **${tokenAddress}**`;
-    content += `\n\n**Price**: $${coinInfo.price}`;
-    content += `\n**Market Cap**: $${coinInfo.fdv}`;
-    content += `\n**5m**: ${coinInfo.priceChange.m5}%, **1h**: ${coinInfo.priceChange.h1}%, **6h**: ${coinInfo.priceChange.h6}%, **24h**: ${coinInfo.priceChange.h24}%`
-    content += `\n\n**Wallet Balance**: ${(walletBalance / LAMPORTS_PER_SOL).toFixed(5)} SOL`;
-    content += "\n\nTap one of the buttons below to buy the coin.";
+    const embed = new EmbedBuilder()
+        .setColor(0x4F01EB)
+        .setTitle("Dexscreener")
+        .setURL(`https://dexscreener.com/solana/${tokenAddress}`)
+        .setAuthor({ name: `${coinInfo.name} | ${coinInfo.symbol}` })
+        .setDescription(tokenAddress)
+        .addFields(
+            { name: "Price", value: coinInfo.price, inline: true },
+            { name: "Market Cap", value: coinInfo.fdv, inline: true },
+            { name: "Price changes", value: `**5m**: ${coinInfo.priceChange.m5}% | **1h**: ${coinInfo.priceChange.h1}% | **6h**: ${coinInfo.priceChange.h6}% | **24h**: ${coinInfo.priceChange.h24}%` },
+            { name: "Wallet Balance", value: (walletBalance / LAMPORTS_PER_SOL).toFixed(5) },
+        );
 
     const buttons = createPreBuyUIButtons(wallet.settings, tokenAddress);
-    return { ui: { content, components: buttons } };
+    return { ui: { embeds: [embed], components: buttons } };
 };
 
 export async function createCoinInfoForLimitOrderUI(contract_address: string): Promise<InteractionEditReplyOptions> {
