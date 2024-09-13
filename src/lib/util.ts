@@ -268,55 +268,55 @@ export async function decryptPKey(encryptedPKey: string, iv: string): Promise<st
 }
 
 export async function buyCoin(user_id: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress: string | null = extractAndValidateCA(msgContent, 1, 4);
-    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
+        const contractAddress: string | null = extractAndValidateCA(msgContent, 1, 4);
+        if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
         const response: TxResponse = await buyCoinViaAPI(user_id, contractAddress, `buy_button_${buttonNumber}`);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
-        await saveDbTransaction({ user_id, tx_type: "swap_buy", error });
+        await postDiscordErrorWebhook("app", error, `buyCoin | User: ${user_id} | Message: ${msgContent} | Button: ${buttonNumber}`);
         return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
 export async function buyCoinX(user_id: string, msgContent: string, amount: string): Promise<UIResponse> {
-    const contractAddress: string | null = extractAndValidateCA(msgContent, 1, 4);
-    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
+        const contractAddress: string | null = extractAndValidateCA(msgContent, 1, 4);
+        if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
         const response: TxResponse = await buyCoinViaAPI(user_id, contractAddress, amount);
         await saveDbTransaction(response);
         return createAfterSwapUI(response);
     } catch (error) {
-        await saveDbTransaction({ user_id, tx_type: "swap_buy", error });
+        await postDiscordErrorWebhook("app", error, `buyCoinX | User: ${user_id} | Message: ${msgContent} | Amount: ${amount}`);
         return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
 export async function sellCoin(user_id: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
-    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
+        const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
+        if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
         const response: TxResponse = await sellCoinViaAPI(user_id, contractAddress, `sell_button_${buttonNumber}`);
         await saveDbTransaction(response);
         const storeFee = response.referral && (response.total_fee !== -1 ? true : false); // users who's swap fee is 0. this is so those swaps don't try to store unpaid ref fees in case such a user has used a ref code
         return createAfterSwapUI(response, storeFee);
     } catch (error) {
-        await saveDbTransaction({ user_id, tx_type: "swap_sell", error });
+        await postDiscordErrorWebhook("app", error, `sellCoin | User: ${user_id} | Message: ${msgContent} | Button: ${buttonNumber}`);
         return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
 
 export async function sellCoinX(user_id: string, msgContent: string, amountInPercent: string): Promise<UIResponse> {
-    const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
-    if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
+        const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
+        if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
         const response: TxResponse = await sellCoinViaAPI(user_id, contractAddress, amountInPercent);
         await saveDbTransaction(response);
         const storeFee = response.referral && (response.total_fee !== -1 ? true : false); // users who's swap fee is 0
         return createAfterSwapUI(response, storeFee);
     } catch (error) {
-        await saveDbTransaction({ user_id, tx_type: "swap_sell", error });
+        await postDiscordErrorWebhook("app", error, `sellCoinX | User: ${user_id} | Message: ${msgContent} | Amount (%): ${amountInPercent}`);
         return { ui: { content: ERROR_CODES["0000"].message } };
     }
 }
