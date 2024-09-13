@@ -294,7 +294,7 @@ export async function buyCoinX(user_id: string, msgContent: string, amount: stri
 }
 
 export async function sellCoin(user_id: string, msgContent: string, buttonNumber: string): Promise<UIResponse> {
-    const contractAddress: string | null = extractAndValidateCA(msgContent, 4);
+    const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await sellCoinViaAPI(user_id, contractAddress, `sell_button_${buttonNumber}`);
@@ -308,7 +308,7 @@ export async function sellCoin(user_id: string, msgContent: string, buttonNumber
 }
 
 export async function sellCoinX(user_id: string, msgContent: string, amountInPercent: string): Promise<UIResponse> {
-    const contractAddress: string | null = extractAndValidateCA(msgContent, 4);
+    const contractAddress: string | null = extractAndValidateCA(msgContent, 1);
     if (!contractAddress) return { ui: { content: ERROR_CODES["0006"].message } };
     try {
         const response: TxResponse = await sellCoinViaAPI(user_id, contractAddress, amountInPercent);

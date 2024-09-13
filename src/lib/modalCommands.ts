@@ -57,12 +57,19 @@ export const MODAL_COMMANDS = {
     },
     buyXSol: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await buyCoinX(interaction.user.id, interaction.message!.content, values[0]);
+        let content: string | undefined = interaction.message?.content;
+        if (!content) {
+            content = interaction.message?.embeds[0].data.fields?.[0].name;
+            if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        }
+        const uiResponse: UIResponse = await buyCoinX(interaction.user.id, content, values[0]);
         await interaction.editReply(uiResponse.ui);
     },
     sellXPercent: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await sellCoinX(interaction.user.id, interaction.message!.content, values[0]);
+        const caLine: string | undefined = interaction.message?.embeds[0].data.fields?.[0].name;
+        if (!caLine) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        const uiResponse: UIResponse = await sellCoinX(interaction.user.id, caLine, values[0]);
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
             await storeUnpaidRefFee(uiResponse.transaction!);

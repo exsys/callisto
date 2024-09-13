@@ -312,22 +312,42 @@ export const BUTTON_COMMANDS = {
     },
     buyButton1: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "1");
+        let content: string | undefined = interaction.message.content;
+        if (!content) {
+            content = interaction.message.embeds[0].data.fields?.[0].name;
+            if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        }
+        const uiResponse: UIResponse = await buyCoin(interaction.user.id, content, "1");
         await interaction.editReply(uiResponse.ui);
     },
     buyButton2: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "2");
+        let content: string | undefined = interaction.message.content;
+        if (!content) {
+            content = interaction.message.embeds[0].data.fields?.[0].name;
+            if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        }
+        const uiResponse: UIResponse = await buyCoin(interaction.user.id, content, "2");
         await interaction.editReply(uiResponse.ui);
     },
     buyButton3: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "3");
+        let content: string | undefined = interaction.message.content;
+        if (!content) {
+            content = interaction.message.embeds[0].data.fields?.[0].name;
+            if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        }
+        const uiResponse: UIResponse = await buyCoin(interaction.user.id, content, "3");
         await interaction.editReply(uiResponse.ui);
     },
     buyButton4: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await buyCoin(interaction.user.id, interaction.message.content, "4");
+        let content: string | undefined = interaction.message.content;
+        if (!content) {
+            content = interaction.message.embeds[0].data.fields?.[0].name;
+            if (!content) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        }
+        const uiResponse: UIResponse = await buyCoin(interaction.user.id, content, "4");
         await interaction.editReply(uiResponse.ui);
     },
     buyButtonX: async (interaction: ButtonInteraction) => {
@@ -336,7 +356,9 @@ export const BUTTON_COMMANDS = {
     },
     sellButton1: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "1");
+        const caLine: string | undefined = interaction.message.embeds[0].data.fields?.[0].name;
+        if (!caLine) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        const uiResponse: UIResponse = await sellCoin(interaction.user.id, caLine, "1");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
             await storeUnpaidRefFee(uiResponse.transaction!);
@@ -344,7 +366,9 @@ export const BUTTON_COMMANDS = {
     },
     sellButton2: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "2");
+        const caLine: string | undefined = interaction.message.embeds[0].data.fields?.[0].name;
+        if (!caLine) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        const uiResponse: UIResponse = await sellCoin(interaction.user.id, caLine, "2");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
             await storeUnpaidRefFee(uiResponse.transaction!);
@@ -352,7 +376,9 @@ export const BUTTON_COMMANDS = {
     },
     sellButton3: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "3");
+        const caLine: string | undefined = interaction.message.embeds[0].data.fields?.[0].name;
+        if (!caLine) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        const uiResponse: UIResponse = await sellCoin(interaction.user.id, caLine, "3");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
             await storeUnpaidRefFee(uiResponse.transaction!);
@@ -360,7 +386,9 @@ export const BUTTON_COMMANDS = {
     },
     sellButton4: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const uiResponse: UIResponse = await sellCoin(interaction.user.id, interaction.message.content, "4");
+        const caLine: string | undefined = interaction.message.embeds[0].data.fields?.[0].name;
+        if (!caLine) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        const uiResponse: UIResponse = await sellCoin(interaction.user.id, caLine, "4");
         await interaction.editReply(uiResponse.ui);
         if (uiResponse.store_ref_fee && !uiResponse.transaction?.error) {
             await storeUnpaidRefFee(uiResponse.transaction!);
@@ -459,7 +487,8 @@ export const BUTTON_COMMANDS = {
     },
     retryLastSwap: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string | null = extractAndValidateCA(interaction.message.content, 0);
+        // TODO: check whether this is still works, extractAndValidateCA for example had 0 for line number. also changed everything to embeds
+        const contractAddress: string | null = extractAndValidateCA(interaction.message.content, 1);
         if (!contractAddress) {
             return await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
         }
