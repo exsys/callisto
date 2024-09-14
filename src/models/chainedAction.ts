@@ -151,7 +151,7 @@ const ChainedActionUiSchema = new Schema<IChainedAction>({
                 _id: false,
             },
         },
-        required: true,
+        required: false,
         _id: false,
     },
 });
