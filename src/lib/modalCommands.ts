@@ -23,6 +23,7 @@ import {
     isNumber,
     changeBlinkEmbedModal,
     parseTokenAddress,
+    executeChainedAction,
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY, ERROR_CODES } from "../config/errors";
@@ -522,10 +523,16 @@ export const MODAL_COMMANDS = {
     blinkCustomValues: async (interaction: ModalSubmitInteraction, values: any[]) => {
         try {
             await interaction.deferReply({ ephemeral: true });
-            const blinkId: string = values[0];
+            const actionId: string = values[0].includes(".") ? values[0].split(".")[0] : values[0];
+            const chainId: string | undefined = values[0].includes(".") ? values[0].split(".")[1] : undefined;
             const buttonId: string = values[1];
             const orderedBlinkValues: BlinkCustomValue[] = values[2];
-            const result: BlinkResponse = await executeBlink(interaction.user.id, blinkId, buttonId, orderedBlinkValues);
+            let result: BlinkResponse;
+            if (chainId) {
+                result = await executeChainedAction(interaction.user.id, actionId, chainId, buttonId, orderedBlinkValues);
+            } else {
+                result = await executeBlink(interaction.user.id, actionId, buttonId, orderedBlinkValues);
+            }
             await interaction.editReply(result.reply_object);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);

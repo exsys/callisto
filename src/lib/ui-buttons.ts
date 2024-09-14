@@ -1,6 +1,8 @@
-import { ActionGetResponse, LinkedAction } from "@solana/actions";
+import { ActionGetResponse, InlineNextActionLink, LinkedAction, NextAction } from "@solana/actions";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, InteractionEditReplyOptions } from "discord.js";
+import { ChainedAction } from "../models/chainedAction";
+import { postDiscordErrorWebhook } from "./util";
 
 export function createActionBlinkButtons(
     action_id: number, action: ActionGetResponse
@@ -9,6 +11,7 @@ export function createActionBlinkButtons(
     const actions: LinkedAction[] | undefined = action.links?.actions;
     actions?.forEach((linkedAction: LinkedAction, index: number) => {
         // NOTE: discord only allows up to 45 chars for customId, keep that in mind
+        // index + 1 is the button_id / number of the button
         const customId: string = `executeBlinkButton:${action_id}:${index + 1}${linkedAction.parameters?.length ? ":custom" : ""}`;
         buttons.push(
             new ButtonBuilder()
@@ -43,6 +46,77 @@ export function createActionBlinkButtons(
     }
     rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...tempButtons));
     return rows;
+}
+
+export async function createChainedActionBlinkButtons(
+    action_id: string,
+    chain_id: string,
+    user_id: string,
+    action?: NextAction
+): Promise<ActionRowBuilder<ButtonBuilder>[] | undefined> {
+    try {
+        let linkedActions: LinkedAction[] | undefined;
+        if (action) {
+            // this block means the NextAction is available, no need to query DB (the case whenever this function is called from executeBlink)
+            // this will not be the case if a user clicks a chained action embed
+            if ("links" in action) {
+                linkedActions = action.links?.actions;
+            } else {
+                return undefined;
+            }
+        } else {
+            // when a user clicked on a chained action and we have to query it from DB
+            const chainedAction: any = await ChainedAction.findOne({ action_id, chain_id, user_id }).lean();
+            if (!chainedAction) return undefined;
+            linkedActions = chainedAction.links;
+        }
+
+        if (linkedActions) {
+            let buttons: any[] = [];
+            let rows: ActionRowBuilder<ButtonBuilder>[] = [];
+            for (let i = 0; i < linkedActions.length; i++) {
+                // i + 1 is the button_id / number of the button
+                const customId: string = `executeChainedAction:${action_id}.${chain_id}:${i + 1}${linkedActions[i].parameters?.length ? ":custom" : ""}`;
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId(customId)
+                        .setLabel(linkedActions[i].label)
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(action ? action.disabled : false)
+                );
+                if (i !== 0 && i % 5 === 0) {
+                    rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
+                    buttons = [];
+                } else {
+                    buttons.push(
+                        new ButtonBuilder()
+                            .setCustomId(customId)
+                            .setLabel(linkedActions[i].label)
+                            .setStyle(ButtonStyle.Primary)
+                            .setDisabled(action ? action.disabled : false)
+                    );
+                }
+            }
+            rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
+            return rows;
+        }
+    } catch (error) {
+        await postDiscordErrorWebhook(
+            "blinks",
+            error,
+            `createChainedActionBlinkButtons | Action: ${action_id} | Chain: ${chain_id} | User: ${user_id} | NextAction?: ${action}`
+        );
+        return undefined;
+    }
+}
+
+export function createChainedActionConfirmationButton(action_id: string, chain_id: string): ActionRowBuilder<ButtonBuilder> {
+    const confirmationButton = new ButtonBuilder()
+        .setCustomId(`executeChainedAction:${action_id}:${chain_id}`)
+        .setLabel("Execute")
+        .setStyle(ButtonStyle.Secondary);
+
+    return new ActionRowBuilder<ButtonBuilder>().addComponents(confirmationButton);
 }
 
 export function createVoteResultButton(blink_id: number): ActionRowBuilder<ButtonBuilder> {

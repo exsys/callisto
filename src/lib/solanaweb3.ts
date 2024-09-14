@@ -845,7 +845,7 @@ export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostRe
         appStats.successful_blink_executions++;
         await appStats.save();
         if (blinkTx.message) {
-            txResponse.response += `\n\n${blinkTx.message}`;
+            txResponse.response += `\n\nBlink message:\n${blinkTx.message}`;
         }
         return txResponse;
     } catch (error) {

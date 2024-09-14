@@ -71,10 +71,10 @@ import {
     disableBlink,
     checkAndUpdateBlink,
     storeUserBlink,
-    executeBlinkSuccessMessage,
     getVoteResults,
     createDepositEmbed,
     toggleBlinksConversion,
+    createBlinkSuccessMessage,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
 import {
@@ -93,8 +93,11 @@ import {
     buyCoinX,
     executeBlink,
     validateCustomBlinkValues,
-    convertDescriptionToOrderedValues
+    convertDescriptionToOrderedValues,
+    executeChainedAction
 } from "./util";
+import { ChainedAction } from "../models/chainedAction";
+import { LinkedAction } from "@solana/actions";
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: ButtonInteraction) => {
@@ -507,24 +510,8 @@ export const BUTTON_COMMANDS = {
     },
     executeBlinkButton: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, buttonType?: string) => {
         // this is the function that will be executed whenever a user clicks on a button from a blink UI
+        // TODO: always use embed for custom inputs because of discord 3 seconds limitations
 
-        /****************************************** */
-        // TODO:
-        // if its a custom button it can take more than 3 seconds to reply, causing "Application did not respond"
-        // because we query:
-        // 1. user from db
-        // 2. action ui from db
-        // (3. actions.json if applicable)
-        // 4. GET ActionGetResponse
-        // (5. post error if applicable)
-
-        // 3. & 4. take the most time. 
-
-        // solution:
-        // always use an embed for custom values (currently its only the case for 6+ custom values), and always deferReply here
-        // sadly there is no other way because discord doesn't allow to use showModal() after reply() or deferReply()
-
-        /****************************************** */
         try {
             // buttonType is defined (as "custom") if the action has parameters defined. eg. action.links.actions[i].parameters
             if (buttonType !== "custom") {
@@ -536,7 +523,6 @@ export const BUTTON_COMMANDS = {
             // this will execute the blink if all values are processed. if custom values are needed and not submitted yet,
             // this function will return with custom_values, so they can be submitted first
 
-            // TODO NEXT: schauen ob ich anstatt BlinkResponse was anderes machen kann, zB InteractionReplyOptions
             const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!);
             switch (result.response_type) {
                 case "custom_input_required": {
@@ -553,7 +539,55 @@ export const BUTTON_COMMANDS = {
                     }
                 }
                 case "success": {
-                    const ui: InteractionReplyOptions = await executeBlinkSuccessMessage(result.reply_object);
+                    // createBlinkSuccessMessage is overwriting result.response. an embed is shown instead
+                    // reason why we are doing this here instead of where the message is received is because
+                    // in case of chained actions we still want to use the plain result.response text
+                    const ui: InteractionReplyOptions = await createBlinkSuccessMessage(result.reply_object);
+                    return await interaction.editReply(ui);
+                }
+                case "chained_action": {
+                    return await interaction.editReply(result.reply_object);
+                }
+                case "error": {
+                    return await interaction.editReply(result.reply_object);
+                }
+                default: {
+                    return await interaction.editReply(DEFAULT_ERROR_REPLY);
+                }
+            }
+        } catch (error) {
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
+        }
+    },
+    executeChainedAction: async (interaction: ButtonInteraction, action_id?: string, button_id?: string, buttonType?: string) => {
+        // NOTE: this will only be executed for NextActionLink's of type "inline"
+        try {
+            if (buttonType !== "custom") {
+                await interaction.deferReply({ ephemeral: true });
+            }
+
+            const actionId: string | undefined = action_id?.includes(".") ? action_id.split(".")[0] : action_id;
+            const chainId: string | undefined = action_id?.includes(".") ? action_id.split(".")[1] : "1";
+            if (!actionId) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+            if (!button_id) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+
+            const result: BlinkResponse = await executeChainedAction(interaction.user.id, actionId, chainId, button_id);
+            switch (result.response_type) {
+                case "custom_input_required": {
+                    // this if block means button which requires custom inputs was pressed and those haven't been submitted yet
+                    const modal: ModalBuilder | MessageCreateOptions | undefined =
+                        await createBlinkCustomValuesModal(action_id!, result.button_id!, undefined, result.chained_action?.links?.actions!);
+                    if (!modal) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+
+                    if (modal instanceof ModalBuilder) {
+                        return await interaction.showModal(modal);
+                    } else {
+                        // for buttons where more than 5 custom inputs are possible
+                        return await interaction.reply({ embeds: modal.embeds, components: modal.components, ephemeral: true });
+                    }
+                }
+                case "success": {
+                    const ui: InteractionReplyOptions = await createBlinkSuccessMessage(result.reply_object);
                     return await interaction.editReply(ui);
                 }
                 case "chained_action": {
@@ -577,16 +611,41 @@ export const BUTTON_COMMANDS = {
         }
         if (valueIndex === "send") {
             await interaction.deferReply({ ephemeral: true });
-            const actionUI: any = await ActionUI.findOne({ action_id }).lean();
+
+            const actionId: string | undefined = action_id?.includes(".") ? action_id.split(".")[0] : action_id;
+            const chain_id: string | undefined = action_id?.includes(".") ? action_id.split(".")[1] : undefined;
+
+            const actionUI: any = await ActionUI.findOne({ action_id: actionId }).lean();
             if (!actionUI) return await interaction.editReply({ content: "Couldn't find corresponding Blink." });
-            const correspondingButton: any = actionUI.buttons.find((button: any) => button.button_id == button_id);
-            if (!correspondingButton) return await interaction.editReply({ content: "Couldn't find corresponding Blink." });
+
+            // TODO NEXT: fix this. buttons dont exist on actionUI anymore
+            // check whether chainId is present, if yes use that to get linked actions (links)
+            // if not query the actionUI, and do a GET req to the posted_url and get the links from there
+            // if chained action executeChainedAction() else executeBlink()
+
+            let correspondingLinkedAction: LinkedAction | undefined; // the button that was clicked on the blink
+            if (chain_id) {
+                const chainedAction: any = await ChainedAction.findOne({ action_id: actionId, chain_id, user_id: interaction.user.id }).lean();
+                if (!chainedAction.links) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+                // TODO NEXT: corresponding button habe ich nur gebraucht um die parameters zu holen
+                // ich kann hier also direkt den corresponding LinkedAction holen und von ihm die parameters nehmen
+                const linkedActions: LinkedAction[] = chainedAction.links.actions;
+                linkedActions.forEach((linkedAction: LinkedAction, index: number) => {
+                    if (index + 1 === Number(button_id)) {
+                        correspondingLinkedAction = linkedAction;
+                        return;
+                    }
+                });
+            }
+            if (!correspondingLinkedAction) return await interaction.editReply({ content: "Couldn't find corresponding Blink." });
             // check if everything is valid and if all required fields are submitted
-            const missingValues: string = await validateCustomBlinkValues(embedDescription, actionUI, correspondingButton);
+            const missingValues: string = await validateCustomBlinkValues(embedDescription, correspondingLinkedAction);
             if (missingValues) return await interaction.editReply({ content: missingValues });
 
             // order values and prepare them to send to the RPC
-            const orderedBlinkValues: BlinkCustomValue[] = convertDescriptionToOrderedValues(embedDescription, actionUI, correspondingButton);
+            const orderedBlinkValues: BlinkCustomValue[] | undefined =
+                await convertDescriptionToOrderedValues(embedDescription, correspondingLinkedAction);
+            if (!orderedBlinkValues) return await interaction.editReply(DEFAULT_ERROR_REPLY);
             const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!, orderedBlinkValues);
             return await interaction.editReply(result.reply_object);
         }

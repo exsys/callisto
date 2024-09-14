@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 
 const ActionUiSchema = new Schema({
     action_id: {
-        type: Number,
+        type: String,
         required: true,
         unique: true,
     },
