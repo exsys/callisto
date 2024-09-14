@@ -1561,9 +1561,13 @@ export async function createChangeBlinkCustomValueModal(
 }
 
 export async function createBlinkCustomValuesModal(
-    action_id: string, button_id: string, action: ActionGetResponse,
+    action_id: string, button_id: string, action?: ActionGetResponse, actionLinks?: LinkedAction[]
 ): Promise<ModalBuilder | MessageCreateOptions | undefined> {
-    const linkedActions: LinkedAction[] | undefined = action.links?.actions;
+    if (!action && !actionLinks) {
+        await postDiscordErrorWebhook("app", undefined, `createBlinkCustomValuesModal no action && actionLinks in params. | Action: ${action_id} | Button: ${button_id}`)
+        return;
+    }
+    const linkedActions: LinkedAction[] | undefined = action ? action.links?.actions : actionLinks!;
     let actionButton: LinkedAction | undefined = linkedActions?.find((linkedAction: LinkedAction, index: number) => {
         return index + 1 === Number(button_id);
     });
@@ -1573,7 +1577,7 @@ export async function createBlinkCustomValuesModal(
         if (params.length > 5) {
             // NOTE: discord only allows 5 text inputs per modal, so we have to handle action UIs with more than 5 buttons differently
             // in this case we are creating an embed with buttons which will act as an modal
-            return await blinkCustomValuesModalAsEmbed(action_id, button_id, action, params);
+            return await blinkCustomValuesModalAsEmbed(action_id, button_id, params, action);
         }
 
         const blinkCustomValuesModal: ModalBuilder = new ModalBuilder()
@@ -2074,10 +2078,12 @@ export function createSellLimitPriceModal(): ModalBuilder {
 
 /************************************************************** EMBEDS ***********************************************************/
 
+// NOTE: action_id can include chain_id (eg 42.2)
 export async function blinkCustomValuesModalAsEmbed(
-    action_id: string, button_id: string, action: ActionGetResponse, params: TypedActionParameter[]
+    action_id: string, button_id: string, params: TypedActionParameter[], action?: ActionGetResponse,
 ): Promise<MessageCreateOptions | undefined> {
     try {
+        const actionId: string = action_id.includes(".") ? action_id.split(".")[0] : action_id;
         let content: string = "";
         // create a line for each custom value
         const rows: ActionRowBuilder<ButtonBuilder>[] = [new ActionRowBuilder<ButtonBuilder>];
@@ -2113,15 +2119,20 @@ export async function blinkCustomValuesModalAsEmbed(
         }
         rows[rowsIndex].addComponents(button)
 
-        const actionUI: any = await ActionUI.findOne({ action_id }).lean();
+        const actionUI: any = await ActionUI.findOne({ action_id: actionId }).lean();
 
+        let actionM: any;
+        if (!action) {
+            actionM = await ActionUI.findOne({ action_id });
+            if (!actionM) return;
+        }
         const embed: EmbedBuilder = new EmbedBuilder()
             .setColor(0x4F01EB)
             .setURL(actionUI.posted_url)
-            .setTitle(action.title)
+            .setTitle(action ? action.title : actionM.title)
             .setDescription(content)
-            .setAuthor({ name: action.label })
-            .setThumbnail(action.icon);
+            .setAuthor({ name: action ? action.label : actionM.label })
+            .setThumbnail(action ? action.icon : actionM.icon);
 
         return { embeds: [embed], components: rows };
     } catch (error) {
@@ -2353,12 +2364,16 @@ export function createBlinkCreationContent(blink: any): string {
     return content;
 }
 
-export async function executeBlinkSuccessMessage(reply_object: InteractionReplyOptions): Promise<InteractionReplyOptions> {
+export async function createBlinkSuccessMessage(reply_object: InteractionReplyOptions): Promise<InteractionReplyOptions> {
+    const startButton = new ButtonBuilder()
+        .setCustomId("start")
+        .setLabel("Start")
+        .setStyle(ButtonStyle.Secondary);
     const positionsButton = new ButtonBuilder()
         .setCustomId("sellAndManage")
         .setLabel("Token Balances")
         .setStyle(ButtonStyle.Secondary);
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(positionsButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(startButton, positionsButton);
 
     const solscanLinkAndBlinkMessage: UrlAndBlinkMsg | null = await extractUrlAndMessageFromBlink(reply_object.content!);
     if (!solscanLinkAndBlinkMessage) {
