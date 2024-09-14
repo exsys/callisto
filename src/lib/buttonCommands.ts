@@ -94,10 +94,13 @@ import {
     executeBlink,
     validateCustomBlinkValues,
     convertDescriptionToOrderedValues,
-    executeChainedAction
+    executeChainedAction,
+    getActionAndActionRootUrl,
+    postDiscordErrorWebhook
 } from "./util";
 import { ChainedAction } from "../models/chainedAction";
 import { LinkedAction } from "@solana/actions";
+import { ActionAndUrlResponse } from "../types/ActionAndUrlResponse";
 
 export const BUTTON_COMMANDS = {
     test: async (interaction: ButtonInteraction) => {
@@ -641,32 +644,41 @@ export const BUTTON_COMMANDS = {
         if (valueIndex === "send") {
             await interaction.deferReply({ ephemeral: true });
 
-            const actionId: string | undefined = action_id?.includes(".") ? action_id.split(".")[0] : action_id;
+            const actionId: string = action_id?.includes(".") ? action_id.split(".")[0] : action_id!;
             const chain_id: string | undefined = action_id?.includes(".") ? action_id.split(".")[1] : undefined;
 
             const actionUI: any = await ActionUI.findOne({ action_id: actionId }).lean();
             if (!actionUI) return await interaction.editReply({ content: "Couldn't find corresponding Blink." });
 
-            // TODO NEXT: fix this. buttons dont exist on actionUI anymore
-            // check whether chainId is present, if yes use that to get linked actions (links)
-            // if not query the actionUI, and do a GET req to the posted_url and get the links from there
-            // if chained action executeChainedAction() else executeBlink()
-
-            let correspondingLinkedAction: LinkedAction | undefined; // the button that was clicked on the blink
+            let linkedActions: LinkedAction[] | undefined;
             if (chain_id) {
                 const chainedAction: any = await ChainedAction.findOne({ action_id: actionId, chain_id, user_id: interaction.user.id }).lean();
                 if (!chainedAction.links) return await interaction.editReply(DEFAULT_ERROR_REPLY);
-                // TODO NEXT: corresponding button habe ich nur gebraucht um die parameters zu holen
-                // ich kann hier also direkt den corresponding LinkedAction holen und von ihm die parameters nehmen
-                const linkedActions: LinkedAction[] = chainedAction.links.actions;
-                linkedActions.forEach((linkedAction: LinkedAction, index: number) => {
-                    if (index + 1 === Number(button_id)) {
-                        correspondingLinkedAction = linkedAction;
-                        return;
-                    }
-                });
+                linkedActions = chainedAction.links.actions;
+            } else {
+                const actionAndUrl: ActionAndUrlResponse | null = await getActionAndActionRootUrl({ action_id: actionId });
+                if (!actionAndUrl) return;
+                linkedActions = actionAndUrl.action.links?.actions;
             }
-            if (!correspondingLinkedAction) return await interaction.editReply({ content: "Couldn't find corresponding Blink." });
+
+            if (!linkedActions) {
+                await postDiscordErrorWebhook(
+                    "blinks",
+                    undefined,
+                    `changeBlinkEmbedValue buttonCommand.ts !linkedActions | Action: ${action_id} | Button: ${button_id}`
+                );
+                return await interaction.editReply({ content: "Couldn't find corresponding Action." });
+            }
+
+            let correspondingLinkedAction: LinkedAction | undefined;
+            linkedActions.forEach((linkedAction: LinkedAction, index: number) => {
+                if (index + 1 === Number(button_id)) {
+                    correspondingLinkedAction = linkedAction;
+                    return;
+                }
+            });
+
+            if (!correspondingLinkedAction) return await interaction.editReply({ content: "Couldn't find corresponding Action." });
             // check if everything is valid and if all required fields are submitted
             const missingValues: string = await validateCustomBlinkValues(embedDescription, correspondingLinkedAction);
             if (missingValues) return await interaction.editReply({ content: missingValues });
@@ -675,8 +687,13 @@ export const BUTTON_COMMANDS = {
             const orderedBlinkValues: BlinkCustomValue[] | undefined =
                 await convertDescriptionToOrderedValues(embedDescription, correspondingLinkedAction);
             if (!orderedBlinkValues) return await interaction.editReply(DEFAULT_ERROR_REPLY);
-            const result: BlinkResponse = await executeBlink(interaction.user.id, action_id!, button_id!, orderedBlinkValues);
-            return await interaction.editReply(result.reply_object);
+            if (chain_id) {
+                const result: BlinkResponse = await executeChainedAction(interaction.user.id, actionId, chain_id!, button_id!, orderedBlinkValues);
+                return await interaction.editReply(result.reply_object);
+            } else {
+                const result: BlinkResponse = await executeBlink(interaction.user.id, actionId, button_id!, orderedBlinkValues);
+                return await interaction.editReply(result.reply_object);
+            }
         }
 
         // get all lines from the embed

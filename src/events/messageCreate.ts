@@ -50,6 +50,7 @@ const event = {
                     const actionUIExists: any = await ActionUI.findOne({ posted_url: urlObj.href }).lean();
                     const actionIdOrUrlObj = actionUIExists ? { action_id: actionUIExists.action_id } : { url: urlObj.href };
                     // TODO: this call takes 2+ seconds for svg images, improve if possible
+                    // TODO: getActionAndActionRootUrl is calling ActionUI.findOne again, fix that
                     const actionAndUrl: ActionAndUrlResponse | null = await getActionAndActionRootUrl(actionIdOrUrlObj);
                     if (!actionAndUrl) return;
 
