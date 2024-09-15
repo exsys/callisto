@@ -1,4 +1,4 @@
-import { ActionPostResponse, LinkedAction } from "@solana/actions";
+import { LinkedAction } from "@solana/actions";
 
 export interface IChainedAction {
     user_id: string,
@@ -6,7 +6,7 @@ export interface IChainedAction {
     posted_url: string,
     action_id: string,
     chain_id: string,
-    post_action?: ActionPostResponse,
+    href?: string,
     links?: {
         actions: LinkedAction[]
     }

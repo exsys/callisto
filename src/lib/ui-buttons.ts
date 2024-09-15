@@ -77,23 +77,24 @@ export async function createChainedActionBlinkButtons(
             for (let i = 0; i < linkedActions.length; i++) {
                 // i + 1 is the button_id / number of the button
                 const customId: string = `executeChainedAction:${action_id}.${chain_id}:${i + 1}${linkedActions[i].parameters?.length ? ":custom" : ""}`;
-                buttons.push(
-                    new ButtonBuilder()
-                        .setCustomId(customId)
-                        .setLabel(linkedActions[i].label)
-                        .setStyle(ButtonStyle.Primary)
-                        .setDisabled(action ? action.disabled : false)
-                );
+                let blinkDisabled: boolean = action ? (action.disabled !== undefined ? action.disabled : false) : false;
                 if (i !== 0 && i % 5 === 0) {
                     rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons));
                     buttons = [];
+                    buttons.push(
+                        new ButtonBuilder()
+                            .setCustomId(customId)
+                            .setLabel(linkedActions[i].label)
+                            .setStyle(ButtonStyle.Primary)
+                            .setDisabled(blinkDisabled)
+                    );
                 } else {
                     buttons.push(
                         new ButtonBuilder()
                             .setCustomId(customId)
                             .setLabel(linkedActions[i].label)
                             .setStyle(ButtonStyle.Primary)
-                            .setDisabled(action ? action.disabled : false)
+                            .setDisabled(blinkDisabled)
                     );
                 }
             }

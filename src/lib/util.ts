@@ -808,7 +808,7 @@ export async function executeBlink(
         let actionValue: string | undefined; // how much of SOL or SPL token is needed for the tx
         if (actionButton.parameters?.length && processed_values?.length) {
             // if button has custom values and user submitted them
-            const actionUrlAndValue: ActionUrlAndValue = await extractActionUrlAndValue(
+            const actionUrlAndValue: ActionUrlAndValue = await processCustomInputValues(
                 actionButton,
                 actionAndUrl.action_root_url,
                 processed_values
@@ -906,6 +906,7 @@ export async function executeBlink(
 
             // handle chained action links
             if (blinkTx.links) {
+                const actionRootUrl: string = new URL(url).origin;
                 const nextAction: NextActionLink = blinkTx.links.next;
                 // NOTE: this also handles the next action type check, and UI creation
                 return await storeNextActionInChain(
@@ -913,7 +914,7 @@ export async function executeBlink(
                     wallet.wallet_address,
                     nextAction,
                     action_id,
-                    rootUrl,
+                    actionRootUrl,
                     actionUI.posted_url,
                     result.response
                 );
@@ -946,7 +947,7 @@ export async function executeChainedAction(
         let [user, wallet, chainedAction] = await Promise.all([
             User.findOne({ user_id }).lean(),
             Wallet.findOne({ user_id, is_default_wallet: true }).lean(),
-            ChainedAction.findOne({ user_id, action_id, chain_id })
+            ChainedAction.findOne({ user_id, action_id, chain_id }),
         ]);
         if (!user || !wallet || !chainedAction) return defaultBlinkError(DEFAULT_ERROR);
 
@@ -962,31 +963,49 @@ export async function executeChainedAction(
             };
         }
 
-        const rootUrl: string = new URL(chainedAction.posted_url).origin;
-        if (chainedAction.post_action) {
+        const actionRootUrlObj = await getActionAndActionRootUrl({ url: chainedAction.posted_url });
+        if (!actionRootUrlObj) return defaultBlinkError(DEFAULT_ERROR);
+        const actionRootUrl: string = actionRootUrlObj?.action_root_url;
+        if (chainedAction.href) {
             // process: user confirmed to execute next PostNextActionLink of type "post" in chain (first time)
             // -> execute it -> response returns another action in chain -> store next action as post_action
             // -> ask user again for confirmation -> execute it here
             // so this means this block will only be executed if it's the 2nd+ PostNextActionLink of type "post" in a chain
-            const result: TxResponse = await executeBlinkTransaction(wallet, chainedAction.post_action);
+
+            const nextBlinkTx: ActionPostResponse = await (
+                await fetch(chainedAction.href, {
+                    method: "POST",
+                    headers: ACTIONS_CORS_HEADERS,
+                    body: JSON.stringify({
+                        account: wallet.wallet_address
+                    }),
+                })
+            ).json();
+            if (!nextBlinkTx.transaction) return defaultBlinkError("Blink Provider returned invalid data.");
+
+            const result: TxResponse = await executeBlinkTransaction(wallet, nextBlinkTx);
             await saveDbTransaction(result);
-            if (chainedAction.post_action.links) {
-                const nextAction: NextActionLink = chainedAction.post_action.links.next;
-                // NOTE: this also handles the next action type check, and UI creation
-                return await storeNextActionInChain(
-                    user_id,
-                    wallet.wallet_address,
-                    nextAction,
-                    action_id,
-                    rootUrl,
-                    chainedAction.posted_url,
-                    result.response
-                );
+            if (result.success) {
+                await ChainedAction.deleteOne({ user_id, action_id, chain_id });
+
+                if (nextBlinkTx.links) {
+                    const nextAction: NextActionLink = nextBlinkTx.links.next;
+                    // NOTE: this also handles the next action type check, and UI creation
+                    return await storeNextActionInChain(
+                        user_id,
+                        wallet.wallet_address,
+                        nextAction,
+                        action_id,
+                        actionRootUrl,
+                        chainedAction.posted_url,
+                        result.response
+                    );
+                }
             }
 
             // result.response is solscan link + blink message (if present)
             return {
-                response_type: "success",
+                response_type: result.success ? "success" : "error",
                 reply_object: {
                     content: result.response,
                 },
@@ -1023,16 +1042,24 @@ export async function executeChainedAction(
 
         let url: string | undefined;
         if (actionButton.parameters?.length && processed_values?.length) {
-            const actionUrlAndValue: ActionUrlAndValue = await extractActionUrlAndValue(actionButton, rootUrl, processed_values);
+            // this block means it was a button with custom inputs, and user submitted those
+            const actionAndUrl: ActionAndUrlResponse | null = await getActionAndActionRootUrl({ action_id });
+            if (!actionAndUrl) return defaultBlinkError();
+            const actionUrlAndValue: ActionUrlAndValue = await processCustomInputValues(
+                actionButton,
+                actionAndUrl.action_root_url,
+                processed_values
+            );
             if (actionUrlAndValue.error) return defaultBlinkError(actionUrlAndValue.error);
             url = actionUrlAndValue.url;
-            // NOTE: action value not needed for chained actions
         } else {
+            // this block means it was a button with a fixed value
             if (actionButton.href.includes("https://")) {
                 url = actionButton.href;
             } else {
-                const chainedActionUrl: URL = new URL(chainedAction.posted_url);
-                url = chainedActionUrl.origin + actionButton.href;
+                const actionAndUrl: ActionAndUrlResponse | null = await getActionAndActionRootUrl({ action_id });
+                if (!actionAndUrl) return defaultBlinkError();
+                url = actionAndUrl.action_root_url + actionButton.href;
             }
         }
 
@@ -1060,24 +1087,27 @@ export async function executeChainedAction(
             const result: TxResponse = await executeBlinkTransaction(wallet, blinkTx);
             await saveDbTransaction(result);
 
-            // handle chained action links
-            if (blinkTx.links) {
-                const nextAction: NextActionLink = blinkTx.links.next;
-                // NOTE: this also handles the next action type check, and UI creation
-                return await storeNextActionInChain(
-                    user_id,
-                    wallet.wallet_address,
-                    nextAction,
-                    action_id,
-                    rootUrl,
-                    chainedAction.posted_url,
-                    result.response
-                );
+            if (result.success) {
+                await ChainedAction.deleteOne({ user_id, action_id, chain_id });
+                // handle chained action links
+                if (blinkTx.links) {
+                    const nextAction: NextActionLink = blinkTx.links.next;
+                    // NOTE: this also handles the next action type check, and UI creation
+                    return await storeNextActionInChain(
+                        user_id,
+                        wallet.wallet_address,
+                        nextAction,
+                        action_id,
+                        actionRootUrl,
+                        chainedAction.posted_url,
+                        result.response
+                    );
+                }
             }
 
             // result.response is solscan link + blink message (if present)
             return {
-                response_type: "success",
+                response_type: result.success ? "success" : "error",
                 reply_object: {
                     content: result.response,
                 },
@@ -1123,34 +1153,23 @@ export async function storeNextActionInChain(
                     },
                 }
             }
-            const nextBlinkTx: ActionPostResponse = await (
-                await fetch(nextUrl, {
-                    method: "POST",
-                    headers: ACTIONS_CORS_HEADERS,
-                    body: JSON.stringify({
-                        account: wallet_address
-                    }),
-                })
-            ).json();
-            if (nextBlinkTx.transaction) {
-                const newChainedAction = new ChainedAction({
-                    user_id,
-                    action_id: actionId,
-                    chain_id,
-                    wallet_address: wallet_address,
-                    posted_url: posted_url,
-                    post_action: nextBlinkTx,
-                });
-                await newChainedAction.save();
+            const newChainedAction = new ChainedAction({
+                user_id,
+                action_id: actionId,
+                chain_id,
+                wallet_address: wallet_address,
+                posted_url: posted_url,
+                href: nextUrl,
+            });
+            await newChainedAction.save();
 
-                const confirmationButton = createChainedActionConfirmationButton(actionId, chain_id);
-                return {
-                    response_type: "chained_action",
-                    reply_object: {
-                        content: `${response}\n\nThere is another Action chained to this Blink with no further information. Do you want to execute it?`,
-                        components: [confirmationButton],
-                    },
-                }
+            const confirmationButton = createChainedActionConfirmationButton(actionId, chain_id);
+            return {
+                response_type: "chained_action",
+                reply_object: {
+                    content: `${response}\n\nThere is another Action chained to this Blink with no further information. Do you want to execute it?`,
+                    components: [confirmationButton],
+                },
             }
         }
 
@@ -1216,7 +1235,7 @@ type ActionUrlAndValue = {
     value?: string, // not defined if error 
     error?: string,
 }
-export async function extractActionUrlAndValue(
+export async function processCustomInputValues(
     actionButton: LinkedAction,
     rootUrl: string,
     processed_values: BlinkCustomValue[]
@@ -1272,7 +1291,7 @@ export async function extractActionUrlAndValue(
         await postDiscordErrorWebhook(
             "blinks",
             error,
-            `extractActionUrlAndValue | Button: ${actionButton} | Root URL: ${rootUrl} | Processed Values: ${processed_values}`
+            `processCustomInputValues | Button: ${actionButton} | Root URL: ${rootUrl} | Processed Values: ${processed_values}`
         );
         return { error: "Failed to process Blink. Please try again later." };
     }
@@ -1387,7 +1406,7 @@ export async function convertDescriptionToOrderedValues(
             }
             orderedValues.push({ index, value });
         });
-    
+
         return orderedValues;
     } catch (error) {
         await postDiscordErrorWebhook(
@@ -1543,6 +1562,7 @@ export function parseTokenAddress(tokenOrTokenAddress: string | null): string | 
     }
 }
 
+// url is the posted url
 export async function getActionAndActionRootUrl({ action_id, url }: { action_id?: string, url?: string }
 ): Promise<ActionAndUrlResponse | null> {
     try {
