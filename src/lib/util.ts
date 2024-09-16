@@ -249,7 +249,7 @@ export async function encryptPKey(pKey: string): Promise<{ encryptedPrivateKey: 
         encrypted += cipher.final('hex');
         return { encryptedPrivateKey: encrypted, iv: iv.toString('hex') };
     } catch (error) {
-        await saveError({ function_name: "encryptPKey", error });
+        await postDiscordErrorWebhook("app", error, `encryptPKey`);
         return undefined;
     }
 }
@@ -263,7 +263,7 @@ export async function decryptPKey(encryptedPKey: string, iv: string): Promise<st
         decrypted += decipher.final('utf8');
         return decrypted;
     } catch (error) {
-        await saveError({ function_name: "decryptPKey", error });
+        await postDiscordErrorWebhook("app", error, `decryptPKey`);
         return undefined;
     }
 }
