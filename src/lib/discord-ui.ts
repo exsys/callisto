@@ -1412,7 +1412,7 @@ export async function createCustomActionModal(
             const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
                 new TextInputBuilder()
                     .setCustomId('value1')
-                    .setLabel("Choice (Button Label)")
+                    .setLabel("Button Label")
                     .setPlaceholder("choice")
                     .setRequired(true)
                     .setStyle(TextInputStyle.Short)
