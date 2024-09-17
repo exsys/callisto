@@ -1376,21 +1376,19 @@ export function tokenAddressForBlinkModal(blinkType: string): ModalBuilder {
         .setCustomId(`createBlinkWithAddress:${blinkType}`)
         .setTitle("Enter Token Address");
 
-    // TODO: allow symbols instead of token address
+    const isDonationBlink: boolean = blinkType === "blinkDonation"; // so SOL token swaps cant be created (buying SOL). there is no system to determine what base token would be used.
+    if (isDonationBlink) modal.setTitle("Enter Token to receive");
 
-    let label: string = `Token Address`;
-    if (blinkType === "blinkDonation") label += " (empty for SOL)";
-    const tokenAddressInputIsRequired: boolean = blinkType === "blinkDonation" ? false : true; // so SOL token swaps cant be created (buying SOL). there is no system to determine what base token would be used.
+    const input = new TextInputBuilder()
+        .setCustomId('value1')
+        .setLabel("Token Address or Token Symbol")
+        .setPlaceholder("usdc")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(!isDonationBlink); // optional for donations
 
-    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-            .setCustomId('value1')
-            .setLabel("Token Address (empty for SOL)")
-            .setPlaceholder("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(tokenAddressInputIsRequired)
-    );
+    if (isDonationBlink) input.setLabel("Token Address or Token Symbol (empty for SOL)");
 
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(input);
     modal.addComponents(row);
     return modal;
 }
@@ -2241,7 +2239,7 @@ export async function storeUserBlink(blink_id: string): Promise<InteractionReply
         const blink: any = await Blink.findOne({ blink_id });
         if (!blink) return DEFAULT_ERROR_REPLY;
 
-        if (!blink.links?.actions.length) return { content: "You need to add at least 1 action button." };
+        if (!blink.links?.actions.length) return { content: "You have to add at least 1 Action." };
 
         blink.is_complete = true;
         blink.disabled = false;
@@ -2269,7 +2267,7 @@ export async function checkAndUpdateBlink(blink_id: string): Promise<Interaction
     try {
         const blink: any = await Blink.findOne({ blink_id });
         if (blink && !blink.links?.actions.length) {
-            return { content: "You need to add at least 1 action button." };
+            return { content: "You have to add at least 1 Action." };
         }
 
         if (!blink.is_complete) {
@@ -2350,7 +2348,7 @@ export async function createBlinkUiFromEmbed(embed: Readonly<APIEmbed>, blinkTyp
         });
 
         if (buttons.length) rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons));
-        if (!embed.fields?.length) return { content: "You need to add at least 1 button to preview your Blink." };
+        if (!embed.fields?.length) return { content: "You have to add at least 1 Action to preview your Blink." };
         return { content: "Preview", embeds: [uiEmbed], components: rows };
     } catch (error) {
         return DEFAULT_ERROR_REPLY;
@@ -2442,8 +2440,9 @@ export function addActionButtonTypeSelection(blink_id: string, editMode: boolean
         .setLabel('Custom value')
         .setStyle(ButtonStyle.Secondary);
 
+    const content: string = "Select a button type to add to your Blink.\n**Fixed value**: Add a button with a fixed value.\n**Custom value**: The user can select a custom value when pressing this button.";
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(addActionButton, addCustomActionButton);
-    return { content: "Select a button type to add to your Blink.", components: [row], ephemeral: true };
+    return { content, components: [row], ephemeral: true };
 }
 
 export async function createEmbedFromBlinkUrlAndAction(url: string, action: ActionGetResponse | NextAction): Promise<EmbedFromUrlResponse | null> {
