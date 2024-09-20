@@ -410,21 +410,15 @@ export async function sendCoin(user_id: string, contract_address: string, amount
         
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) return decryptError({ user_id, tx_type });
-        console.log(wallet_address)
-        console.log(contract_address)
         const walletTokenAccount: PublicKey | null = await getTokenAccountOfWallet(wallet_address, contract_address);
-        console.log(walletTokenAccount)
         if (!walletTokenAccount) return tokenAccountNotFoundError(txResponse);
 
-        console.log(contract_address)
-        console.log(recipient)
         const destinationTokenAccount: Account = await getOrCreateAssociatedTokenAccount(
             getConnection(),
             signer,
             new PublicKey(contract_address),
             new PublicKey(recipient),
         );
-        console.log(destinationTokenAccount)
         if (!destinationTokenAccount) return destinationTokenAccountError(txResponse);
 
         const coinStats: CoinStats | null = await getCoinStatsFromWallet(wallet_address, contract_address);
