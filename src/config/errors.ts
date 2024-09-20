@@ -177,7 +177,7 @@ export function txExpiredError({
         user_id,
         tx_type,
         wallet_address,
-        response: "Transaction expired. Please try again.",
+        response: "Transaction expired. Consider increasing the Transaction Priority in the Settings.",
         success: false,
         contract_address,
         tx_signature,

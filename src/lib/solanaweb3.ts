@@ -840,6 +840,8 @@ export async function executeBlinkTransaction(wallet: any, blinkTx: ActionPostRe
             return txMetaError({ ...txResponse, error: result.meta?.err });
         }
 
+        // TODO: add positions button
+
         txResponse.success = true;
         txResponse.response = `Blink successfully executed: https://solscan.io/tx/${signature}`;
         appStats.successful_blink_executions++;
