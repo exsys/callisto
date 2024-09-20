@@ -492,9 +492,14 @@ export const BUTTON_COMMANDS = {
         await interaction.showModal(modal);
     },
     retryLastSwap: async (interaction: ButtonInteraction) => {
+        // TODO: because of new UI (embeds) this doesn't work anymore. fix it. 
+        // the failed message has no 100% or CA or anything like that anymore. so need another way of getting CA and amount
+
         await interaction.deferReply({ ephemeral: true });
+        const caLine: string | undefined = interaction.message.embeds[0].data.fields?.[0].name;
+        if (!caLine) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
         // TODO: check whether this is still works, extractAndValidateCA for example had 0 for line number. also changed everything to embeds
-        const contractAddress: string | null = extractAndValidateCA(interaction.message.content, 1);
+        const contractAddress: string | null = extractAndValidateCA(caLine, 1);
         if (!contractAddress) {
             return await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
         }

@@ -964,7 +964,7 @@ export function createAfterSwapUI(txResponse: TxResponse, storeRefFee: boolean =
         .setStyle(ButtonStyle.Secondary);
 
     const buttons = [startButton, positionsButton];
-    if (txResponse.include_retry_button) buttons.push(retryButton);
+    //if (txResponse.include_retry_button) buttons.push(retryButton);
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons);
     return {
         transaction: txResponse,
