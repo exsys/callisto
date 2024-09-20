@@ -340,7 +340,9 @@ export const MODAL_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const percentToSend = values[0];
         const destinationAddress = values[1];
-        const contractAddress: string | null = extractAndValidateCA(interaction.message!.content, 4);
+        const caLine: string | undefined = interaction.message?.embeds[0].data.fields?.[0].name;
+        if (!caLine) return await interaction.editReply("Couldn't find Token Address. Please contact support.");
+        const contractAddress: string | null = extractAndValidateCA(caLine, 1);
         if (!contractAddress) {
             return await interaction.editReply({ content: "Invalid contract address. Please enter a valid contract address." });
         }
