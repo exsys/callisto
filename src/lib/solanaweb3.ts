@@ -407,7 +407,7 @@ export async function sendCoin(user_id: string, contract_address: string, amount
 
     try {
         if (!isPositiveNumber(amount)) return invalidNumberError(txResponse);
-        
+
         const signer: Keypair | undefined = await getKeypairFromEncryptedPKey(wallet.encrypted_private_key, wallet.iv);
         if (!signer) return decryptError({ user_id, tx_type });
         const walletTokenAccount: PublicKey | null = await getTokenAccountOfWallet(wallet_address, contract_address);
@@ -488,7 +488,7 @@ export async function sendCoin(user_id: string, contract_address: string, amount
         await appStats.save();
         return successResponse(txResponse);
     } catch (error) {
-        await postDiscordErrorWebhook("app", error, `sendCoin unknown error. User id: ${user_id}`);
+        await postDiscordErrorWebhook("app", error, `sendCoin unknown error. User: ${user_id} | Recipient: ${recipient} | Token: ${contract_address} | Amount: ${amount}`);
         return unknownError({ ...txResponse, error });
     }
 }
