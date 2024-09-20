@@ -8,6 +8,7 @@ import {
     addFixedActionButtonToBlink,
     addCustomActionButtonToBlink,
     createNewBlinkUI,
+    createBlinkSuccessMessage,
 } from "./discord-ui";
 import {
     buyCoinX,
@@ -540,7 +541,15 @@ export const MODAL_COMMANDS = {
             } else {
                 result = await executeBlink(interaction.user.id, actionId, buttonId, orderedBlinkValues);
             }
-            await interaction.editReply(result.reply_object);
+            switch (result.response_type) {
+                case "success": {
+                    const ui: InteractionReplyOptions = await createBlinkSuccessMessage(result.reply_object);
+                    return await interaction.editReply(ui);
+                }
+                default: {
+                    return await interaction.editReply(result.reply_object);
+                }
+            }
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
         }

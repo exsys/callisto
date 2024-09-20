@@ -2371,11 +2371,11 @@ export async function createBlinkSuccessMessage(reply_object: InteractionReplyOp
         .setCustomId("sellAndManage")
         .setLabel("Token Balances")
         .setStyle(ButtonStyle.Secondary);
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(startButton, positionsButton);
+    const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(startButton, positionsButton);
 
     const solscanLinkAndBlinkMessage: UrlAndBlinkMsg | null = await extractUrlAndMessageFromBlink(reply_object.content!);
     if (!solscanLinkAndBlinkMessage) {
-        return { content: reply_object.content!, components: [row] };
+        return { content: reply_object.content!, components: [buttons] };
     }
 
     const embed: EmbedBuilder = new EmbedBuilder()
@@ -2387,7 +2387,7 @@ export async function createBlinkSuccessMessage(reply_object: InteractionReplyOp
         embed.addFields({ name: "Message", value: solscanLinkAndBlinkMessage.message });
     }
 
-    return { embeds: [embed], components: [row] };
+    return { embeds: [embed], components: [buttons] };
 }
 
 export async function removeActionButtonFromBlink(
