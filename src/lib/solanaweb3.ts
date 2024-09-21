@@ -488,7 +488,7 @@ export async function sendCoin(user_id: string, contract_address: string, amount
         await appStats.save();
         return successResponse(txResponse);
     } catch (error) {
-        await postDiscordErrorWebhook("app", error, `sendCoin unknown error. User: ${user_id} | Recipient: ${recipient} | Token: ${contract_address} | Amount: ${amount}`);
+        await postDiscordErrorWebhook("app", error, `sendCoin unknown error. User: ${user_id} | Wallet: ${wallet} | Recipient: ${recipient} | Token: ${contract_address} | Amount: ${amount}`);
         return unknownError({ ...txResponse, error });
     }
 }
@@ -1244,7 +1244,7 @@ export async function getTokenAccountOfWallet(wallet_address: string, contract_a
         );
         return associatedTokenAddress;
     } catch (error) {
-        await postDiscordErrorWebhook("api", error, `getTokenAccountOfWallet unknown error. Wallet: ${wallet_address} | CA: ${contract_address}`);
+        await postDiscordErrorWebhook("api", error, `getTokenAccountOfWallet unknown error. Wallet: ${wallet_address} | Token: ${contract_address}`);
         return null;
     }
 }
