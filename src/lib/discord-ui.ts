@@ -80,6 +80,7 @@ import {
     createActionBlinkButtons,
     createBlinkCreationButtons,
     createBlinkSettingsUIButtons,
+    createPasswordSettingsButtons,
     createPreBuyUIButtons,
     createSellAndManageUIButtons,
     createSettingsUIButtons,
@@ -89,6 +90,7 @@ import {
 } from "./ui-buttons";
 import { DbBlink } from "../types/DbBlink";
 import sharp from "sharp";
+import { UnlockInfo } from "../models/unlockInfo";
 
 /***************************************************** UIs *****************************************************/
 
@@ -121,19 +123,25 @@ export async function createAdminUI(guild_id: string, toggled?: string): Promise
     }
 }
 
-export async function createStartUI(user_id: string): Promise<InteractionReplyOptions> {
+// optional userWallet in case we don't want to do the Wallet.findOne() operation twice in some cases
+export async function createStartUI(user_id: string, userWallet?: any): Promise<InteractionReplyOptions> {
     try {
-        const user: any = await User.findOne({ user_id }).lean();
-        if (!user) {
-            const walletAddress: string | undefined = await createWallet(user_id);
-            if (!walletAddress) {
-                return { content: "Error while trying to create a wallet. If the issue persists please contact support." };
-            }
+        let wallet: any = userWallet;
+        if (!wallet) {
+            const user: any = await User.findOne({ user_id }).lean();
+            if (!user) {
+                const walletAddress: string | undefined = await createWallet(user_id);
+                if (!walletAddress) {
+                    return { content: "Error while trying to create a wallet. If the issue persists please contact support." };
+                }
 
-            if (walletAddress === REFCODE_MODAL_STRING) return { content: REFCODE_MODAL_STRING };
+                if (walletAddress === REFCODE_MODAL_STRING) return { content: REFCODE_MODAL_STRING };
+            }
         }
 
-        const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true });
+        if (!wallet) {
+            wallet = await Wallet.findOne({ user_id, is_default_wallet: true });
+        }
         if (!wallet) return DEFAULT_ERROR_REPLY;
 
         const [solBalance, usdcBalance] = await Promise.all([
@@ -224,17 +232,39 @@ export async function changeUserBlinkEmbedUI(
         await blink.save();
         return { content, embeds: [newEmbed], components: buttons };
     } catch (error) {
-        //console.log(error);
-        await saveError({
-            function_name: "changeUserBlinkEmbedUI",
+        await postDiscordErrorWebhook(
+            "blinks",
             error,
-        });
+            `changeUserBlinkEmbedUI | User: ${user_id} | Blink: ${blink_id} | Embed: ${JSON.stringify(embed)} | Field to change: ${fieldToChange} | New value: ${newValue} | Edit mode: ${editMode}`
+        );
+        return DEFAULT_ERROR_REPLY;
+    }
+}
+
+export async function createPasswordSettingsUI(user_id: string): Promise<InteractionReplyOptions> {
+    try {
+        const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
+        if (!wallet) return DEFAULT_ERROR_REPLY;
+        const unlockInfo: any = await UnlockInfo.findOne({ user_id, wallet_address: wallet.wallet_address }).lean();
+        if (!unlockInfo) return DEFAULT_ERROR_REPLY;
+
+        let content: string = "";
+        const hasPassword: boolean = wallet.encrypted_password ? true : false;
+        if (hasPassword) {
+            content += `Press one of the buttons below to choose an action.\n\nCurrent Auto-Lock Timer: **${unlockInfo.autolock_timer} minute${unlockInfo.autolock_timer == 1 ? "" : "s"}**`;
+        } else {
+            content += "You don't have a password set yet.";
+        }
+
+        const buttons = createPasswordSettingsButtons(hasPassword);
+        return { content, components: buttons };
+    } catch (error) {
+        await postDiscordErrorWebhook("app", error, `createPasswordSettingsUI | User: ${user_id}`);
         return DEFAULT_ERROR_REPLY;
     }
 }
 
 // TODO: check if I can combine addCustomActionButtonToBlink and addFixedActionButtonToBlink in an elegant way
-
 export async function addCustomActionButtonToBlink(
     blink_id: string, buttonValues: string[], editMode: boolean = false
 ): Promise<InteractionReplyOptions | undefined> {
@@ -737,16 +767,27 @@ export function createHelpUI(): InteractionReplyOptions {
     return { content, ephemeral: true };
 };
 
-export async function createReferUI(userId: string): Promise<InteractionEditReplyOptions> {
-    const refCodeMsg: string | null = await createOrUseRefCodeForUser(userId);
+export async function createReferUI(user_id: string): Promise<InteractionEditReplyOptions> {
+    const refCodeMsg: string | null = await createOrUseRefCodeForUser(user_id);
     if (!refCodeMsg) return { content: ERROR_CODES["0000"].message };
+    const user: any = await User.findOne({ user_id });
+    if (!user) return DEFAULT_ERROR_REPLY;
 
     const claimFeesButton = new ButtonBuilder()
         .setCustomId("showRefFees")
         .setLabel("Claim Fees")
         .setStyle(ButtonStyle.Secondary);
 
+    const enterRefCodeButton = new ButtonBuilder()
+        .setCustomId("enterRefCode")
+        .setLabel("Enter Ref Code")
+        .setStyle(ButtonStyle.Secondary);
+
+    // if user less than 3 days old, and ref code hasnt been used yet, show Submit Ref Code button
+    const userCreationDate: number = user.createdAt.getTime();
+    const threeDaysInMs: number = 259200000;
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(claimFeesButton);
+    if (userCreationDate + threeDaysInMs > Date.now() && !user.referral) row.addComponents(enterRefCodeButton);
     return { content: refCodeMsg, components: [row] };
 }
 
@@ -1094,7 +1135,7 @@ export async function createClaimRefFeeUI(user_id: string): Promise<InteractionE
     }
 }
 
-export async function createSettingsUI(userId: string): Promise<InteractionEditReplyOptions> {
+export async function createSettingsUI(userId: string): Promise<InteractionReplyOptions> {
     let wallet: any;
     try {
         wallet = await Wallet.findOne({ user_id: userId, is_default_wallet: true }).lean();
@@ -1370,6 +1411,124 @@ export async function removeActionSelectionMenu(blink_id: string, editMode: bool
 }
 
 /************************************************************** MODALS *****************************************************/
+
+export function createUnlockWalletModal(command: string, extraInfo?: string): ModalBuilder {
+    const extraInfoString: string = extraInfo ? `:${extraInfo}` : "";
+    const modal: ModalBuilder = new ModalBuilder()
+        .setCustomId(`unlockWallet:${command}${extraInfoString}`)
+        .setTitle("Unlock wallet");
+
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+            .setCustomId('value1')
+            .setLabel("Wallet password")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+    );
+
+    modal.addComponents(row);
+    return modal;
+}
+
+export function setWalletPasswordModal(): ModalBuilder {
+    const modal: ModalBuilder = new ModalBuilder()
+        .setCustomId(`setPassword`)
+        .setTitle("Set a password for your wallet");
+
+    const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+            .setCustomId('value1')
+            .setLabel("Wallet password")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+    );
+
+    const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+            .setCustomId('value2')
+            .setLabel("Wallet password repeated")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+    );
+
+    modal.addComponents(row1, row2);
+    return modal;
+}
+
+export function changeWalletPasswordModal(): ModalBuilder {
+    const modal: ModalBuilder = new ModalBuilder()
+        .setCustomId(`changePassword`)
+        .setTitle("Change your wallet password");
+
+    const input1 = new TextInputBuilder()
+        .setCustomId('value1')
+        .setLabel("Old Password")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+
+    const input2 = new TextInputBuilder()
+        .setCustomId('value2')
+        .setLabel("New Password")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+
+    const input3 = new TextInputBuilder()
+        .setCustomId('value3')
+        .setLabel("New Password repeated")
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+
+    const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(input1);
+    const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(input2);
+    const row3 = new ActionRowBuilder<TextInputBuilder>().addComponents(input3);
+
+    modal.addComponents(row1, row2, row3);
+    return modal;
+}
+
+export function deleteWalletPasswordModal(): ModalBuilder {
+    const modal: ModalBuilder = new ModalBuilder()
+        .setCustomId(`deletePassword`)
+        .setTitle("Delete wallet password");
+
+    const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+            .setCustomId('value1')
+            .setLabel("Enter password")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+    );
+
+    modal.addComponents(row);
+    return modal;
+}
+
+export function autolockTimerModal(): ModalBuilder {
+    const modal: ModalBuilder = new ModalBuilder()
+        .setCustomId(`autolockTimer`)
+        .setTitle("Change Auto-Lock Timer");
+
+    const row1 = new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+            .setCustomId('value1')
+            .setLabel("Enter password")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+    );
+
+    const row2 = new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+            .setCustomId('value2')
+            .setLabel("New value in minutes (max 1440 minutes)")
+            .setStyle(TextInputStyle.Short)
+            .setMinLength(1)
+            .setMaxLength(4)
+            .setRequired(true)
+    );
+
+    modal.addComponents(row1, row2);
+    return modal;
+}
 
 export function tokenAddressForBlinkModal(blinkType: string): ModalBuilder {
     const modal: ModalBuilder = new ModalBuilder()
@@ -1941,9 +2100,9 @@ export function createRefCodeModal(): ModalBuilder {
         .setCustomId('value1')
         .setLabel('Get 10% reduced fees in your first month')
         .setPlaceholder("Referral code")
-        .setRequired(false)
+        .setRequired(true)
         .setMinLength(4)
-        .setMaxLength(10)
+        .setMaxLength(20)
         .setStyle(TextInputStyle.Short);
 
     const row = new ActionRowBuilder<TextInputBuilder>().addComponents(refCodeInput);
@@ -2111,7 +2270,7 @@ export async function blinkCustomValuesModalAsEmbed(
             // last value (index) will be used to find the correct line later, so the value for that custom value can be changed
             .setCustomId(`changeBlinkEmbedValue:${action_id}:${button_id}:send`)
             .setLabel("Send")
-            .setStyle(ButtonStyle.Secondary);
+            .setStyle(ButtonStyle.Primary);
         // check if a new row needs to be created
         if (rows[rows.length - 1].components.length === 5) {
             rows.push(new ActionRowBuilder<ButtonBuilder>);

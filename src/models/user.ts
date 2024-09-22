@@ -23,7 +23,7 @@ const UserSchema = new Schema({
         default: 0, // total volume in usd traded by the user
     },
     ref_code: {
-        type: String,
+        type: String, // ref code to invite other users
         required: false,
     },
     promo_level: {

@@ -75,6 +75,13 @@ import {
     createDepositEmbed,
     toggleBlinksConversion,
     createBlinkSuccessMessage,
+    createPasswordSettingsUI,
+    setWalletPasswordModal,
+    changeWalletPasswordModal,
+    deleteWalletPasswordModal,
+    autolockTimerModal,
+    createRefCodeModal,
+    createUnlockWalletModal,
 } from "./discord-ui";
 import { getTokenAccountOfWallet } from "./solanaweb3";
 import {
@@ -161,7 +168,12 @@ export const BUTTON_COMMANDS = {
     },
     settings: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const ui: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+        const ui: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
+        await interaction.editReply(ui);
+    },
+    passwordSettings: async (interaction: ButtonInteraction) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionReplyOptions = await createPasswordSettingsUI(interaction.user.id);
         await interaction.editReply(ui);
     },
     refresh: async (interaction: ButtonInteraction) => {
@@ -194,6 +206,10 @@ export const BUTTON_COMMANDS = {
         const ui: InteractionEditReplyOptions = await createReferUI(interaction.user.id);
         await interaction.editReply(ui);
     },
+    enterRefCode: async (interaction: ButtonInteraction) => {
+        const refCodeModal: ModalBuilder = createRefCodeModal();
+        await interaction.showModal(refCodeModal);
+    },
     deposit: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         try {
@@ -202,7 +218,6 @@ export const BUTTON_COMMANDS = {
         } catch (error) {
             await interaction.editReply({ content: ERROR_CODES["0000"].message });
         }
-
     },
     withdrawAllSol: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createWithdrawAllSolModal();
@@ -268,19 +283,22 @@ export const BUTTON_COMMANDS = {
         }
     },
     exportPrivKeyConfirmation: async (interaction: ButtonInteraction) => {
-        await interaction.deferReply({ ephemeral: true });
+        const wallet: any = await Wallet.findOne({ user_id: interaction.user.id, is_default_wallet: true });
+        if (!wallet) return await interaction.reply(DEFAULT_ERROR_REPLY_EPHEM);
+        if (wallet.encrypted_password) {
+            const modal: ModalBuilder = createUnlockWalletModal("exportPrivKey");
+            return await interaction.showModal(modal);
+        } else {
+            await interaction.deferReply({ ephemeral: true });
+        }
         const exportUI: InteractionEditReplyOptions = createExportPrivKeyUI();
         await interaction.editReply(exportUI);
     },
     exportPrivKey: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
         const wallet = await exportPrivateKeyOfUser(interaction.user.id);
-        if (!wallet) {
-            await interaction.editReply({ content: ERROR_CODES["0003"].message });
-            return;
-        } else {
-            await interaction.editReply({ content: `Your private key:\n${await decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.` });
-        }
+        if (!wallet) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+        await interaction.editReply({ content: `Your private key:\n${await decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.` });
     },
     showRefFees: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
@@ -305,8 +323,7 @@ export const BUTTON_COMMANDS = {
 
         const userId: string = interaction.user.id;
         if (REF_FEE_DEBOUNCE_MAP.has(userId)) {
-            await interaction.editReply("Claim request already sent. Please wait until the current request has been processed.");
-            return;
+            return await interaction.editReply("Claim request already sent. Please wait until the current request has been processed.");
         }
         REF_FEE_DEBOUNCE_MAP.set(userId, true);
 
@@ -528,6 +545,22 @@ export const BUTTON_COMMANDS = {
     },
     sellLimitPrice: async (interaction: ButtonInteraction) => {
         const modal: ModalBuilder = createSellLimitPriceModal();
+        await interaction.showModal(modal);
+    },
+    setPassword: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = setWalletPasswordModal();
+        await interaction.showModal(modal);
+    },
+    changePassword: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = changeWalletPasswordModal();
+        await interaction.showModal(modal);
+    },
+    deletePassword: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = deleteWalletPasswordModal();
+        await interaction.showModal(modal);
+    },
+    autolockTimer: async (interaction: ButtonInteraction) => {
+        const modal: ModalBuilder = autolockTimerModal();
         await interaction.showModal(modal);
     },
     blinkSettings: async (interaction: ButtonInteraction) => {

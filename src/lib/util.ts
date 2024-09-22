@@ -34,6 +34,10 @@ import {
     BLINK_ERRORS_WEBHOOK,
     MAX_WALLETS_PER_USER,
     URL_REGEX,
+    SAFETY_LOCK_LEVEL_1,
+    SAFETY_LOCK_LEVEL_2,
+    SAFETY_LOCK_LEVEL_3,
+    SAFETY_LOCK_LEVEL_4,
 } from "../config/constants";
 import { TxResponse } from "../types/txResponse";
 import { UIResponse } from "../types/uiResponse";
@@ -397,9 +401,9 @@ export async function saveError({ user_id, contract_address, wallet_address, fun
 
 export const wait = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
 
-export async function saveReferralAndUpdateFees(userId: string, refCode: string): Promise<InteractionEditReplyOptions> {
+export async function saveReferralAndUpdateFees(user_id: string, refCode: string): Promise<InteractionEditReplyOptions> {
     try {
-        const user = await User.findOne({ user_id: userId });
+        const user = await User.findOne({ user_id });
         if (!user) return createStartButton(ERROR_CODES["0013"].message);
         const referrer = await User.findOne({ ref_code: refCode });
         if (!referrer) {
@@ -425,7 +429,7 @@ export async function saveReferralAndUpdateFees(userId: string, refCode: string)
             timestamp: Date.now(),
         };
 
-        await Wallet.updateMany({ user_id: userId }, { swap_fee: user.swap_fee });
+        await Wallet.updateMany({ user_id }, { swap_fee: user.swap_fee });
         await user.save();
         await referrer.save();
         return createStartButton("Successfully used referral code. Your transaction fees are reduced by 10% for the next 30 days.\n\nUse the /start command to start trading.");
@@ -1690,4 +1694,21 @@ export async function extractRootUrlFromBlink(urlObj: URL, isActionsSchema: bool
         await postDiscordErrorWebhook("app", error, "extractRootUrl");
         return null;
     }
+}
+
+export function convertMinutesToMs(minutes: number): number {
+    return minutes * 60 * 1000;
+}
+
+export function convertMsToMinutes(ms: number): number {
+    return Math.floor(ms / 60 / 1000);
+}
+
+// returns how many minutes the next safety lock of a wallet should be
+export function getSafetyLockDuration(totalLocks: number): number {
+    if (totalLocks === 1) return SAFETY_LOCK_LEVEL_1;
+    if (totalLocks === 2) return SAFETY_LOCK_LEVEL_2;
+    if (totalLocks === 3) return SAFETY_LOCK_LEVEL_3;
+    if (totalLocks === 4) return SAFETY_LOCK_LEVEL_4;
+    return SAFETY_LOCK_LEVEL_4;
 }

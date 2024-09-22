@@ -52,6 +52,10 @@ const WalletSchema = new Schema({
         type: String,
         required: true,
     },
+    encrypted_password: {
+        type: String,
+        required: false,
+    },
     settings: {
         type: SettingsSchema,
         default: DEFAULT_SETTINGS,
