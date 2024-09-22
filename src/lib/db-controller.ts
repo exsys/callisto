@@ -83,7 +83,7 @@ export async function changeAutolockTimer(user_id: string, password: string, new
         const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return DEFAULT_ERROR_REPLY;
         if (!isPositiveNumber(newAutolockTimerInMinutes)) return { content: "Invalid value." };
-        if (!Number.isInteger(newAutolockTimerInMinutes)) return { content: "Must be a whole number." };
+        if (!Number.isInteger(Number(newAutolockTimerInMinutes))) return { content: "Must be a whole number." };
         if (Number(newAutolockTimerInMinutes) > 1440) return { content: "Number can't be higher than 1440 (24 hours)." };
         const correctPassword: boolean = await bcrypt.compare(password, wallet.encrypted_password);
         if (!correctPassword) return { content: "Wrong password." };
