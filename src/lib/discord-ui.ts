@@ -245,8 +245,15 @@ export async function createPasswordSettingsUI(user_id: string): Promise<Interac
     try {
         const wallet: any = await Wallet.findOne({ user_id, is_default_wallet: true }).lean();
         if (!wallet) return DEFAULT_ERROR_REPLY;
-        const unlockInfo: any = await UnlockInfo.findOne({ user_id, wallet_address: wallet.wallet_address }).lean();
-        if (!unlockInfo) return DEFAULT_ERROR_REPLY;
+        let unlockInfo: any = await UnlockInfo.findOne({ user_id, wallet_address: wallet.wallet_address }).lean();
+        if (!unlockInfo) {
+            const newUnlockInfo: any = new UnlockInfo({
+                user_id,
+                wallet_address: wallet.wallet_address,
+                last_unlock_time: Date.now(),
+            });
+            unlockInfo = await newUnlockInfo.save();
+        }
 
         let content: string = "";
         const hasPassword: boolean = wallet.encrypted_password ? true : false;
