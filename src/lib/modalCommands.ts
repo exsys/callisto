@@ -8,7 +8,9 @@ import {
     addFixedActionButtonToBlink,
     addCustomActionButtonToBlink,
     createNewBlinkUI,
-    createBlinkSuccessMessage,
+    createSellAndManageUI,
+    createTokenSelectionUI,
+    createAdminUI,
 } from "./discord-ui";
 import {
     buyCoinX,
@@ -25,6 +27,8 @@ import {
     changeBlinkEmbedModal,
     parseTokenAddress,
     executeChainedAction,
+    decryptPKey,
+    exportPrivateKeyOfUser,
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { DEFAULT_ERROR, DEFAULT_ERROR_REPLY, ERROR_CODES } from "../config/errors";
@@ -47,6 +51,13 @@ import {
 } from "./solanaweb3";
 import { BlinkResponse } from "../types/blinkResponse";
 import { BlinkCustomValue } from "../types/blinkCustomValue";
+import {
+    changeAutolockTimer,
+    changeWalletPassword,
+    deleteWalletPassword,
+    setWalletPassword,
+    unlockWallet
+} from "./db-controller";
 
 export const MODAL_COMMANDS = {
     buyCoin: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -105,6 +116,75 @@ export const MODAL_COMMANDS = {
         await interaction.editReply({ content: result.response });
         await saveDbTransaction(result);
     },
+    setPassword: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionReplyOptions = await setWalletPassword(interaction.user.id, values[0], values[1]);
+        await interaction.editReply(ui);
+    },
+    changePassword: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionReplyOptions = await changeWalletPassword(interaction.user.id, values[0], values[1], values[2]);
+        await interaction.editReply(ui);
+    },
+    deletePassword: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionReplyOptions = await deleteWalletPassword(interaction.user.id, values[0]);
+        await interaction.editReply(ui);
+    },
+    autolockTimer: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        await interaction.deferReply({ ephemeral: true });
+        const ui: InteractionReplyOptions = await changeAutolockTimer(interaction.user.id, values[0], values[1]);
+        await interaction.editReply(ui);
+    },
+    unlockWallet: async (interaction: ModalSubmitInteraction, values: string[]) => {
+        await interaction.deferReply({ ephemeral: true });
+        const command: string = values[0];
+        const password: string = values[2] ? values[2] : values[1];
+        const extraInfo: string | undefined = values[2] ? values[1] : undefined;
+
+        try {
+            const isCorrectPasswordOrError: string | boolean = await unlockWallet(interaction.user.id, password);
+            if (typeof isCorrectPasswordOrError === "string") return await interaction.editReply(isCorrectPasswordOrError);
+
+            switch (command) {
+                case "start": {
+                    const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
+                    return await interaction.editReply(startUI);
+                }
+                case "positions": {
+                    const ui: InteractionEditReplyOptions = await createSellAndManageUI({ user_id: interaction.user.id });
+                    await interaction.editReply(ui);
+                }
+                case "buy": {
+                    if (!extraInfo) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+                    const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, extraInfo);
+                    await interaction.editReply(uiResponse.ui);
+                }
+                case "send": {
+                    if (!extraInfo) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+                    const recipientWallet: any = await Wallet.findOne({ user_id: extraInfo, is_default_wallet: true }).lean();
+                    if (!recipientWallet) return await interaction.editReply("The given user doesn't have a Callisto wallet yet.");
+                    const ui: InteractionEditReplyOptions = await createTokenSelectionUI(interaction.user.id, extraInfo);
+                    await interaction.editReply(ui);
+                }
+                case "admin": {
+                    if (!extraInfo) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+                    const ui: InteractionReplyOptions = await createAdminUI(extraInfo);
+                    return await interaction.editReply(ui);
+                }
+                case "exportPrivKey": {
+                    const wallet = await exportPrivateKeyOfUser(interaction.user.id);
+                    if (!wallet) return await interaction.editReply(DEFAULT_ERROR_REPLY);
+                    return await interaction.editReply({ content: `Your private key:\n${await decryptPKey(wallet.encrypted_private_key, wallet.iv)}\n\nDo not share your private key with anyone. Anyone with access to your private key will also have access to your funds.` });
+                }
+                default: {
+                    return await interaction.editReply(DEFAULT_ERROR_REPLY);
+                }
+            }
+        } catch (error) {
+            await interaction.editReply(DEFAULT_ERROR_REPLY);
+        }
+    },
     changeMinPositionValue: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
         if (!isPositiveNumber(values[0])) return await interaction.reply({ content: "Invalid amount. Please enter a valid number." });
@@ -113,7 +193,7 @@ export const MODAL_COMMANDS = {
 
         wallet.settings.min_position_value = Number(values[0]);
         await wallet.save();
-        const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+        const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
         await interaction.editReply(settingsUI);
     },
     changeAutoBuyValue: async (interaction: ModalSubmitInteraction, values: string[]) => {
@@ -128,7 +208,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.auto_buy_value = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -146,7 +226,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_slippage = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -165,7 +245,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_slippage = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -185,7 +265,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.tx_priority_value = Number(values[0]) * LAMPORTS_PER_SOL; // convert to lamports
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -203,7 +283,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_button_1 = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -221,7 +301,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_button_2 = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -239,7 +319,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_button_3 = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -257,7 +337,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.buy_button_4 = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -275,7 +355,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_button_1 = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -293,7 +373,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_button_2 = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -311,7 +391,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_button_3 = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -329,7 +409,7 @@ export const MODAL_COMMANDS = {
             wallet.settings.sell_button_4 = Number(values[0]);
             await wallet.save();
 
-            const settingsUI: InteractionEditReplyOptions = await createSettingsUI(interaction.user.id);
+            const settingsUI: InteractionReplyOptions = await createSettingsUI(interaction.user.id);
             await interaction.editReply(settingsUI);
         } catch (error) {
             await interaction.editReply(DEFAULT_ERROR_REPLY);
@@ -399,13 +479,8 @@ export const MODAL_COMMANDS = {
     },
     enterRefCode: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });
-        if (values[0]) {
-            const response: InteractionEditReplyOptions = await saveReferralAndUpdateFees(interaction.user.id, values[0]);
-            await interaction.editReply(response);
-        } else {
-            const startUI: InteractionEditReplyOptions = await createStartUI(interaction.user.id);
-            await interaction.editReply(startUI);
-        }
+        const response: InteractionEditReplyOptions = await saveReferralAndUpdateFees(interaction.user.id, values[0]);
+        await interaction.editReply(response);
     },
     buyLimitPercentModal: async (interaction: ModalSubmitInteraction, values: string[]) => {
         await interaction.deferReply({ ephemeral: true });

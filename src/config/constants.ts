@@ -31,8 +31,20 @@ export const TOKEN_ICON_API_URL: string = "https://token-list-api.solana.cloud/v
 export const REF_FEE_MIN_CLAIM_AMOUNT: number = 0.0021;
 export const MAX_WALLETS_PER_USER: number = 10;
 export const URL_REGEX: RegExp = /https?:\/\/[^\s/$.?#].[^\s]*/gi;
+export const AUTOLOCK_DEFAULT: number = 15;
+export const MAX_WALLET_UNLOCK_ATTEMPTS: number = 3;
+export const UNLOCK_ATTEMPT_INTERVAL: number = 15; // how many minutes after which attempts count resets
+export const SAFETY_LOCK_LEVEL_1: number = 15; // in minutes
+export const SAFETY_LOCK_LEVEL_2: number = 60; // in minutes
+export const SAFETY_LOCK_LEVEL_3: number = 360; // in minutes
+export const SAFETY_LOCK_LEVEL_4: number = 1440; // in minutes
 
 // variables below are not needed for the bot but written down here for easy access to these values
 const BOT_APP_ID: string = "1247262826838622311";
 const DISCORD_SERVER_INVITE_LINK: string = "https://discord.gg/gA7u36rGpX";
 const DISCORD_OAUTH_INVITE_LINK: string = "https://discord.com/oauth2/authorize?client_id=1247262826838622311&permissions=379904&integration_type=0&scope=bot+applications.commands";
+// discordjs/discord api limits:
+// customId (for modal, button, etc): 100 chars
+// string select menu amount of options: 25 options
+// amount of modal inputs in one modal: 5 inputs
+// text input label: 45 chars

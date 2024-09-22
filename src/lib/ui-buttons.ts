@@ -160,6 +160,11 @@ export function createWalletUIButtons(): ActionRowBuilder<ButtonBuilder>[] {
         .setLabel('Withdraw X SOL')
         .setStyle(ButtonStyle.Secondary);
 
+    const passwordButton = new ButtonBuilder()
+        .setCustomId('passwordSettings')
+        .setLabel('Password')
+        .setStyle(ButtonStyle.Secondary);
+
     const removeWalletButton = new ButtonBuilder()
         .setCustomId('removeWallet')
         .setLabel('Remove Wallet')
@@ -181,7 +186,7 @@ export function createWalletUIButtons(): ActionRowBuilder<ButtonBuilder>[] {
         .setStyle(ButtonStyle.Secondary);
 
     const firstRow = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(startButton, depositButton, withdrawAllSolButton, withdrawXSolButton);
+        .addComponents(startButton, depositButton, withdrawAllSolButton, withdrawXSolButton, passwordButton);
     const secondRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(changeWallet, addNewWalletButton, removeWalletButton, exportPrivKeyButton);
 
@@ -590,4 +595,35 @@ export function createSellAndManageUIButtons(wallet_settings: any, token_address
     const thirdRow = new ActionRowBuilder<ButtonBuilder>()
         .addComponents(solscanCoinButton, dexscreenerButton, currentCoinButton, sendCoinButton, refreshButton);
     return [firstRow, secondRow, thirdRow];
+}
+
+export function createPasswordSettingsButtons(hasPassword: boolean): ActionRowBuilder<ButtonBuilder>[] {
+    const setPasswordButton = new ButtonBuilder()
+        .setCustomId('setPassword')
+        .setLabel('Set Password')
+        .setStyle(ButtonStyle.Secondary);
+
+    const changePasswordButton = new ButtonBuilder()
+        .setCustomId(`changePassword`)
+        .setLabel('Change Password')
+        .setStyle(ButtonStyle.Secondary);
+
+    const deletePasswordButton = new ButtonBuilder()
+        .setCustomId('deletePassword')
+        .setLabel('Delete Password')
+        .setStyle(ButtonStyle.Secondary);
+
+    const autolockTimerButton = new ButtonBuilder()
+        .setCustomId('autolockTimer')
+        .setLabel('Auto-Lock Timer')
+        .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>();
+    if (hasPassword) {
+        row.addComponents(changePasswordButton, deletePasswordButton, autolockTimerButton);
+    } else {
+        row.addComponents(setPasswordButton);
+    }
+
+    return [row];
 }

@@ -18,7 +18,7 @@ const event = {
                 if (!interaction.inGuild()) {
                     return await interaction.reply({ content: "This command can only be executed inside Servers.", ephemeral: true });
                 }
-                
+
                 const guildMember = interaction.member;
                 if (!guildMember) {
                     return await interaction.reply({ content: "This command can only be executed by Admins.", ephemeral: true });
@@ -82,7 +82,7 @@ const event = {
                     const modalCommand = MODAL_COMMANDS[values[0] as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, [values[1], values[2], blinkValuesOrdered] as any[]);
                 } else {
-                    // allValues order: 1: values from split(":"), 2: inputValues
+                    // allValues order: 1: values from split(":"), 2: inputValues from modal
                     const allValues: string[] = [...values.slice(1), ...inputValues];
                     const modalCommand = MODAL_COMMANDS[(values.length > 1 ? values[0] : modalId) as keyof typeof MODAL_COMMANDS];
                     await modalCommand(interaction, allValues);
