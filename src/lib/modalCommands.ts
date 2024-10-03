@@ -602,8 +602,8 @@ export const MODAL_COMMANDS = {
         await interaction.deferReply({ ephemeral: true });
         const blinkType: string = values[0];
         const tokenAddress: string | null = parseTokenAddress(values[1]);
-        if (!tokenAddress) return await interaction.editReply("Invalid token address or token symbol.");
-        const ui: InteractionEditReplyOptions = await createNewBlinkUI(interaction.user.id, blinkType, tokenAddress);
+        if (!tokenAddress && blinkType !== "blinkDonation") return await interaction.editReply("Invalid token address or token symbol.");
+        const ui: InteractionEditReplyOptions = await createNewBlinkUI(interaction.user.id, blinkType, tokenAddress || undefined);
         await interaction.editReply(ui);
     },
     blinkCustomValues: async (interaction: ModalSubmitInteraction, values: any[]) => {
