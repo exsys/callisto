@@ -6,4 +6,4 @@ Afterwards create an .env file and fill out all variables except the variables e
 
 You will also have to create a wallet which will receive the fees from transactions and paste the private key in the .env under CALLISTO_FEE_WALLET_PKEY. For all fee collections to work you will have to create a SOL Token Account @ https://referral.jup.ag/dashboard
 
-Once that's all done you can run "npm install" if not done yet and then "npm run dev".
+Once that's all done you can run "npm install" (if not done yet) and then "npm run dev".
