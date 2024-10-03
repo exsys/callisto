@@ -134,14 +134,10 @@ export async function createStartUI(user_id: string, userWallet?: any): Promise<
                 if (!walletAddress) {
                     return { content: "Error while trying to create a wallet. If the issue persists please contact support." };
                 }
-
-                if (walletAddress === REFCODE_MODAL_STRING) return { content: REFCODE_MODAL_STRING };
             }
         }
 
-        if (!wallet) {
-            wallet = await Wallet.findOne({ user_id, is_default_wallet: true });
-        }
+        if (!wallet) wallet = await Wallet.findOne({ user_id, is_default_wallet: true });
         if (!wallet) return DEFAULT_ERROR_REPLY;
 
         const [solBalance, usdcBalance] = await Promise.all([
