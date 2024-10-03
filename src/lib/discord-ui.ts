@@ -1683,6 +1683,12 @@ export async function createChangeUserBlinkModal(
             .setRequired(false) // TODO: check if field is required
             .setLabel(`Change ${fieldToChange}`)
             .setPlaceholder(`${fieldToChange}`);
+        
+        if (fieldToChange === "Icon") {
+            modal.setTitle("Change Image");
+            input.setLabel("Change Image URL");
+            input.setPlaceholder("image url");
+        }
 
         if (fieldToChange === "Description") {
             input.setStyle(TextInputStyle.Paragraph);
