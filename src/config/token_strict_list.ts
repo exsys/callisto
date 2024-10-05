@@ -70,6 +70,7 @@ export const TOKEN_STRICT_LIST = {
     "BTW": "4ytpZgVoNB66bFs6NRCUaAVsLdtYk2fHq4U92Jnjpump",
     "LOCKIN": "8Ki8DpuWNxu9VsS3kQbarsCWMcFGWkzzA8pUPto9zBd5",
     "WSB": "AkVt31h8vgji5wF4nVbq1QmBV5wBoe8JdSoDTkDhQwEw",
+    "MOODENG": "ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY",
 };
 
 export const TOKEN_ADDRESS_STRICT_LIST = {
@@ -135,4 +136,5 @@ export const TOKEN_ADDRESS_STRICT_LIST = {
     "4ytpZgVoNB66bFs6NRCUaAVsLdtYk2fHq4U92Jnjpump": "BTW",
     "8Ki8DpuWNxu9VsS3kQbarsCWMcFGWkzzA8pUPto9zBd5": "LOCKIN",
     "AkVt31h8vgji5wF4nVbq1QmBV5wBoe8JdSoDTkDhQwEw": "WSB",
+    "ED5nyyWEzpPPiWimP8vYm7sD7TD3LAt3Q3gRTWHzPJBY": "MOODENG",
 };
