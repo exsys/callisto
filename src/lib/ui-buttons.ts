@@ -310,7 +310,7 @@ export function createBlinkCreationButtons(
 
     const editButton = new ButtonBuilder()
         .setCustomId(`finishBlinkEdit:${blink_id}`)
-        .setLabel("Edit Blink")
+        .setLabel("Save")
         .setStyle(ButtonStyle.Primary);
 
     const disableButton = new ButtonBuilder()
