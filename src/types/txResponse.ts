@@ -1,4 +1,4 @@
-import { CoinStats } from "./coinStats";
+import { CoinStats } from "./coinstats";
 import { Referral } from "./referral";
 
 export interface TxResponse {

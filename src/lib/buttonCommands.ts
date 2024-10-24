@@ -183,7 +183,7 @@ export const BUTTON_COMMANDS = {
     },
     refreshCoinInfo: async (interaction: ButtonInteraction) => {
         await interaction.deferReply({ ephemeral: true });
-        const contractAddress: string | undefined = interaction.message.embeds[0].data.description
+        const contractAddress: string | undefined = interaction.message.embeds[0].data.description;
         if (!contractAddress) return await interaction.editReply({ content: ERROR_CODES["0006"].message });
         const uiResponse: UIResponse = await createPreBuyUI(interaction.user.id, contractAddress);
         await interaction.editReply(uiResponse.ui);
