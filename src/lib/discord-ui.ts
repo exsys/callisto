@@ -33,8 +33,8 @@ import {
     urlToBuffer
 } from "./util";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { CoinStats } from "../types/coinStats";
-import { CoinInfo } from "../types/coinInfo";
+import { CoinStats } from "../types/coinstats";
+import { CoinInfo } from "../types/coininfo";
 import {
     DEFAULT_ERROR,
     DEFAULT_ERROR_REPLY,
@@ -46,7 +46,6 @@ import { User } from "../models/user";
 import {
     BLINK_DEFAULT_IMAGE,
     CALLISTO_WEBSITE_ROOT_URLS,
-    REFCODE_MODAL_STRING,
     SOL_WALLET_ADDRESS_MAX_LENGTH,
     SOL_WALLET_ADDRESS_MIN_LENGTH,
 } from "../config/constants";

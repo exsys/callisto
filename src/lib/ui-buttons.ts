@@ -1,4 +1,4 @@
-import { ActionGetResponse, InlineNextActionLink, LinkedAction, NextAction } from "@solana/actions";
+import { ActionGetResponse, LinkedAction, NextAction } from "@solana/actions";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, InteractionEditReplyOptions } from "discord.js";
 import { ChainedAction } from "../models/chainedAction";

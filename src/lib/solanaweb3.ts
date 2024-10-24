@@ -25,7 +25,7 @@ import {
     saveError,
     successResponse
 } from './util';
-import { SwapTx } from "../types/swapTx";
+import { SwapTx } from "../types/swaptx";
 import {
     BASE_SWAP_FEE,
     FEE_TOKEN_ACCOUNT,
@@ -39,9 +39,9 @@ import {
     REF_FEE_MIN_CLAIM_AMOUNT,
     TOKEN_ICON_API_URL
 } from "../config/constants";
-import { ParsedTokenInfo } from "../types/parsedTokenInfo";
-import { CoinInfo } from "../types/coinInfo";
-import { CoinStats } from "../types/coinStats";
+import { ParsedTokenInfo } from "../types/parsedtokeninfo";
+import { CoinInfo } from "../types/coininfo";
+import { CoinStats } from "../types/coinstats";
 import {
     getAssociatedTokenAddress,
     ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -73,13 +73,13 @@ import {
 } from "../config/errors";
 import bs58 from "bs58";
 import { transactionSenderAndConfirmationWaiter } from "./transaction-sender";
-import { QuoteResponse } from "../types/quoteResponse";
-import { CAWithAmount } from "../types/caWithAmount";
+import { QuoteResponse } from "../types/quoteresponse";
+import { CAWithAmount } from "../types/cawithamount";
 import { User } from "../models/user";
 import { TxResponse } from "../types/txResponse";
 import { PROMO_REF_MAPPING } from "../config/promo_ref_mapping";
 import { CoinPriceQuote } from "../types/coinPriceQuote";
-import { ParsedProgramAccountWrittenOut } from "../types/parsedProgramAccount";
+import { ParsedProgramAccountWrittenOut } from "../types/parsedprogramaccount";
 import { ActionPostResponse } from "@solana/actions";
 import { AppStats } from "../models/appstats";
 
